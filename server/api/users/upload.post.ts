@@ -1,7 +1,7 @@
 import path from 'path'
 import fs from 'fs'
-import { prisma } from '~~/server/utils/prisma'
-import { auth } from '~~/server/utils/auth'
+import { prisma } from '#server/utils/prisma'
+import { auth } from '#server/utils/auth'
 
 export default defineEventHandler(async (event) => {
   const session = await auth.api.getSession({

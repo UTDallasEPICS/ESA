@@ -69,3 +69,190 @@ model Verification {
   @@index([identifier])
   @@map("verification")
 }
+
+// An organization that proposes projects.
+model Partner {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Projects Project[]
+  Contacts Contact[]
+}
+
+// A contact person at a partner organization.
+model Contact {
+  id        String   @id @default(uuid())
+  partnerId String
+  name      String
+  email     String
+  phone     String?
+  isPrimary Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Partner Partner @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+}
+
+// A potenial multi-semester project.
+model Project {
+  id          String        @id @default(uuid())
+  name        String
+  description String
+  type        ProjectType
+  status      ProjectStatus
+  repoURL     String
+  partnerId   String
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  Partner Partner  @relation(fields: [partnerId], references: [id], onDelete: Cascade)
+  Teams   Team[]
+  Choices Choice[]
+}
+
+// A team working on a project during a particular semester, meeting on a certain day.
+model Team {
+  id         String            @id @default(uuid())
+  projectId  String
+  semesterId String
+  meetingDay ProjectMeetingDay
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  Semester    Semester     @relation(fields: [semesterId], references: [id])
+  Project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  Memberships Membership[]
+
+  @@unique([projectId, semesterId])
+}
+
+// An assignment of a student/mentor to a team for a particular semester.
+model Membership {
+  id        String   @id @default(uuid())
+  teamId    String
+  studentId String
+  isMentor  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Team    Team    @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  Student Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, studentId])
+}
+
+model Student {
+  id        String   @id @default(uuid())
+  github    String?  @unique
+  discord   String?  @unique
+  email     String?  @unique
+  netID     String   @unique
+  firstName String
+  lastName  String
+  isMentor  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Choices     Choice[]
+  Enrollments Enrollment[]
+  Memberships Membership[]
+}
+
+// An enrollment of a student in a particular semester, with potential time-varying information
+// like year/class/major/gender/meeting day.
+model Enrollment {
+  id         String            @id @default(uuid())
+  studentId  String
+  semesterId String
+  gender     Gender
+  major      String
+  year       Year
+  class      Class
+  meetingDay ProjectMeetingDay
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  Student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  Semester Semester @relation(fields: [semesterId], references: [id])
+
+  @@unique([studentId, semesterId])
+}
+
+// A ranking of a project by a student for a particular semester.
+model Choice {
+  id         String   @id @default(uuid())
+  rank       Int
+  studentId  String
+  projectId  String
+  semesterId String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  Project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  Student  Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  Semester Semester @relation(fields: [semesterId], references: [id])
+
+  @@unique([studentId, semesterId, projectId])
+  @@unique([studentId, semesterId, rank])
+}
+
+// A combination of year and season, e.g. "Fall 2024".
+model Semester {
+  id        String   @id @default(uuid())
+  year      Int
+  season    Season
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  Teams       Team[]
+  Enrollments Enrollment[]
+  Choices     Choice[]
+
+  @@unique([year, season])
+}
+
+enum Year {
+  FRESHMAN
+  SOPHOMORE
+  JUNIOR
+  SENIOR
+}
+
+enum Class {
+  EPCS_2200
+  EPCS_3200
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum Season {
+  SPRING
+  SUMMER
+  FALL
+}
+
+enum ProjectType {
+  SOFTWARE
+  HARDWARE
+  BOTH
+}
+
+enum ProjectStatus {
+  NEW
+  RETURNING
+  COMPLETE
+  WITHDRAWN
+  HOLD
+}
+
+// Day that a team meets on, or the day which a student has lab on.
+enum ProjectMeetingDay {
+  WEDNESDAY
+  THURSDAY
+}
