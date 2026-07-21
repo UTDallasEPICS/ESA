@@ -13,6 +13,7 @@
   "dependencies": {
     "@nuxt/image": "2.0.0",
     "@nuxt/ui": "^4.4.0",
+    "@octokit/rest": "^22.0.1",
     "@types/nodemailer": "^7.0.4",
     "better-auth": "^1.4.7",
     "discord.js": "^14.26.5",

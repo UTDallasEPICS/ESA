@@ -28,8 +28,9 @@ const PARTNER_INCLUDE = {
   Projects: {include: {Teams: {select: {id: true, semesterId: true}}}},
 } as const;
 
-const getAllPartners = async (): Promise<PartnerRead[]> => {
+const getAllPartners = async (semesterId?: string): Promise<PartnerRead[]> => {
   const partners = await prisma.partner.findMany({
+    where: semesterId ? {Projects: {some: {Teams: {some: {semesterId}}}}} : undefined,
     orderBy: {name: 'asc'},
     include: PARTNER_INCLUDE,
   });

@@ -19,13 +19,15 @@
       <header
         class="sticky top-0 z-50 border-b border-gray-200 bg-white/75 backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/75"
       >
-        <UContainer class="flex h-16 items-center justify-between">
-          <NuxtLink to="/" class="flex items-center gap-2 text-xl font-bold">
+        <UContainer class="flex h-16 items-center justify-between gap-4">
+          <NuxtLink to="/" class="flex shrink-0 items-center gap-2 text-xl font-bold">
             <UIcon name="i-heroicons-cube-transparent" class="text-primary-500 h-8 w-8" />
-            <span>Nuxt Template</span>
+            <span>ESA</span>
           </NuxtLink>
 
-          <div class="flex items-center gap-2">
+          <div class="flex flex-1 items-center justify-between gap-2">
+            <Navbar />
+
             <UButton
               :icon="isDark ? 'i-heroicons-moon-20-solid' : 'i-heroicons-sun-20-solid'"
               color="neutral"
