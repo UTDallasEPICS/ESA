@@ -1,5 +1,6 @@
 import partnerService from "#server/services/partnerService";
 
-export default defineEventHandler(async () => {
-  return await partnerService.getAllPartners();
+export default defineEventHandler(async (event) => {
+  const {semesterId} = getQuery<{semesterId?: string}>(event);
+  return await partnerService.getAllPartners(semesterId);
 });

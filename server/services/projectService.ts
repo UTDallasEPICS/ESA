@@ -1,5 +1,6 @@
 import type {ProjectType, ProjectStatus} from "@@/prisma/generated/client";
 import type {TeamCreate, TeamRead} from "#server/services/teamService";
+import {MEMBERSHIP_INCLUDE} from "#server/services/membershipService";
 import {prisma} from "#server/utils/prisma";
 
 export interface ProjectRead {
@@ -10,6 +11,7 @@ export interface ProjectRead {
   status: ProjectStatus;
   repoURL: string;
   partnerId: string;
+  Partner: {id: string; name: string};
   Teams: TeamRead[];
 }
 
@@ -31,10 +33,11 @@ export interface ProjectUpdate {
   repoURL?: string;
 }
 
-const getAllProjects = async (): Promise<ProjectRead[]> => {
+const getAllProjects = async (semesterId?: string): Promise<ProjectRead[]> => {
   const projects = await prisma.project.findMany({
+    where: semesterId ? {Teams: {some: {semesterId}}} : undefined,
     orderBy: {name: 'asc'},
-    include: {Teams: {include: {Memberships: true, Semester: true}}},
+    include: {Partner: {select: {id: true, name: true}}, Teams: {include: {Memberships: {include: MEMBERSHIP_INCLUDE}, Semester: true}}},
   });
   return projects;
 }
@@ -42,7 +45,7 @@ const getAllProjects = async (): Promise<ProjectRead[]> => {
 const getProjectById = async (id: string): Promise<ProjectRead | null> => {
   const project = await prisma.project.findUnique({
     where: {id},
-    include: {Teams: {include: {Memberships: true, Semester: true}}},
+    include: {Partner: {select: {id: true, name: true}}, Teams: {include: {Memberships: {include: MEMBERSHIP_INCLUDE}, Semester: true}}},
   })
   return project;
 }
@@ -59,7 +62,7 @@ const createProject = async (data: ProjectCreate): Promise<ProjectRead> => {
         })),
       } : undefined,
     },
-    include: {Teams: {include: {Memberships: true, Semester: true}}},
+    include: {Partner: {select: {id: true, name: true}}, Teams: {include: {Memberships: {include: MEMBERSHIP_INCLUDE}, Semester: true}}},
   })
   return project;
 }
@@ -68,7 +71,7 @@ const updateProject = async (id: string, data: ProjectUpdate): Promise<ProjectRe
   const project = await prisma.project.update({
     where: {id},
     data,
-    include: {Teams: {include: {Memberships: true, Semester: true}}},
+    include: {Partner: {select: {id: true, name: true}}, Teams: {include: {Memberships: {include: MEMBERSHIP_INCLUDE}, Semester: true}}},
   });
   return project;
 }

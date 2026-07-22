@@ -26,6 +26,7 @@
 
   async function handleSubmit(event: FormSubmitEvent<any>) {
     if (!isEmailSent.value) {
+      console.log("Sending OTP")
       const { data, error } = await authClient.emailOtp.sendVerificationOtp({
         email: state.email,
         type: 'sign-in',

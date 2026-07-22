@@ -1,0 +1,27 @@
+<script setup lang="ts">
+  import type { NavigationMenuItem } from '@nuxt/ui'
+  import { authClient } from '../utils/auth-client'
+
+  const items: NavigationMenuItem[] = [
+    { label: 'Database', icon: 'i-heroicons-circle-stack', to: '/database' },
+    { label: 'Team Formation', icon: 'i-heroicons-user-group', to: '/team-formation' },
+    { label: 'Automation', icon: 'i-heroicons-bolt', to: '/automation' },
+    { label: 'User Management', icon: 'i-heroicons-shield-check', to: '/users' },
+  ]
+
+  async function logout() {
+    await authClient.signOut()
+    await navigateTo('/auth', { external: true })
+  }
+</script>
+
+<template>
+  <UNavigationMenu :items="items" class="w-full" />
+  <UButton
+    label="Logout"
+    icon="i-heroicons-arrow-right-on-rectangle"
+    color="neutral"
+    variant="ghost"
+    @click="logout"
+  />
+</template>

@@ -1,7 +1,14 @@
 import type {EnrollmentCreate, EnrollmentRead} from "#server/services/enrollmentService";
 import type {MembershipCreate, MembershipRead} from "#server/services/membershipService";
+import {MEMBERSHIP_INCLUDE} from "#server/services/membershipService";
 import type {ChoiceCreate, ChoiceRead} from "#server/services/choiceService";
 import {prisma} from "#server/utils/prisma";
+
+const STUDENT_INCLUDE = {
+  Enrollments: true,
+  Memberships: {include: MEMBERSHIP_INCLUDE},
+  Choices: true,
+} as const;
 
 export interface StudentRead {
   id: string;
@@ -40,13 +47,19 @@ export interface StudentUpdate {
   isMentor?: boolean;
 }
 
-const getAllStudents = async (): Promise<StudentRead[]> => {
+const getAllStudents = async (semesterId?: string): Promise<StudentRead[]> => {
   const students = await prisma.student.findMany({
+    where: semesterId ? {
+      OR: [
+        {Enrollments: {some: {semesterId}}},
+        {Memberships: {some: {isMentor: true, Team: {semesterId}}}},
+      ],
+    } : undefined,
     orderBy: [
       {lastName: 'asc'},
       {firstName: 'asc'},
     ],
-    include: {Enrollments: true, Memberships: true, Choices: true},
+    include: STUDENT_INCLUDE,
   });
   return students;
 }
@@ -54,7 +67,7 @@ const getAllStudents = async (): Promise<StudentRead[]> => {
 const getStudentById = async (id: string): Promise<StudentRead | null> => {
   const student = await prisma.student.findUnique({
     where: {id},
-    include: {Enrollments: true, Memberships: true, Choices: true},
+    include: STUDENT_INCLUDE,
   })
   return student;
 }
@@ -68,7 +81,7 @@ const createStudent = async (data: StudentCreate): Promise<StudentRead> => {
       Memberships: Memberships ? {create: Memberships} : undefined,
       Choices: Choices ? {create: Choices} : undefined,
     },
-    include: {Enrollments: true, Memberships: true, Choices: true},
+    include: STUDENT_INCLUDE,
   })
   return student;
 }
@@ -77,7 +90,7 @@ const updateStudent = async (id: string, data: StudentUpdate): Promise<StudentRe
   const student = await prisma.student.update({
     where: {id},
     data,
-    include: {Enrollments: true, Memberships: true, Choices: true},
+    include: STUDENT_INCLUDE,
   });
   return student;
 }
