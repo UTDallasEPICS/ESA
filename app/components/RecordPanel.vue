@@ -3,7 +3,6 @@
 
   const props = defineProps<{
     title: string
-    mode: 'view' | 'create'
   }>()
 
   const open = defineModel<boolean>('open', { default: false })
@@ -11,7 +10,6 @@
   const emit = defineEmits<{
     confirm: []
     cancel: []
-    delete: []
   }>()
 
   function onCancel() {
@@ -27,24 +25,16 @@
         <h2 class="text-lg font-semibold">{{ props.title }}</h2>
         <div class="flex gap-2">
           <UButton
-            v-if="mode === 'view'"
-            :icon="ACTION_ICONS.delete"
-            color="error"
-            variant="soft"
-            aria-label="Delete"
-            @click="emit('delete')"
-          />
-          <UButton
+            label="Cancel"
             :icon="ACTION_ICONS.cancel"
             color="neutral"
             variant="soft"
-            aria-label="Cancel"
             @click="onCancel"
           />
           <UButton
+            label="Confirm"
             :icon="ACTION_ICONS.confirm"
             color="primary"
-            aria-label="Confirm"
             @click="emit('confirm')"
           />
         </div>

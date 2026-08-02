@@ -10,7 +10,7 @@
   }
 
   export interface DataTableEditable {
-    type: 'text' | 'select'
+    type: 'text' | 'select' | 'switch'
     options?: { label: string; value: string }[]
   }
 
@@ -19,7 +19,6 @@
     header: string
     accessorKey: keyof T & string
     format?: (value: any, row: T) => string
-    clickable?: boolean
     sortable?: boolean
     filter?: DataTableFilter
     editable?: DataTableEditable
@@ -30,18 +29,19 @@
     columns: DataTableColumn<T>[]
     rowKey: (row: T) => string
     loading?: boolean
+    expandable?: boolean
   }>()
 
   const emit = defineEmits<{
     add: []
     'delete-request': [ids: string[]]
-    'row-click': [row: T]
     'save-edits': [edits: Record<string, Record<string, any>>]
   }>()
 
   const sorting = ref<SortingState>([])
   const columnFilters = ref<ColumnFiltersState>([])
   const rowSelection = ref<Record<string, boolean>>({})
+  const expanded = ref<Record<string, boolean>>({})
   const pagination = ref({ pageIndex: 0, pageSize: 10 })
 
   const page = computed({
@@ -155,6 +155,17 @@
     const key = `${row.id}::${col.id}`
     const rawValue = row.original[col.accessorKey]
 
+    if (col.editable?.type === 'switch') {
+      const rowEdits = (pendingEdits.value[row.id] ??= {})
+      const currentValue = col.accessorKey in rowEdits ? rowEdits[col.accessorKey] : rawValue
+      return h(resolveComponent('USwitch'), {
+        modelValue: !!currentValue,
+        'onUpdate:modelValue': (v: boolean) => {
+          rowEdits[col.accessorKey] = v
+        },
+      })
+    }
+
     if (col.editable && editingCells.value.has(key)) {
       const rowEdits = (pendingEdits.value[row.id] ??= {})
       const currentValue = col.accessorKey in rowEdits ? rowEdits[col.accessorKey] : rawValue
@@ -181,18 +192,6 @@
 
     const display = col.format ? col.format(rawValue, row.original) : String(rawValue ?? '')
 
-    if (col.clickable) {
-      return h(
-        'button',
-        {
-          type: 'button',
-          class: 'text-primary-500 text-left hover:underline',
-          onClick: () => emit('row-click', row.original),
-        },
-        display || '—'
-      )
-    }
-
     if (col.editable) {
       return h(
         'button',
@@ -212,6 +211,23 @@
   }
 
   const tableColumns = computed<TableColumn<T>[]>(() => [
+    ...(props.expandable
+      ? [
+          {
+            id: 'expand',
+            header: '',
+            cell: ({ row }: { row: Row<T> }) =>
+              h(resolveComponent('UButton'), {
+                icon: row.getIsExpanded() ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right',
+                size: 'xs',
+                color: 'neutral',
+                variant: 'ghost',
+                'aria-label': row.getIsExpanded() ? 'Collapse row' : 'Expand row',
+                onClick: () => row.toggleExpanded(),
+              }),
+          } satisfies TableColumn<T>,
+        ]
+      : []),
     {
       id: 'select',
       header: ({ table }) =>
@@ -317,13 +333,18 @@
       v-model:sorting="sorting"
       v-model:column-filters="columnFilters"
       v-model:row-selection="rowSelection"
+      v-model:expanded="expanded"
       v-model:pagination="pagination"
       :data="data"
       :columns="tableColumns"
       :loading="loading"
       sticky
       class="max-h-[32rem]"
-    />
+    >
+      <template v-if="expandable" #expanded="{ row }">
+        <slot name="expanded" :row="row.original" />
+      </template>
+    </UTable>
 
     <div class="flex items-center justify-between">
       <USelectMenu v-model="pagination.pageSize" :items="[10, 25, 50]" class="w-24" />

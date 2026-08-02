@@ -58,7 +58,7 @@
       accessorKey: 'name',
       sortable: true,
       filter: { type: 'search' },
-      clickable: true,
+      editable: { type: 'text' },
     },
     {
       id: 'description',
@@ -87,6 +87,8 @@
       id: 'repoURL',
       header: 'GitHub Link',
       accessorKey: 'repoURL',
+      sortable: true,
+      filter: { type: 'search' },
       editable: { type: 'text' },
     },
   ]
@@ -114,10 +116,8 @@
     await refresh()
   }
 
-  // Item / creation panel
+  // Creation panel
   const panelOpen = ref(false)
-  const panelMode = ref<'view' | 'create'>('create')
-  const selected = ref<ProjectRead | null>(null)
 
   const createSchema = z.object({
     name: z.string().min(1),
@@ -142,8 +142,6 @@
   })
 
   function openCreatePanel() {
-    panelMode.value = 'create'
-    selected.value = null
     Object.assign(draft, {
       name: '',
       description: '',
@@ -155,92 +153,55 @@
     panelOpen.value = true
   }
 
-  function onRowClick(row: ProjectRead) {
-    panelMode.value = 'view'
-    selected.value = row
-    Object.assign(draft, {
-      name: row.name,
-      description: row.description,
-      type: row.type,
-      status: row.status,
-      repoURL: row.repoURL,
-      partnerId: row.partnerId,
-    })
-    panelOpen.value = true
-  }
-
   async function onPanelConfirm() {
-    if (panelMode.value === 'create') {
-      await $fetch('/api/projects', { method: 'POST', body: draft })
-    } else if (selected.value) {
-      const { partnerId, ...rest } = draft
-      await $fetch(`/api/projects/${selected.value.id}`, { method: 'PUT', body: rest })
-    }
+    await $fetch('/api/projects', { method: 'POST', body: draft })
     panelOpen.value = false
     await refresh()
   }
 
-  async function onPanelDelete() {
-    if (!selected.value) return
-    const ok = await confirm({
-      title: `Delete ${selected.value.name}?`,
-      description: 'This will also delete all associated teams and choices.',
-      affected: [{ label: 'Team', count: selected.value.Teams.length }],
-    })
-    if (!ok) return
-    await $fetch(`/api/projects/${selected.value.id}`, { method: 'DELETE' })
-    panelOpen.value = false
-    await refresh()
-  }
-
-  function refreshSelected() {
-    selected.value = projects.value.find((p) => p.id === selected.value?.id) ?? null
-  }
-
-  const panelTeams = computed(() => {
-    if (!selected.value) return []
-    return [...selected.value.Teams]
+  function panelTeams(project: ProjectRead) {
+    return [...project.Teams]
       .filter((t) => !props.semesterId || t.semesterId === props.semesterId)
       .sort((a, b) => semesterSortKey(b.semesterId) - semesterSortKey(a.semesterId))
-  })
+  }
 
-  const teamAccordionItems = computed(() =>
-    panelTeams.value.map((team) => ({
+  function teamAccordionItems(project: ProjectRead) {
+    return panelTeams(project).map((team) => ({
       label: `${semesterLabel(team.semesterId)} — ${team.meetingDay[0]}${team.meetingDay.slice(1).toLowerCase()}`,
       value: team.id,
       team,
     }))
-  )
+  }
 
   // Team creation modal
   const teamModalOpen = ref(false)
+  const teamModalProjectId = ref<string | null>(null)
   const teamSchema = z.object({
     semesterId: z.string().min(1),
     meetingDay: z.enum(['WEDNESDAY', 'THURSDAY']),
   })
   const teamDraft = reactive({ semesterId: '', meetingDay: 'WEDNESDAY' as 'WEDNESDAY' | 'THURSDAY' })
 
-  function openTeamModal() {
+  function openTeamModal(project: ProjectRead) {
+    teamModalProjectId.value = project.id
     teamDraft.semesterId = ''
     teamDraft.meetingDay = 'WEDNESDAY'
     teamModalOpen.value = true
   }
 
   async function submitTeam(event: FormSubmitEvent<z.infer<typeof teamSchema>>) {
-    if (!selected.value) return
+    if (!teamModalProjectId.value) return
     await $fetch('/api/teams', {
       method: 'POST',
-      body: { projectId: selected.value.id, ...event.data },
+      body: { projectId: teamModalProjectId.value, ...event.data },
     })
     teamModalOpen.value = false
     await refresh()
-    refreshSelected()
   }
 
   async function deleteTeam(teamId: string) {
     await $fetch(`/api/teams/${teamId}`, { method: 'DELETE' })
     await refresh()
-    refreshSelected()
   }
 
   // Membership (mentor/student) creation modal
@@ -283,13 +244,11 @@
     })
     memberModalOpen.value = false
     await refresh()
-    refreshSelected()
   }
 
   async function removeMember(membershipId: string) {
     await $fetch(`/api/memberships/${membershipId}`, { method: 'DELETE' })
     await refresh()
-    refreshSelected()
   }
 </script>
 
@@ -300,96 +259,100 @@
       :columns="columns"
       :row-key="(row) => row.id"
       :loading="status === 'pending'"
+      expandable
       @add="openCreatePanel"
       @delete-request="onDeleteRequest"
       @save-edits="onSaveEdits"
-      @row-click="onRowClick"
-    />
-
-    <RecordPanel
-      v-model:open="panelOpen"
-      :title="panelMode === 'create' ? 'New Project' : (selected?.name ?? 'Project')"
-      :mode="panelMode"
-      @confirm="onPanelConfirm"
-      @delete="onPanelDelete"
     >
-      <div class="space-y-6">
-        <div class="grid grid-cols-2 gap-4">
-          <UFormField label="Name" class="col-span-2">
-            <UInput v-model="draft.name" class="w-full" />
-          </UFormField>
-          <UFormField label="Description" class="col-span-2">
-            <UTextarea v-model="draft.description" class="w-full" />
-          </UFormField>
-          <UFormField label="Type">
-            <USelectMenu v-model="draft.type" :items="typeOptions" value-key="value" class="w-full" />
-          </UFormField>
-          <UFormField label="Status">
-            <USelectMenu v-model="draft.status" :items="statusOptions" value-key="value" class="w-full" />
-          </UFormField>
-          <UFormField label="GitHub Link" class="col-span-2">
-            <UInput v-model="draft.repoURL" class="w-full" />
-          </UFormField>
-          <UFormField v-if="panelMode === 'create'" label="Partner" class="col-span-2">
-            <USelectMenu
-              v-model="draft.partnerId"
-              :items="allPartners.map((p) => ({ label: p.name, value: p.id }))"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-        </div>
+      <template #expanded="{ row }">
+        <div class="space-y-4 p-3">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Teams</h3>
+              <UButton
+                label="Add Team"
+                :icon="ACTION_ICONS.add"
+                size="xs"
+                variant="soft"
+                @click="openTeamModal(row)"
+              />
+            </div>
 
-        <div v-if="panelMode === 'view'" class="space-y-2">
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Teams</h3>
-            <UButton :icon="ACTION_ICONS.add" size="xs" variant="soft" @click="openTeamModal" />
-          </div>
-
-          <UAccordion :items="teamAccordionItems" type="multiple">
-            <template #body="{ item }">
-              <div class="space-y-3 p-2">
-                <UButton
-                  :icon="ACTION_ICONS.delete"
-                  label="Delete Team"
-                  size="xs"
-                  color="error"
-                  variant="ghost"
-                  @click="deleteTeam(item.team.id)"
-                />
-                <div v-for="role in ['Mentors', 'Students']" :key="role">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs font-medium text-gray-500">{{ role }}</span>
-                    <UButton
-                      :icon="ACTION_ICONS.add"
-                      size="xs"
-                      variant="ghost"
-                      @click="openMemberModal(item.team, role === 'Mentors')"
-                    />
-                  </div>
-                  <ul class="space-y-1">
-                    <li
-                      v-for="membership in item.team.Memberships.filter(
-                        (m) => m.isMentor === (role === 'Mentors')
-                      )"
-                      :key="membership.id"
-                      class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-                    >
-                      {{ membership.Student.firstName }} {{ membership.Student.lastName }}
+            <UAccordion :items="teamAccordionItems(row)" type="multiple">
+              <template #body="{ item }">
+                <div class="space-y-3 p-2">
+                  <UButton
+                    :icon="ACTION_ICONS.delete"
+                    label="Delete Team"
+                    size="xs"
+                    color="error"
+                    variant="ghost"
+                    @click="deleteTeam(item.team.id)"
+                  />
+                  <div v-for="role in ['Mentors', 'Students']" :key="role">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs font-medium text-gray-500">{{ role }}</span>
                       <UButton
-                        :icon="ACTION_ICONS.delete"
+                        :label="`Add ${role === 'Mentors' ? 'Mentor' : 'Student'}`"
+                        :icon="ACTION_ICONS.add"
                         size="xs"
-                        color="error"
                         variant="ghost"
-                        @click="removeMember(membership.id)"
+                        @click="openMemberModal(item.team, role === 'Mentors')"
                       />
-                    </li>
-                  </ul>
+                    </div>
+                    <ul class="space-y-1">
+                      <li
+                        v-for="membership in item.team.Memberships.filter(
+                          (m) => m.isMentor === (role === 'Mentors')
+                        )"
+                        :key="membership.id"
+                        class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
+                      >
+                        {{ membership.Student.firstName }} {{ membership.Student.lastName }}
+                        <UButton
+                          label="Remove"
+                          :icon="ACTION_ICONS.delete"
+                          size="xs"
+                          color="error"
+                          variant="ghost"
+                          @click="removeMember(membership.id)"
+                        />
+                      </li>
+                    </ul>
+                  </div>
                 </div>
-              </div>
-            </template>
-          </UAccordion>
+              </template>
+            </UAccordion>
+          </div>
         </div>
+      </template>
+    </DataTable>
+
+    <RecordPanel v-model:open="panelOpen" title="New Project" @confirm="onPanelConfirm">
+      <div class="grid grid-cols-2 gap-4">
+        <UFormField label="Name" class="col-span-2">
+          <UInput v-model="draft.name" class="w-full" />
+        </UFormField>
+        <UFormField label="Description" class="col-span-2">
+          <UTextarea v-model="draft.description" class="w-full" />
+        </UFormField>
+        <UFormField label="Type">
+          <USelectMenu v-model="draft.type" :items="typeOptions" value-key="value" class="w-full" />
+        </UFormField>
+        <UFormField label="Status">
+          <USelectMenu v-model="draft.status" :items="statusOptions" value-key="value" class="w-full" />
+        </UFormField>
+        <UFormField label="GitHub Link" class="col-span-2">
+          <UInput v-model="draft.repoURL" class="w-full" />
+        </UFormField>
+        <UFormField label="Partner" class="col-span-2">
+          <USelectMenu
+            v-model="draft.partnerId"
+            :items="allPartners.map((p) => ({ label: p.name, value: p.id }))"
+            value-key="value"
+            class="w-full"
+          />
+        </UFormField>
       </div>
     </RecordPanel>
 
