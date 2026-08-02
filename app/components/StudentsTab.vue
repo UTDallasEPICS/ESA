@@ -10,7 +10,6 @@
   const props = defineProps<{ semesterId?: string }>()
 
   interface StudentRow extends StudentRead {
-    mentorLabel: string
     semesterRole?: string
     meetingDay?: string
   }
@@ -59,7 +58,6 @@
       const info = props.semesterId ? studentSemesterInfo(student, props.semesterId) : undefined
       return {
         ...student,
-        mentorLabel: student.isMentor ? 'Mentor' : 'Student',
         semesterRole: info?.role,
         meetingDay: info?.meetingDay,
       }
@@ -74,7 +72,7 @@
         accessorKey: 'netID',
         sortable: true,
         filter: { type: 'search' },
-        clickable: true,
+        editable: { type: 'text' },
       },
       {
         id: 'firstName',
@@ -96,6 +94,7 @@
         id: 'email',
         header: 'Email',
         accessorKey: 'email',
+        sortable: true,
         filter: { type: 'search' },
         editable: { type: 'text' },
       },
@@ -103,20 +102,23 @@
         id: 'discord',
         header: 'Discord',
         accessorKey: 'discord',
+        sortable: true,
+        filter: { type: 'search' },
         editable: { type: 'text' },
       },
       {
-        id: 'mentorLabel',
-        header: 'Mentor Status',
-        accessorKey: 'mentorLabel',
+        id: 'isMentor',
+        header: 'Is Mentor?',
+        accessorKey: 'isMentor',
         sortable: true,
         filter: {
           type: 'multiselect',
           options: [
-            { label: 'Mentor', value: 'Mentor' },
-            { label: 'Student', value: 'Student' },
+            { label: 'Mentor', value: 'true' },
+            { label: 'Student', value: 'false' },
           ],
         },
+        editable: { type: 'switch' },
       },
     ]
     if (props.semesterId) {
@@ -155,10 +157,8 @@
     await refresh()
   }
 
-  // Item / creation panel
+  // Creation panel
   const panelOpen = ref(false)
-  const panelMode = ref<'view' | 'create'>('create')
-  const selected = ref<StudentRow | null>(null)
 
   const createSchema = z.object({
     netID: z.string().min(1),
@@ -178,8 +178,6 @@
   })
 
   function openCreatePanel() {
-    panelMode.value = 'create'
-    selected.value = null
     Object.assign(draft, {
       netID: '',
       firstName: '',
@@ -187,20 +185,6 @@
       email: '',
       discord: '',
       isMentor: false,
-    })
-    panelOpen.value = true
-  }
-
-  function onRowClick(row: StudentRow) {
-    panelMode.value = 'view'
-    selected.value = row
-    Object.assign(draft, {
-      netID: row.netID,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email ?? '',
-      discord: row.discord ?? '',
-      isMentor: row.isMentor,
     })
     panelOpen.value = true
   }
@@ -214,34 +198,9 @@
       discord: draft.discord || undefined,
       isMentor: draft.isMentor,
     }
-    if (panelMode.value === 'create') {
-      await $fetch('/api/students', { method: 'POST', body })
-    } else if (selected.value) {
-      await $fetch(`/api/students/${selected.value.id}`, { method: 'PUT', body })
-    }
+    await $fetch('/api/students', { method: 'POST', body })
     panelOpen.value = false
     await refresh()
-  }
-
-  async function onPanelDelete() {
-    if (!selected.value) return
-    const ok = await confirm({
-      title: `Delete ${selected.value.firstName} ${selected.value.lastName}?`,
-      description: 'This will also delete all associated enrollments, choices, and memberships.',
-      affected: [
-        { label: 'Enrollment', count: selected.value.Enrollments.length },
-        { label: 'Choice', count: selected.value.Choices.length },
-        { label: 'Membership', count: selected.value.Memberships.length },
-      ],
-    })
-    if (!ok) return
-    await $fetch(`/api/students/${selected.value.id}`, { method: 'DELETE' })
-    panelOpen.value = false
-    await refresh()
-  }
-
-  function refreshSelected() {
-    selected.value = students.value.find((s) => s.id === selected.value?.id) ?? null
   }
 
   // Semester info cards
@@ -253,21 +212,20 @@
     choices: ChoiceRead[]
   }
 
-  const semesterCards = computed<SemesterCard[]>(() => {
-    if (!selected.value) return []
+  function semesterCardsFor(student: StudentRow): SemesterCard[] {
     const byKey = new Map<string, SemesterCard>()
-    for (const e of selected.value.Enrollments) {
+    for (const e of student.Enrollments) {
       byKey.set(`${e.semesterId}:Student`, {
         semesterId: e.semesterId,
         label: semesterLabel(e.semesterId),
         role: 'Student',
         meetingDay: e.meetingDay,
-        choices: selected.value.Choices.filter((c) => c.semesterId === e.semesterId).sort(
+        choices: student.Choices.filter((c) => c.semesterId === e.semesterId).sort(
           (a, b) => a.rank - b.rank
         ),
       })
     }
-    for (const m of selected.value.Memberships.filter((m) => m.isMentor)) {
+    for (const m of student.Memberships.filter((m) => m.isMentor)) {
       byKey.set(`${m.Team.semesterId}:Mentor`, {
         semesterId: m.Team.semesterId,
         label: semesterLabel(m.Team.semesterId),
@@ -279,16 +237,16 @@
     return [...byKey.values()]
       .filter((c) => !props.semesterId || c.semesterId === props.semesterId)
       .sort((a, b) => semesterSortKey(b.semesterId) - semesterSortKey(a.semesterId))
-  })
+  }
 
-  const accordionItems = computed(() =>
-    semesterCards.value.map((card) => ({
+  function accordionItemsFor(student: StudentRow) {
+    return semesterCardsFor(student).map((card) => ({
       label: `${card.label} — ${card.role}`,
       value: `${card.semesterId}:${card.role}`,
       disabled: card.role === 'Mentor',
       card,
     }))
-  )
+  }
 
   function projectName(projectId: string) {
     return allProjects.value.find((p) => p.id === projectId)?.name ?? 'Unknown Project'
@@ -300,31 +258,33 @@
       body: { rank: choice.rank + direction },
     })
     await refresh()
-    refreshSelected()
   }
 
   async function deleteChoice(choiceId: string) {
     await $fetch(`/api/choices/${choiceId}`, { method: 'DELETE' })
     await refresh()
-    refreshSelected()
   }
 
   // Team preference (choice) creation modal
   const choiceModalOpen = ref(false)
+  const choiceModalStudentId = ref<string | null>(null)
   const choiceModalCard = ref<SemesterCard | null>(null)
   const choiceDraft = ref<ProjectRead | undefined>()
 
-  function openChoiceModal(card: SemesterCard) {
+  function openChoiceModal(student: StudentRow, card: SemesterCard) {
+    choiceModalStudentId.value = student.id
     choiceModalCard.value = card
     choiceDraft.value = undefined
     choiceModalOpen.value = true
   }
 
   async function searchTeamsForCard(query: string) {
-    if (!choiceModalCard.value || !selected.value) return []
+    if (!choiceModalCard.value || !choiceModalStudentId.value) return []
+    const student = students.value.find((s) => s.id === choiceModalStudentId.value)
+    if (!student) return []
     const semesterId = choiceModalCard.value.semesterId
     const existing = new Set(
-      selected.value.Choices.filter((c) => c.semesterId === semesterId).map((c) => c.projectId)
+      student.Choices.filter((c) => c.semesterId === semesterId).map((c) => c.projectId)
     )
     const q = query.toLowerCase()
     return allProjects.value
@@ -335,18 +295,20 @@
   }
 
   async function submitChoice() {
-    if (!choiceModalCard.value || !selected.value || !choiceDraft.value) return
+    if (!choiceModalCard.value || !choiceModalStudentId.value || !choiceDraft.value) return
+    const student = students.value.find((s) => s.id === choiceModalStudentId.value)
+    if (!student) return
     const rank =
       Math.max(
         0,
-        ...selected.value.Choices.filter((c) => c.semesterId === choiceModalCard.value!.semesterId).map(
+        ...student.Choices.filter((c) => c.semesterId === choiceModalCard.value!.semesterId).map(
           (c) => c.rank
         )
       ) + 1
     await $fetch('/api/choices', {
       method: 'POST',
       body: {
-        studentId: selected.value.id,
+        studentId: student.id,
         projectId: choiceDraft.value.id,
         semesterId: choiceModalCard.value.semesterId,
         rank,
@@ -354,11 +316,11 @@
     })
     choiceModalOpen.value = false
     await refresh()
-    refreshSelected()
   }
 
   // Semester Info creation modal
   const infoModalOpen = ref(false)
+  const infoModalStudent = ref<StudentRow | null>(null)
   const infoSchema = z.object({
     semesterId: z.string().min(1),
     meetingDay: z.enum(['WEDNESDAY', 'THURSDAY']),
@@ -379,7 +341,8 @@
   })
   const infoTeamDraft = ref<ProjectRead | undefined>()
 
-  function openInfoModal() {
+  function openInfoModal(student: StudentRow) {
+    infoModalStudent.value = student
     Object.assign(infoDraft, {
       semesterId: '',
       meetingDay: 'WEDNESDAY',
@@ -403,12 +366,12 @@
   }
 
   async function submitInfo(event: FormSubmitEvent<z.infer<typeof infoSchema>>) {
-    if (!selected.value) return
+    if (!infoModalStudent.value) return
     if (event.data.role === 'STUDENT') {
       await $fetch('/api/enrollments', {
         method: 'POST',
         body: {
-          studentId: selected.value.id,
+          studentId: infoModalStudent.value.id,
           semesterId: event.data.semesterId,
           meetingDay: event.data.meetingDay,
           major: infoDraft.major,
@@ -422,12 +385,11 @@
       if (!team) return
       await $fetch('/api/memberships', {
         method: 'POST',
-        body: { teamId: team.id, studentId: selected.value.id, isMentor: true },
+        body: { teamId: team.id, studentId: infoModalStudent.value.id, isMentor: true },
       })
     }
     infoModalOpen.value = false
     await refresh()
-    refreshSelected()
   }
 </script>
 
@@ -438,85 +400,89 @@
       :columns="columns"
       :row-key="(row) => row.id"
       :loading="status === 'pending'"
+      expandable
       @add="openCreatePanel"
       @delete-request="onDeleteRequest"
       @save-edits="onSaveEdits"
-      @row-click="onRowClick"
-    />
-
-    <RecordPanel
-      v-model:open="panelOpen"
-      :title="panelMode === 'create' ? 'New Student' : `${selected?.firstName} ${selected?.lastName}`"
-      :mode="panelMode"
-      @confirm="onPanelConfirm"
-      @delete="onPanelDelete"
     >
-      <div class="space-y-6">
-        <div class="grid grid-cols-2 gap-4">
-          <UFormField label="NetID"><UInput v-model="draft.netID" class="w-full" /></UFormField>
-          <UFormField label="First Name">
-            <UInput v-model="draft.firstName" class="w-full" />
-          </UFormField>
-          <UFormField label="Last Name"><UInput v-model="draft.lastName" class="w-full" /></UFormField>
-          <UFormField label="Email"><UInput v-model="draft.email" class="w-full" /></UFormField>
-          <UFormField label="Discord"><UInput v-model="draft.discord" class="w-full" /></UFormField>
-          <UFormField label="Mentor Status">
-            <UCheckbox v-model="draft.isMentor" label="Is Mentor" />
-          </UFormField>
-        </div>
+      <template #expanded="{ row }">
+        <div class="space-y-4 p-3">
+          <div class="space-y-2">
+            <div class="flex items-center justify-between">
+              <h3 class="font-semibold">Semester Info</h3>
+              <UButton
+                label="Add Semester Info"
+                :icon="ACTION_ICONS.add"
+                size="xs"
+                variant="soft"
+                @click="openInfoModal(row)"
+              />
+            </div>
 
-        <div v-if="panelMode === 'view'" class="space-y-2">
-          <div class="flex items-center justify-between">
-            <h3 class="font-semibold">Semester Info</h3>
-            <UButton :icon="ACTION_ICONS.add" size="xs" variant="soft" @click="openInfoModal" />
-          </div>
-
-          <UAccordion :items="accordionItems" type="multiple">
-            <template #body="{ item }">
-              <div v-if="item.card.role === 'Student'" class="space-y-2 p-2">
-                <div class="flex items-center justify-between">
-                  <span class="text-xs text-gray-500">Team Preferences</span>
-                  <UButton
-                    :icon="ACTION_ICONS.add"
-                    size="xs"
-                    variant="ghost"
-                    @click="openChoiceModal(item.card)"
-                  />
+            <UAccordion :items="accordionItemsFor(row)" type="multiple">
+              <template #body="{ item }">
+                <div v-if="item.card.role === 'Student'" class="space-y-2 p-2">
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs text-gray-500">Team Preferences</span>
+                    <UButton
+                      label="Add Preference"
+                      :icon="ACTION_ICONS.add"
+                      size="xs"
+                      variant="ghost"
+                      @click="openChoiceModal(row, item.card)"
+                    />
+                  </div>
+                  <ul class="space-y-1">
+                    <li
+                      v-for="choice in item.card.choices"
+                      :key="choice.id"
+                      class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
+                    >
+                      <span>#{{ choice.rank }} {{ projectName(choice.projectId) }}</span>
+                      <div class="flex gap-1">
+                        <UButton
+                          icon="i-heroicons-arrow-up"
+                          size="xs"
+                          variant="ghost"
+                          @click="moveChoice(choice, -1)"
+                        />
+                        <UButton
+                          icon="i-heroicons-arrow-down"
+                          size="xs"
+                          variant="ghost"
+                          @click="moveChoice(choice, 1)"
+                        />
+                        <UButton
+                          label="Remove"
+                          :icon="ACTION_ICONS.delete"
+                          size="xs"
+                          color="error"
+                          variant="ghost"
+                          @click="deleteChoice(choice.id)"
+                        />
+                      </div>
+                    </li>
+                  </ul>
                 </div>
-                <ul class="space-y-1">
-                  <li
-                    v-for="choice in item.card.choices"
-                    :key="choice.id"
-                    class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-                  >
-                    <span>#{{ choice.rank }} {{ projectName(choice.projectId) }}</span>
-                    <div class="flex gap-1">
-                      <UButton
-                        icon="i-heroicons-arrow-up"
-                        size="xs"
-                        variant="ghost"
-                        @click="moveChoice(choice, -1)"
-                      />
-                      <UButton
-                        icon="i-heroicons-arrow-down"
-                        size="xs"
-                        variant="ghost"
-                        @click="moveChoice(choice, 1)"
-                      />
-                      <UButton
-                        :icon="ACTION_ICONS.delete"
-                        size="xs"
-                        color="error"
-                        variant="ghost"
-                        @click="deleteChoice(choice.id)"
-                      />
-                    </div>
-                  </li>
-                </ul>
-              </div>
-            </template>
-          </UAccordion>
+              </template>
+            </UAccordion>
+          </div>
         </div>
+      </template>
+    </DataTable>
+
+    <RecordPanel v-model:open="panelOpen" title="New Student" @confirm="onPanelConfirm">
+      <div class="grid grid-cols-2 gap-4">
+        <UFormField label="NetID"><UInput v-model="draft.netID" class="w-full" /></UFormField>
+        <UFormField label="First Name">
+          <UInput v-model="draft.firstName" class="w-full" />
+        </UFormField>
+        <UFormField label="Last Name"><UInput v-model="draft.lastName" class="w-full" /></UFormField>
+        <UFormField label="Email"><UInput v-model="draft.email" class="w-full" /></UFormField>
+        <UFormField label="Discord"><UInput v-model="draft.discord" class="w-full" /></UFormField>
+        <UFormField label="Is Mentor?">
+          <USwitch v-model="draft.isMentor" label="Is Mentor?" />
+        </UFormField>
       </div>
     </RecordPanel>
 
@@ -570,7 +536,7 @@
               class="w-full"
             />
           </UFormField>
-          <UFormField v-if="selected?.isMentor" label="Role" name="role">
+          <UFormField v-if="infoModalStudent?.isMentor" label="Role" name="role">
             <URadioGroup
               v-model="infoDraft.role"
               orientation="horizontal"
