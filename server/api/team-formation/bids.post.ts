@@ -14,9 +14,11 @@
  *   row["Choice 1"] … row["Choice 6"] – "S26 - OrgName: ProjectTitle" (blank if none)
  */
 
-import {Year, Class, Gender, ProjectMeetingDay} from '@@/prisma/generated/client/generated';
+import {Year, Class, Gender, ProjectMeetingDay} from '@@/prisma/generated/client';
 import {prisma} from '#server/utils/prisma';
 import projectService from "#server/services/projectService";
+import partnerService from "#server/services/partnerService";
+import teamService from "#server/services/teamService";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -207,27 +209,17 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, message: 'Expected a non-empty array of bid rows.'});
   }
 
-  // Fetch all projects once so we can match by name
+  // Fetch all projects and partners once so we can match by name
   let allProjects = await projectService.getAllProjects();
+  let allPartners = await partnerService.getAllPartners();
 
-  // Build a normalized name → id lookup for fast matching
+  // Build normalized name → id lookups for fast matching
   let projectLookup = new Map<string, string>(
       allProjects.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
   );
-
-  // Helper to get or create project
-  const getOrCreateProject = async (projectName: string): Promise<string | null> => {
-    if (!projectName) return null;
-    const normalized = normalizeProjectKey(projectName);
-
-    // Check in existing lookup
-    if (projectLookup.has(normalized)) {
-      return projectLookup.get(normalized)!;
-    }
-    // Do NOT auto-create projects here. Return null so caller can
-    // record the unmatched choice and avoid creating spurious entries.
-    return null;
-  };
+  let partnerLookup = new Map<string, string>(
+      allPartners.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
+  );
 
   const aliasLookup = new Map<string, string>([
     ['mlk', 'friends of mlk'],
@@ -238,6 +230,45 @@ export default defineEventHandler(async (event) => {
     ['mckinney library', 'mckinney public library'],
     ['tejiendo alianzas xuchil', 'tejiendo alianzas'],
   ]);
+
+  let partnersCreated = 0;
+  let projectsCreated = 0;
+  let teamsCreated = 0;
+
+  // Fuzzy match, falling back to auto-creating the Partner
+  const getOrCreatePartnerId = async (orgNameRaw: string): Promise<string> => {
+    const orgTextRaw = normalizeProjectText(orgNameRaw);
+    const aliased = aliasLookup.get(orgTextRaw) ?? orgTextRaw;
+    const candidates = [orgTextRaw, aliased].map(normalizeProjectKey).filter(Boolean);
+
+    for (const candidate of candidates) {
+      if (partnerLookup.has(candidate)) return partnerLookup.get(candidate)!;
+    }
+    for (const [name, id] of partnerLookup) {
+      for (const candidate of candidates) {
+        if (name.includes(candidate) || candidate.includes(name)) return id;
+      }
+    }
+
+    const partner = await partnerService.createPartner({name: orgNameRaw.trim() || 'Unknown Partner'});
+    partnerLookup.set(normalizeProjectKey(orgNameRaw), partner.id);
+    partnersCreated++;
+    return partner.id;
+  };
+
+  // Ensure a Team exists for a resolved project in this semester/day, once per project per request
+  const ensuredTeamProjectIds = new Set<string>();
+  const ensureTeamForProject = async (projectId: string): Promise<void> => {
+    if (ensuredTeamProjectIds.has(projectId)) return;
+    ensuredTeamProjectIds.add(projectId);
+    const existing = await prisma.team.findUnique({
+      where: {projectId_semesterId: {projectId, semesterId}},
+    });
+    if (!existing) {
+      await teamService.createTeam({projectId, semesterId, meetingDay});
+      teamsCreated++;
+    }
+  };
 
   // Fuzzy fallback: find or create the first project whose name matches
   const findOrCreateProjectId = async (choiceRaw: string): Promise<string | null> => {
@@ -267,8 +298,21 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Not found—create it using the full stripped name
-    return await getOrCreateProject(stripped);
+    // Not found — auto-create the partner and project.
+    const partnerId = await getOrCreatePartnerId(projectPartSource ? orgPartSource : stripped);
+    const projectName = projectPartSource || stripped;
+
+    const project = await projectService.createProject({
+      name: projectName,
+      description: '',
+      type: 'SOFTWARE',
+      status: 'NEW',
+      repoURL: '',
+      partnerId,
+    });
+    projectLookup.set(normalizeProjectKey(projectName), project.id);
+    projectsCreated++;
+    return project.id;
   };
 
   let studentsImported = 0;
@@ -294,7 +338,7 @@ export default defineEventHandler(async (event) => {
 
     // ── Process choices ──────────────────────────────────────────────────────
 
-    const chosenProjectIds = []
+    const chosenProjectIds: string[] = []
 
     const choiceKeys = ['Choice 1', 'Choice 2', 'Choice 3', 'Choice 4', 'Choice 5', 'Choice 6', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6'];
     for (let i = 0; i < choiceKeys.length; i++) {
@@ -307,7 +351,9 @@ export default defineEventHandler(async (event) => {
         if (!unmatchedProjects.includes(stripped)) unmatchedProjects.push(stripped);
         continue;
       }
+      await ensureTeamForProject(projectId);
 
+      if (chosenProjectIds.includes(projectId)) continue;
       chosenProjectIds.push(projectId);
     }
 
@@ -327,5 +373,5 @@ export default defineEventHandler(async (event) => {
     choicesCreated += chosenProjectIds.length;
   }
 
-  return {studentsImported, choicesCreated, skippedStudents, unmatchedProjects};
+  return {studentsImported, choicesCreated, partnersCreated, projectsCreated, teamsCreated, skippedStudents, unmatchedProjects};
 });

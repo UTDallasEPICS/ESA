@@ -11,5 +11,10 @@ export function useSemesters() {
     await refresh()
   }
 
-  return { semesters: data, status, refresh, createSemester }
+  async function deleteSemester(id: string) {
+    await $fetch(`/api/semesters/${id}`, { method: 'DELETE' })
+    await refresh()
+  }
+
+  return { semesters: data, status, refresh, createSemester, deleteSemester }
 }

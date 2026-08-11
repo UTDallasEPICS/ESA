@@ -288,7 +288,7 @@ async function runTest() {
 
   // Run the algorithm
   const startTime = Date.now();
-  const teams = await generateTeamsORTools(testStudents, testProjects);
+  const { assignments: teams } = await generateTeamsORTools(testStudents, testProjects);
   const endTime = Date.now();
 
   console.log();

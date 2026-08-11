@@ -1,5 +1,6 @@
 <script setup lang="ts" generic="T extends Record<string, any>">
   import { h, resolveComponent } from 'vue'
+  import { getPaginationRowModel } from '@tanstack/vue-table'
   import type { Row, SortingState, ColumnFiltersState } from '@tanstack/vue-table'
   import type { TableColumn } from '@nuxt/ui'
   import { ACTION_ICONS } from '~/utils/icons'
@@ -329,22 +330,24 @@
       </template>
     </div>
 
-    <UTable
-      v-model:sorting="sorting"
-      v-model:column-filters="columnFilters"
-      v-model:row-selection="rowSelection"
-      v-model:expanded="expanded"
-      v-model:pagination="pagination"
-      :data="data"
-      :columns="tableColumns"
-      :loading="loading"
-      sticky
-      class="max-h-[32rem]"
-    >
-      <template v-if="expandable" #expanded="{ row }">
-        <slot name="expanded" :row="row.original" />
-      </template>
-    </UTable>
+    <div class="max-h-[70vh] overflow-y-auto">
+      <UTable
+        v-model:sorting="sorting"
+        v-model:column-filters="columnFilters"
+        v-model:row-selection="rowSelection"
+        v-model:expanded="expanded"
+        v-model:pagination="pagination"
+        :data="data"
+        :columns="tableColumns"
+        :loading="loading"
+        :pagination-options="{ getPaginationRowModel: getPaginationRowModel() }"
+        sticky
+      >
+        <template v-if="expandable" #expanded="{ row }">
+          <slot name="expanded" :row="row.original" />
+        </template>
+      </UTable>
+    </div>
 
     <div class="flex items-center justify-between">
       <USelectMenu v-model="pagination.pageSize" :items="[10, 25, 50]" class="w-24" />

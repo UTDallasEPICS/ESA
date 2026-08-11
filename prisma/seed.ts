@@ -62,6 +62,41 @@ const seedStudents = async () => {
   }
 }
 
+const seedTeams = async () => {
+  const semesters = await prisma.semester.findMany({
+    orderBy: [{ year: 'desc' }, { season: 'desc' }],
+  })
+  const spring2026 = semesters.find((s) => s.year === 2026 && s.season === 'SPRING')
+  if (!spring2026) {
+    throw new Error('Spring 2026 semester was not seeded')
+  }
+
+  for (const project of projectsData) {
+    const meetingDayCounts: Record<'WEDNESDAY' | 'THURSDAY', number> = {
+      WEDNESDAY: 0,
+      THURSDAY: 0,
+    }
+    for (const student of studentsData) {
+      if (student.choiceProjectIds.includes(project.id)) {
+        meetingDayCounts[student.meetingDay as 'WEDNESDAY' | 'THURSDAY']++
+      }
+    }
+
+    // Only projects that were actually bid on get a team — the meeting day
+    // is whichever day most of its bidders are enrolled on.
+    if (meetingDayCounts.WEDNESDAY === 0 && meetingDayCounts.THURSDAY === 0) continue
+    const meetingDay = meetingDayCounts.THURSDAY >= meetingDayCounts.WEDNESDAY ? 'THURSDAY' : 'WEDNESDAY'
+
+    await prisma.team.create({
+      data: {
+        projectId: project.id,
+        semesterId: spring2026.id,
+        meetingDay,
+      },
+    })
+  }
+}
+
 const seedPartners = async () => {
   await Promise.all(partnersData.map((p) => {
     const { Contacts, ...rest } = p
@@ -110,6 +145,7 @@ const seedTeambuilder = async () => {
   await seedProjects()
   await seedSemesters()
   await seedStudents()
+  await seedTeams()
   await seedAdmins()
 }
 

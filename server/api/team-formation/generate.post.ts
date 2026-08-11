@@ -133,7 +133,11 @@ export default defineEventHandler(async (event) => {
   }))
 
   // Run the CP-SAT algorithm (spawns a Python process)
-  const cpsatResult = await generateTeamsORTools(cpsatStudents, cpsatProjects, config)
+  const {
+    assignments: cpsatResult,
+    warning: solverWarning,
+    deactivatedProjects,
+  } = await generateTeamsORTools(cpsatStudents, cpsatProjects, config)
 
   // cpsatResult keys are project names; convert back to projectId → StudentWithChoices[]
   const nameToId = new Map<string, string>(projects.map((p: Project) => [p.name, p.id] as const))
@@ -239,6 +243,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Rebalance any non-empty teams that are still below min size by borrowing from large teams.
+  let rebalancedMoveCount = 0
   const rebalanceUndersizedTeams = () => {
     let moved = true
 
@@ -270,6 +275,7 @@ export default defineEventHandler(async (event) => {
 
           targetTeam.push(movedStudent)
           moved = true
+          rebalancedMoveCount++
         }
       }
     }
@@ -319,5 +325,12 @@ export default defineEventHandler(async (event) => {
       teamsForRun.map((team) => [team.id, {projectId: team.projectId, meetingDay: day!, projectName: team.Project.name}])
   )
 
-  return {teamAssignments, projects, teamMeta}
+  const fallback = {
+    solverWarning: solverWarning ?? null,
+    deactivatedProjects: deactivatedProjects ?? [],
+    noChoiceStudentsReassigned: studentsWithNoChoices.length,
+    rebalancedMoveCount,
+  }
+
+  return {teamAssignments, projects, teamMeta, fallback}
 })

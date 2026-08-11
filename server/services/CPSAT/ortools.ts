@@ -31,6 +31,12 @@ export type Project = {
 // Input string is project names, and the values are arrays of Student[] objects.
 export type TeamAssignments = Record<string, Student[]>
 
+export interface CPSATRunResult {
+  assignments: TeamAssignments;
+  warning?: string;
+  deactivatedProjects?: string[];
+}
+
 export interface CPSATConfig {
   min_team_size?: number;
   max_team_size?: number;
@@ -68,7 +74,7 @@ export async function generateTeamsORTools(
   students: Student[],
   projects: Project[],
   config?: CPSATConfig
-): Promise<TeamAssignments> {
+): Promise<CPSATRunResult> {
   console.log('Starting OR-Tools CP-SAT team generation...');
   console.log(`Students: ${students.length}, Projects: ${projects.length}`);
   
@@ -79,6 +85,7 @@ export async function generateTeamsORTools(
   const pythonScriptCandidates = [
     resolve(process.cwd(), 'algorithms', 'CPSAT', 'team_generator.py'),
     resolve(process.cwd(), 'Teambuilder', 'algorithms', 'CPSAT', 'team_generator.py'),
+    resolve(process.cwd(), 'server', 'services', 'CPSAT', 'team_generator.py'),
     join(__dirname, 'team_generator.py'),
   ];
   const pythonScriptPath = pythonScriptCandidates.find(candidate => existsSync(candidate));
@@ -185,8 +192,12 @@ export async function generateTeamsORTools(
         
         const endTime = Date.now();
         console.log(`Total execution time: ${endTime - startTime}ms\n`);
-        
-        resolve(teamAssignments);
+
+        resolve({
+          assignments: teamAssignments,
+          warning: result.warning,
+          deactivatedProjects: result.deactivated_projects,
+        });
       } catch (error: any) {
         reject(new Error(`Failed to parse Python output: ${error.message}\nOutput: ${stdout}`));
       }
