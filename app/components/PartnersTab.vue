@@ -2,13 +2,14 @@
   import type { DataTableColumn } from '~/components/DataTable.vue'
   import { ACTION_ICONS } from '~/utils/icons'
   import type { PartnerRead } from '#server/services/partnerService'
-  import type { ContactCreate } from '#server/services/contactService'
+  import type { ContactCreate, ContactRead } from '#server/services/contactService'
 
   const props = defineProps<{ semesterId?: string }>()
 
   interface PartnerRow extends PartnerRead {
     primaryEmail: string
     primaryPhone: string
+    primaryName: string
   }
 
   const {
@@ -23,7 +24,12 @@
   const rows = computed<PartnerRow[]>(() =>
     partners.value.map((partner) => {
       const primary = partner.Contacts.find((c) => c.isPrimary) ?? partner.Contacts[0]
-      return { ...partner, primaryEmail: primary?.email ?? '', primaryPhone: primary?.phone ?? '' }
+      return {
+        ...partner,
+        primaryName: primary?.name ?? '',
+        primaryEmail: primary?.email ?? '',
+        primaryPhone: primary?.phone ?? '',
+      }
     })
   )
 
@@ -32,6 +38,14 @@
       id: 'name',
       header: 'Name',
       accessorKey: 'name',
+      sortable: true,
+      filter: { type: 'search' },
+      editable: { type: 'text' },
+    },
+    {
+      id: 'primaryName',
+      header: 'Contact',
+      accessorKey: 'primaryName',
       sortable: true,
       filter: { type: 'search' },
       editable: { type: 'text' },
@@ -48,6 +62,8 @@
       id: 'primaryPhone',
       header: 'Phone',
       accessorKey: 'primaryPhone',
+      sortable: true,
+      filter: { type: 'search' },
       editable: { type: 'text' },
     },
   ]
@@ -72,19 +88,23 @@
   async function onSaveEdits(edits: Record<string, Record<string, any>>) {
     await Promise.all(
       Object.entries(edits).map(async ([id, changes]) => {
-        const { primaryEmail, primaryPhone, ...partnerChanges } = changes
+        const { primaryEmail, primaryPhone, primaryName, ...partnerChanges } = changes
         const tasks: Promise<any>[] = []
         if (Object.keys(partnerChanges).length) {
           tasks.push($fetch(`/api/partners/${id}`, { method: 'PUT', body: partnerChanges }))
         }
-        if (primaryEmail !== undefined || primaryPhone !== undefined) {
+        if (primaryName !== undefined || primaryEmail !== undefined || primaryPhone !== undefined) {
           const partner = partners.value.find((p) => p.id === id)
           const contact = partner?.Contacts.find((c) => c.isPrimary) ?? partner?.Contacts[0]
+          const body = {
+            name: primaryName,
+            email: primaryEmail,
+            phone: primaryPhone,
+          }
           if (contact) {
-            const body: Record<string, any> = {}
-            if (primaryEmail !== undefined) body.email = primaryEmail
-            if (primaryPhone !== undefined) body.phone = primaryPhone
             tasks.push($fetch(`/api/contacts/${contact.id}`, { method: 'PUT', body }))
+          } else {
+            tasks.push($fetch(`/api/contacts/`, { method: 'POST', body }))
           }
         }
         await Promise.all(tasks)
@@ -145,6 +165,39 @@
     await $fetch(`/api/contacts/${contactId}`, { method: 'DELETE' })
     await refresh()
   }
+
+  async function makeContactPrimary(contactId: string) {
+    await $fetch(`/api/contacts/${contactId}`, { method: 'PUT', body: { isPrimary: true } })
+    await refresh()
+  }
+
+  // Inline contact editing
+  const editingContactId = ref<string | null>(null)
+  const contactEditDraft = reactive({ name: '', email: '', phone: '' })
+
+  function startEditContact(contact: ContactRead) {
+    editingContactId.value = contact.id
+    contactEditDraft.name = contact.name
+    contactEditDraft.email = contact.email
+    contactEditDraft.phone = contact.phone ?? ''
+  }
+
+  function cancelEditContact() {
+    editingContactId.value = null
+  }
+
+  async function saveContactEdit(contactId: string) {
+    await $fetch(`/api/contacts/${contactId}`, {
+      method: 'PUT',
+      body: {
+        name: contactEditDraft.name,
+        email: contactEditDraft.email,
+        phone: contactEditDraft.phone || undefined,
+      },
+    })
+    editingContactId.value = null
+    await refresh()
+  }
 </script>
 
 <template>
@@ -176,21 +229,66 @@
               <li
                 v-for="contact in row.Contacts"
                 :key="contact.id"
-                class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
+                class="rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
               >
-                <div>
-                  <span class="font-medium">{{ contact.name }}</span>
-                  <UBadge v-if="contact.isPrimary" size="xs" class="ml-2">Primary</UBadge>
-                  <div class="text-gray-500">{{ contact.email }} {{ contact.phone }}</div>
+                <div v-if="editingContactId === contact.id" class="space-y-2">
+                  <div class="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                    <UInput v-model="contactEditDraft.name" placeholder="Name" size="xs" />
+                    <UInput v-model="contactEditDraft.email" placeholder="Email" size="xs" />
+                    <UInput v-model="contactEditDraft.phone" placeholder="Phone" size="xs" />
+                  </div>
+                  <div class="flex justify-end gap-1">
+                    <UButton
+                      label="Cancel"
+                      :icon="ACTION_ICONS.cancel"
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      @click="cancelEditContact"
+                    />
+                    <UButton
+                      label="Save"
+                      :icon="ACTION_ICONS.confirm"
+                      size="xs"
+                      @click="saveContactEdit(contact.id)"
+                    />
+                  </div>
                 </div>
-                <UButton
-                  label="Delete"
-                  :icon="ACTION_ICONS.delete"
-                  size="xs"
-                  color="error"
-                  variant="ghost"
-                  @click="deleteContact(contact.id)"
-                />
+                <div v-else class="flex items-center justify-between">
+                  <div>
+                    <span class="font-medium">{{ contact.name }}</span>
+                    <UBadge v-if="contact.isPrimary" size="xs" class="ml-2">Primary</UBadge>
+                    <div class="text-gray-500">{{ contact.email || '—' }}</div>
+                    <div class="text-gray-500">{{ contact.phone || '—' }}</div>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <UButton
+                      label="Edit"
+                      icon="i-heroicons-pencil"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="startEditContact(contact)"
+                    />
+                    <UButton
+                      v-if="!contact.isPrimary"
+                      label="Make Primary"
+                      icon="i-heroicons-star"
+                      size="xs"
+                      color="neutral"
+                      variant="ghost"
+                      @click="makeContactPrimary(contact.id)"
+                    />
+                    <UButton
+                      label="Delete"
+                      :icon="ACTION_ICONS.delete"
+                      size="xs"
+                      color="error"
+                      variant="ghost"
+                      @click="deleteContact(contact.id)"
+                    />
+                  </div>
+                </div>
               </li>
             </ul>
           </div>
