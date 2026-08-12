@@ -48,16 +48,16 @@
   const page = computed({
     get: () => pagination.value.pageIndex + 1,
     set: (p: number) => {
-      pagination.value.pageIndex = p - 1
+      pagination.value = { ...pagination.value, pageIndex: p - 1 }
     },
   })
 
-  watch(
-    () => pagination.value.pageSize,
-    () => {
-      pagination.value.pageIndex = 0
-    }
-  )
+  const pageSize = computed({
+    get: () => pagination.value.pageSize,
+    set: (size: number) => {
+      pagination.value = { ...pagination.value, pageSize: size, pageIndex: 0 }
+    },
+  })
 
   const editingCells = ref(new Set<string>())
   const pendingEdits = ref<Record<string, Record<string, any>>>({})
@@ -350,7 +350,7 @@
     </div>
 
     <div class="flex items-center justify-between">
-      <USelectMenu v-model="pagination.pageSize" :items="[10, 25, 50]" class="w-24" />
+      <USelectMenu v-model="pageSize" :items="[10, 25, 50]" class="w-24" />
       <UPagination
         v-model:page="page"
         :total="data.length"

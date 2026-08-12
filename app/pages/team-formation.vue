@@ -108,7 +108,7 @@
           rows.push([
             teamLabel,
             `${membership.Student.lastName}, ${membership.Student.firstName}`,
-            ...choiceCells,
+            ...choices,
             enrollment?.major ?? '',
             enrollment ? titleCase(enrollment.year) : '',
             enrollment ? titleCase(enrollment.gender) : '',
