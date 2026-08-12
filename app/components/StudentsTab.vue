@@ -209,17 +209,25 @@
     label: string
     role: 'Mentor' | 'Student'
     meetingDay: string
+    projectId: string
     choices: ChoiceRead[]
   }
 
   function semesterCardsFor(student: StudentRow): SemesterCard[] {
     const byKey = new Map<string, SemesterCard>()
     for (const e of student.Enrollments) {
+      // get project id & name
+      const projteam = student.Memberships.filter((t) => t.Team.semesterId === e.semesterId)
+      let pid: string = ''
+      if (projteam[0]) {
+        pid = projteam[0].Team.projectId
+      }
       byKey.set(`${e.semesterId}:Student`, {
         semesterId: e.semesterId,
         label: semesterLabel(e.semesterId),
         role: 'Student',
         meetingDay: e.meetingDay,
+        projectId: pid,
         choices: student.Choices.filter((c) => c.semesterId === e.semesterId).sort(
           (a, b) => a.rank - b.rank
         ),
@@ -231,6 +239,7 @@
         label: semesterLabel(m.Team.semesterId),
         role: 'Mentor',
         meetingDay: m.Team.meetingDay,
+        projectId: m.Team.projectId,
         choices: [],
       })
     }
@@ -243,7 +252,6 @@
     return semesterCardsFor(student).map((card) => ({
       label: `${card.label} — ${card.role}`,
       value: `${card.semesterId}:${card.role}`,
-      disabled: card.role === 'Mentor',
       card,
     }))
   }
@@ -421,6 +429,7 @@
 
             <UAccordion :items="accordionItemsFor(row)" type="multiple">
               <template #body="{ item }">
+                <span class="text-xs text-gray-500 p-2">Team Assigned: {{ projectName(item.card.projectId) }}</span>
                 <div v-if="item.card.role === 'Student'" class="space-y-2 p-2">
                   <div class="flex items-center justify-between">
                     <span class="text-xs text-gray-500">Team Preferences</span>
