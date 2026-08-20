@@ -1,4 +1,5 @@
 import type {EnrollmentCreate, EnrollmentRead} from "#server/services/enrollmentService";
+import {deserializeSkills, serializeSkills} from "#server/services/enrollmentService";
 import type {MembershipCreate, MembershipRead} from "#server/services/membershipService";
 import {MEMBERSHIP_INCLUDE} from "#server/services/membershipService";
 import type {ChoiceCreate, ChoiceRead} from "#server/services/choiceService";
@@ -9,6 +10,13 @@ const STUDENT_INCLUDE = {
   Memberships: {include: MEMBERSHIP_INCLUDE},
   Choices: true,
 } as const;
+
+function toStudentRead(student: any): StudentRead {
+  return {
+    ...student,
+    Enrollments: student.Enrollments.map((e: any) => ({...e, skills: deserializeSkills(e.skills)})),
+  }
+}
 
 export interface StudentRead {
   id: string;
@@ -61,7 +69,7 @@ const getAllStudents = async (semesterId?: string): Promise<StudentRead[]> => {
     ],
     include: STUDENT_INCLUDE,
   });
-  return students;
+  return students.map(toStudentRead);
 }
 
 const getStudentById = async (id: string): Promise<StudentRead | null> => {
@@ -69,7 +77,7 @@ const getStudentById = async (id: string): Promise<StudentRead | null> => {
     where: {id},
     include: STUDENT_INCLUDE,
   })
-  return student;
+  return student ? toStudentRead(student) : null;
 }
 
 const createStudent = async (data: StudentCreate): Promise<StudentRead> => {
@@ -77,13 +85,15 @@ const createStudent = async (data: StudentCreate): Promise<StudentRead> => {
   const student = await prisma.student.create({
     data: {
       ...rest,
-      Enrollments: Enrollments ? {create: Enrollments} : undefined,
+      Enrollments: Enrollments
+        ? {create: Enrollments.map((e) => ({...e, skills: serializeSkills(e.skills)}))}
+        : undefined,
       Memberships: Memberships ? {create: Memberships} : undefined,
       Choices: Choices ? {create: Choices} : undefined,
     },
     include: STUDENT_INCLUDE,
   })
-  return student;
+  return toStudentRead(student);
 }
 
 const updateStudent = async (id: string, data: StudentUpdate): Promise<StudentRead> => {
@@ -92,7 +102,7 @@ const updateStudent = async (id: string, data: StudentUpdate): Promise<StudentRe
     data,
     include: STUDENT_INCLUDE,
   });
-  return student;
+  return toStudentRead(student);
 }
 
 const deleteStudent = async (id: string): Promise<void> => {

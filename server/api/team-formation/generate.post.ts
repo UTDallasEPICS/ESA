@@ -6,9 +6,9 @@
  */
 
 import {generateTeamsORTools} from '#server/services/CPSAT/ortools'
-import type {Student as CPSATStudent, Project as CPSATProject} from '#server/services//CPSAT/ortools'
+import type {Student as CPSATStudent, Project as CPSATProject, Gender as CPSATGender} from '#server/services//CPSAT/ortools'
 import type {CPSATConfig} from '#server/services//CPSAT/ortools'
-import {Year, ProjectType, Choice, Project, Class, ProjectMeetingDay, Enrollment} from '@@/prisma/generated/client'
+import {Year, ProjectType, Choice, Project, Class, ProjectMeetingDay, Enrollment, Gender, Season} from '@@/prisma/generated/client'
 import {prisma} from '#server/utils/prisma'
 
 type MeetingDay = 'WEDNESDAY' | 'THURSDAY'
@@ -30,6 +30,15 @@ const mapProjectType = (type: ProjectType): CPSATProject['type'] => {
     BOTH: 'Both',
   }
   return map[type]
+}
+
+const mapGender = (gender: Gender): CPSATGender => {
+  const map: Record<Gender, CPSATGender> = {
+    MALE: 'Male',
+    FEMALE: 'Female',
+    OTHER: 'Prefer not to say',
+  }
+  return map[gender]
 }
 
 export default defineEventHandler(async (event) => {
@@ -83,6 +92,9 @@ export default defineEventHandler(async (event) => {
     },
   })
   const projects: Project[] = teamsForRun.map((team) => team.Project)
+  const projectIdToDay = new Map<string, ProjectMeetingDay>(
+      teamsForRun.map((team) => [team.projectId, team.meetingDay] as const)
+  )
 
   if (!students.length) {
     throw createError({statusCode: 400, message: 'No active students found.'})
@@ -109,35 +121,80 @@ export default defineEventHandler(async (event) => {
   const remapDay =
       (day: ProjectMeetingDay) => day == "WEDNESDAY" ? "Wednesday" : "Thursday";
 
+  // Determine each returning (3200) student's most recent prior-semester project,
+  // for the returning-student bonus. Chronological ordering follows the same
+  // year/season comparison pattern used elsewhere for semester recency.
+  const currentSemester = await prisma.semester.findUniqueOrThrow({where: {id: semesterId}})
+  const SEASON_ORDER: Record<Season, number> = {SPRING: 0, SUMMER: 1, FALL: 2}
+  const semesterRank = (s: {year: number; season: Season}) => s.year * 10 + SEASON_ORDER[s.season]
+  const currentRank = semesterRank(currentSemester)
+
+  const priorMemberships = await prisma.membership.findMany({
+    where: {
+      studentId: {in: students.map((s) => s.id)},
+      isMentor: false,
+      Team: {Semester: {id: {not: semesterId}}},
+    },
+    include: {Team: {include: {Project: true, Semester: true}}},
+  })
+
+  const previousProjectByStudentId = new Map<string, string>()
+  const previousRankByStudentId = new Map<string, number>()
+  for (const m of priorMemberships) {
+    const rank = semesterRank(m.Team.Semester)
+    if (rank >= currentRank) continue // "previous" must be strictly earlier
+    const bestSoFar = previousRankByStudentId.get(m.studentId)
+    if (bestSoFar === undefined || rank > bestSoFar) {
+      previousRankByStudentId.set(m.studentId, rank)
+      previousProjectByStudentId.set(m.studentId, m.Team.Project.name)
+    }
+  }
+
   // Map Prisma students → CPSAT Student type
-  const cpsatStudents: CPSATStudent[] = students.map((s) => ({
+  const cpsatStudents: CPSATStudent[] = students.map((s) => {
     // CPSAT expects project NAMES in choices (not IDs)
     // Keep only choices that map to currently active semester projects.
     // If no valid active choices remain, leave choices empty so this student
     // is treated as fallback during assignment/rebalancing.
-    id: s.id,
-    name: `${s.firstName} ${s.lastName}`,
-    major: (s.Enrollments[0]!.major as CPSATStudent['major']) ?? 'Other',
-    seniority: mapYear(s.Enrollments[0]!.year),
-    choices: mappedChoicesByStudentId.get(s.id) ?? [],
-    choicesString: (mappedChoicesByStudentId.get(s.id) ?? []).join(','),
-    class: remapClass(s.Enrollments[0]!.class),
-    day: remapDay(s.Enrollments[0]!.meetingDay),
-  }))
+    const choices = mappedChoicesByStudentId.get(s.id) ?? []
+    const cls = remapClass(s.Enrollments[0]!.class)
+    const priorProjectName = previousProjectByStudentId.get(s.id)
+    // Constraint on the Python side requires returning students to be 3200-level,
+    // and the bonus only ever applies when the previous project is also a current choice.
+    const previousProject =
+        cls === '3200' && priorProjectName && choices.includes(priorProjectName)
+            ? priorProjectName
+            : undefined
+
+    return {
+      id: s.id,
+      name: `${s.firstName} ${s.lastName}`,
+      major: (s.Enrollments[0]!.major as CPSATStudent['major']) ?? 'Other',
+      seniority: mapYear(s.Enrollments[0]!.year),
+      choices,
+      choicesString: choices.join(','),
+      class: cls,
+      day: remapDay(s.Enrollments[0]!.meetingDay),
+      gender: mapGender(s.Enrollments[0]!.gender),
+      previousProject,
+    }
+  })
 
   // Map Prisma projects → CPSAT Project type
   const cpsatProjects: CPSATProject[] = projects.map((p: Project) => ({
     id: p.id,
     name: p.name,
     type: mapProjectType(p.type),
+    day: remapDay(projectIdToDay.get(p.id)!),
   }))
 
   // Run the CP-SAT algorithm (spawns a Python process)
-  const {
-    assignments: cpsatResult,
-    warning: solverWarning,
-    deactivatedProjects,
-  } = await generateTeamsORTools(cpsatStudents, cpsatProjects, config)
+  let cpsatResult
+  try {
+    ;({assignments: cpsatResult} = await generateTeamsORTools(cpsatStudents, cpsatProjects, config))
+  } catch (err: any) {
+    throw createError({statusCode: 400, message: err?.message ?? 'Team generation failed.'})
+  }
 
   // cpsatResult keys are project names; convert back to projectId → StudentWithChoices[]
   const nameToId = new Map<string, string>(projects.map((p: Project) => [p.name, p.id] as const))
@@ -242,47 +299,6 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Rebalance any non-empty teams that are still below min size by borrowing from large teams.
-  let rebalancedMoveCount = 0
-  const rebalanceUndersizedTeams = () => {
-    let moved = true
-
-    while (moved) {
-      moved = false
-
-      const undersizedTeamIds = Object.entries(assignmentsByProjectId)
-          .filter(([, assignedStudents]) => assignedStudents.length > 0 && assignedStudents.length < minTeamSize)
-          .sort((a, b) => a[1].length - b[1].length)
-          .map(([projectId]) => projectId)
-
-      for (const targetProjectId of undersizedTeamIds) {
-        const targetTeam = assignmentsByProjectId[targetProjectId]!
-
-        while (targetTeam.length > 0 && targetTeam.length < minTeamSize) {
-          const donorEntry = Object.entries(assignmentsByProjectId)
-              .filter(([projectId, assignedStudents]) => projectId !== targetProjectId && assignedStudents.length > minTeamSize)
-              .sort((a, b) => b[1].length - a[1].length)[0]
-
-          if (!donorEntry) {
-            break
-          }
-
-          const donorTeam = donorEntry[1]
-          const movedStudent = donorTeam.pop()
-          if (!movedStudent) {
-            break
-          }
-
-          targetTeam.push(movedStudent)
-          moved = true
-          rebalancedMoveCount++
-        }
-      }
-    }
-  }
-
-  rebalanceUndersizedTeams()
-
   const undersizedTeams = Object.entries(assignmentsByProjectId)
       .filter(([, assignedStudents]) => assignedStudents.length > 0 && assignedStudents.length < minTeamSize)
       .map(([projectId, assignedStudents]) => {
@@ -297,16 +313,21 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  // Persist student assignments to the database
+  // Persist student assignments to the database, replacing any prior generation's
+  // assignments for this semester/day. Mentor memberships (assigned separately from
+  // this algorithm) are left untouched.
   const memberships = Object.entries(assignmentsByProjectId).flatMap(([pId, members]) => {
     return members.map(m => ({
       teamId: projectIdToTeamId.get(pId)!,
       studentId: m.id,
     }))
   })
-  await prisma.membership.createMany({
-    data: memberships
-  })
+  await prisma.$transaction([
+    prisma.membership.deleteMany({
+      where: {teamId: {in: teamsForRun.map((team) => team.id)}, isMentor: false},
+    }),
+    prisma.membership.createMany({data: memberships}),
+  ])
 
   const teamAssignments: Record<string, StudentWithChoices[]> = Object.fromEntries(
       Object.entries(assignmentsByProjectId)
@@ -325,12 +346,9 @@ export default defineEventHandler(async (event) => {
       teamsForRun.map((team) => [team.id, {projectId: team.projectId, meetingDay: day!, projectName: team.Project.name}])
   )
 
-  const fallback = {
-    solverWarning: solverWarning ?? null,
-    deactivatedProjects: deactivatedProjects ?? [],
+  const notes = {
     noChoiceStudentsReassigned: studentsWithNoChoices.length,
-    rebalancedMoveCount,
   }
 
-  return {teamAssignments, projects, teamMeta, fallback}
+  return {teamAssignments, projects, teamMeta, notes}
 })

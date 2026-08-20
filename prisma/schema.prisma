@@ -171,6 +171,8 @@ model Enrollment {
   year       Year
   class      Class
   meetingDay ProjectMeetingDay
+  skills     String            @default("")
+  comments   String            @default("")
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 

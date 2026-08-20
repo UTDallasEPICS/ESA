@@ -136,6 +136,20 @@ function readFirstValue(row: Record<string, any>, keys: string[]): string {
   return '';
 }
 
+function readSkills(row): string[] {
+  const skills = []
+  Object.entries(row).forEach(([key, value]) => {
+    if (key.includes('skill')) {
+      skills.push(value);
+    }
+  })
+  return skills;
+}
+
+const SKILL_ORDINALS = ['First', 'Second', 'Third'] as const;
+
+const COMMENTS_KEYS = ['Comments', 'comments', 'Comment', 'comment'];
+
 interface BidRecord {
   firstName: string,
   lastName: string,
@@ -145,10 +159,13 @@ interface BidRecord {
   class: Class,
   gender: Gender,
   major: string,
-  choices: string[]
+  choices: string[],
+  skills: string[],
+  comments: string,
 }
 
-async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDay, record: BidRecord): Promise<void> {
+/** Returns true if this record changed an existing enrollment's meetingDay for this student/semester. */
+async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDay, record: BidRecord): Promise<boolean> {
   // create student record
   const studentInfo = {
     firstName: record.firstName,
@@ -160,6 +177,11 @@ async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDa
     update: studentInfo,
     create: {...studentInfo, netID: record.netID},
   })
+  const existingEnrollment = await prisma.enrollment.findUnique({
+    where: {studentId_semesterId: {studentId: student.id, semesterId}},
+    select: {meetingDay: true},
+  })
+  const dayChanged = existingEnrollment != null && existingEnrollment.meetingDay !== meetingDay
   // create enrollment record
   const enrollmentInfo = {
     meetingDay,
@@ -167,6 +189,8 @@ async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDa
     major: record.major,
     year: record.year,
     class: record.class,
+    skills: record.skills.join(', '),
+    comments: record.comments,
   }
   await prisma.enrollment.upsert({
     where: {studentId_semesterId: {studentId: student.id, semesterId}},
@@ -188,6 +212,7 @@ async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDa
       rank: i + 1,
     }))
   })
+  return dayChanged
 }
 
 
@@ -319,6 +344,7 @@ export default defineEventHandler(async (event) => {
   let choicesCreated = 0;
   const skippedStudents: string[] = [];
   const unmatchedProjects: string[] = [];
+  const dayChangedStudents: string[] = [];
 
   for (const row of rows) {
     const netID = readFirstValue(row, ['SSO ID', 'ssoid', 'netID', 'netid', 'id']);
@@ -335,6 +361,8 @@ export default defineEventHandler(async (event) => {
     const cls = extractClass(readFirstValue(row, ['Enrollment', 'enrollment']));
     const major = extractMajor(readFirstValue(row, ['School and Major', 'school and major', 'major']));
     const gender = extractGender(readFirstValue(row, ['Gender', 'gender']));
+    const skills = readSkills(row);
+    const comments = readFirstValue(row, COMMENTS_KEYS);
 
     // ── Process choices ──────────────────────────────────────────────────────
 
@@ -367,11 +395,14 @@ export default defineEventHandler(async (event) => {
       gender,
       major,
       choices: chosenProjectIds,
+      skills,
+      comments,
     }
-    await processBidRecord(semesterId, meetingDay, record);
+    const dayChanged = await processBidRecord(semesterId, meetingDay, record);
+    if (dayChanged) dayChangedStudents.push(netID);
     studentsImported++;
     choicesCreated += chosenProjectIds.length;
   }
 
-  return {studentsImported, choicesCreated, partnersCreated, projectsCreated, teamsCreated, skippedStudents, unmatchedProjects};
+  return {studentsImported, choicesCreated, partnersCreated, projectsCreated, teamsCreated, skippedStudents, unmatchedProjects, dayChangedStudents};
 });

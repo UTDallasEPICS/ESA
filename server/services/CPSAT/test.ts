@@ -24,16 +24,6 @@ const majors: Array<"CS" | "SE" | "EE" | "ME" | "BME" | "DS" | "CE" | "Systems" 
 const genders: Array<"Male" | "Female" | "Non-binary" | "Prefer not to say"> = ['Male', 'Female'];
 const seniorities: Array<"Freshman" | "Sophomore" | "Junior" | "Senior"> = ['Freshman', 'Sophomore', 'Junior', 'Senior'];
 
-const skillsByMajor: Record<string, string[]> = {
-  CS: ['Python', 'Java', 'C++', 'JavaScript', 'Machine Learning', 'Algorithms', 'Data Structures', 'React', 'Node.js'],
-  SE: ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Git', 'Agile', 'Testing', 'DevOps', 'CI/CD'],
-  EE: ['Circuit Design', 'PCB Design', 'Embedded Systems', 'Signal Processing', 'Arduino', 'Soldering', 'Circuit Analysis'],
-  ME: ['CAD', 'Mechanical Design', '3D Printing', 'SolidWorks', 'FEA', 'Thermodynamics', 'Materials'],
-  CE: ['C', 'Assembly', 'Networking', 'Operating Systems', 'Computer Architecture', 'Embedded Systems'],
-  BME: ['MATLAB', 'Biology', 'Medical Devices', 'Signal Processing', 'CAD', 'Biomechanics'],
-  DS: ['Python', 'SQL', 'Data Analysis', 'Statistics', 'Machine Learning', 'Visualization', 'R'],
-};
-
 function generateProjects(): Project[] {
   // Real EPICS distribution:
   // Wednesday: 7 SW, 4 Both, 1 HW = 12 projects
@@ -86,13 +76,13 @@ function generateProjects(): Project[] {
   const wedHW = hwTemplates.slice(0, 1);
 
   for (const t of wedSW) {
-    projects.push({ id: `p${id++}`, name: t.name, type: 'SW', requiredSkills: t.skills, preferredMajors: t.majors, day: 'Wednesday' });
+    projects.push({ id: `p${id++}`, name: t.name, type: 'SW', day: 'Wednesday' });
   }
   for (const t of wedBoth) {
-    projects.push({ id: `p${id++}`, name: t.name, type: 'Both', requiredSkills: t.skills, preferredMajors: t.majors, day: 'Wednesday' });
+    projects.push({ id: `p${id++}`, name: t.name, type: 'Both', day: 'Wednesday' });
   }
   for (const t of wedHW) {
-    projects.push({ id: `p${id++}`, name: t.name, type: 'HW', requiredSkills: t.skills, preferredMajors: t.majors, day: 'Wednesday' });
+    projects.push({ id: `p${id++}`, name: t.name, type: 'HW', day: 'Wednesday' });
   }
 
   // Thursday: 11 SW, 5 Both, 0 HW
@@ -100,10 +90,10 @@ function generateProjects(): Project[] {
   const thuBoth = bothTemplates.slice(4, 9);
 
   for (const t of thuSW) {
-    projects.push({ id: `p${id++}`, name: t.name, type: 'SW', requiredSkills: t.skills, preferredMajors: t.majors, day: 'Thursday' });
+    projects.push({ id: `p${id++}`, name: t.name, type: 'SW', day: 'Thursday' });
   }
   for (const t of thuBoth) {
-    projects.push({ id: `p${id++}`, name: t.name, type: 'Both', requiredSkills: t.skills, preferredMajors: t.majors, day: 'Thursday' });
+    projects.push({ id: `p${id++}`, name: t.name, type: 'Both', day: 'Thursday' });
   }
 
   return projects;
@@ -158,17 +148,6 @@ function generateStudents(count: number, projects: Project[], upperClassCount: n
     const firstName = firstNames[Math.floor(Math.random() * firstNames.length)];
     const lastName = lastNames[Math.floor(Math.random() * lastNames.length)];
     const name = `${firstName} ${lastName}`;
-    
-    // Generate skills (2-4 skills per student)
-    const availableSkills = skillsByMajor[major] || skillsByMajor['CS'];
-    const skillCount = 2 + Math.floor(Math.random() * 3);
-    const studentSkills: string[] = [];
-    for (let j = 0; j < skillCount; j++) {
-      const skill = availableSkills[Math.floor(Math.random() * availableSkills.length)];
-      if (!studentSkills.includes(skill)) {
-        studentSkills.push(skill);
-      }
-    }
     
     // Generate realistic choices ONLY from projects on the student's day
     // SW students prefer SW/Both projects; HW students prefer Both projects (since HW is scarce)
@@ -247,7 +226,6 @@ function generateStudents(count: number, projects: Project[], upperClassCount: n
       choices,
       choicesString: choices.join(', '),
       class: is3200 ? '3200' : '2200',
-      skills: studentSkills,
       gender,
       previousProject,
       day,
@@ -288,7 +266,13 @@ async function runTest() {
 
   // Run the algorithm
   const startTime = Date.now();
-  const { assignments: teams } = await generateTeamsORTools(testStudents, testProjects);
+  let teams: Record<string, Student[]>
+  try {
+    ;({ assignments: teams } = await generateTeamsORTools(testStudents, testProjects))
+  } catch (err: any) {
+    console.error('CP-SAT run failed:', err?.message ?? err)
+    process.exit(1)
+  }
   const endTime = Date.now();
 
   console.log();
@@ -299,11 +283,7 @@ async function runTest() {
 
   // Display results
   for (const project of testProjects) {
-    const team = teams[project.name];
-    if (!team || team.length === 0) {
-      console.log(`\n📋 ${project.name} (${project.type}) [${project.day}] ⛔ DEACTIVATED`);
-      continue;
-    }
+    const team = teams[project.name] ?? [];
     console.log(`\n📋 ${project.name} (${project.type}) [${project.day}]`);
     console.log(`   Team Size: ${team.length}`);
     
@@ -356,14 +336,11 @@ async function runTest() {
         ? '❌ Not in preferences' 
         : `✓ Choice #${prefIndex + 1}`;
       
-      const returningLabel = student.previousProject === project.name 
-        ? ' 🔁 RETURNING' 
+      const returningLabel = student.previousProject === project.name
+        ? ' 🔁 RETURNING'
         : '';
-      
-      const skillCount = student.skills?.length || 0;
-      const skillLabel = skillCount > 0 ? ` [${skillCount} skills]` : '';
-      
-      console.log(`     • ${student.name} (${student.major}, ${student.seniority}, ${student.class}) ${prefLabel}${returningLabel}${skillLabel}`);
+
+      console.log(`     • ${student.name} (${student.major}, ${student.seniority}, ${student.class}) ${prefLabel}${returningLabel}`);
     }
   }
 
@@ -556,10 +533,7 @@ function validateConstraints(teams: Record<string, Student[]>, allStudents: Stud
     // Check team size against config constraints (min: 4, max: 6)
     const minSize = 4;
     const maxSize = 6;
-    
-    // Deactivated projects (0 students) are valid
-    if (team.length === 0) continue;
-    
+
     if (team.length < minSize) {
       violations.push(`Team "${projectName}" too small (${team.length} < ${minSize})`);
     }

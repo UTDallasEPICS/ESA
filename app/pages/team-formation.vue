@@ -19,14 +19,15 @@
     return `${season}-${semester.year}`
   })
 
-  const { data: projectsForSemester, status: projectsStatus } = useFetch<ProjectRead[]>(
-    '/api/projects',
-    {
-      query: computed(() => ({ semesterId: semesterId.value })),
-      watch: [semesterId],
-      default: () => [],
-    }
-  )
+  const {
+    data: projectsForSemester,
+    status: projectsStatus,
+    refresh: refreshProjectsForSemester,
+  } = useFetch<ProjectRead[]>('/api/projects', {
+    query: computed(() => ({ semesterId: semesterId.value })),
+    watch: [semesterId],
+    default: () => [],
+  })
 
   const teamsForDay = computed(() =>
     projectsForSemester.value.flatMap((project) =>
@@ -39,15 +40,20 @@
     )
   )
 
-  const { data: studentsForSemester } = useFetch<StudentRead[]>('/api/students', {
+  const { data: studentsForSemester, refresh: refreshStudentsForSemester } = useFetch<
+    StudentRead[]
+  >('/api/students', {
     query: computed(() => ({ semesterId: semesterId.value })),
     watch: [semesterId],
     default: () => [],
   })
 
-  const { data: allProjects } = useFetch<ProjectRead[]>('/api/projects', {
-    default: () => [],
-  })
+  const { data: allProjects, refresh: refreshAllProjects } = useFetch<ProjectRead[]>(
+    '/api/projects',
+    {
+      default: () => [],
+    }
+  )
 
   const canExport = computed(() => !!semesterId.value && !!meetingDay.value)
 
@@ -82,6 +88,8 @@
         'Student Major',
         'Student Classification',
         'Gender',
+        'Skills',
+        'Comments',
       ],
     ]
 
@@ -108,10 +116,12 @@
           rows.push([
             teamLabel,
             `${membership.Student.lastName}, ${membership.Student.firstName}`,
-            ...choices,
+            ...choiceCells,
             enrollment?.major ?? '',
             enrollment ? titleCase(enrollment.year) : '',
             enrollment ? titleCase(enrollment.gender) : '',
+            enrollment?.skills.join('; ') ?? '',
+            enrollment?.comments ?? '',
           ])
         }
       }
@@ -132,17 +142,21 @@
     choicesCreated: number
     skippedStudents: string[]
     unmatchedProjects: string[]
+    dayChangedStudents: string[]
   } | null>(null)
   const uploading = ref(false)
   const uploadError = ref<string | null>(null)
 
   watch(bidFile, async (file) => {
-    uploadResult.value = null
-    uploadError.value = null
     parsedRows.value = []
     parseErrors.value = []
     missingColumns.value = []
     if (!file) return
+
+    // Only clear prior results once a new file is actually chosen, so a successful
+    // upload's summary stays visible after we reset `bidFile` below.
+    uploadResult.value = null
+    uploadError.value = null
 
     const text = await file.text()
     const rows = parseCsv(text)
@@ -172,6 +186,15 @@
         query: { semesterId: semesterId.value, meetingDay: meetingDay.value },
         body: parsedRows.value,
       })
+      // Require an explicit new file selection before another upload can be submitted —
+      // otherwise switching the meeting day and re-clicking Upload silently resubmits the
+      // same roster under the new day, overwriting those students' enrollment day.
+      bidFile.value = null
+      await Promise.all([
+        refreshProjectsForSemester(),
+        refreshAllProjects(),
+        refreshStudentsForSemester(),
+      ])
     } catch (e: any) {
       uploadError.value = e?.data?.message ?? e?.message ?? 'Failed to import bid file.'
     } finally {
@@ -184,13 +207,9 @@
   const config = reactive({
     min_team_size: 4,
     max_team_size: 6,
-    allow_overflow_if_needed: true,
     prioritize_returning_students: true,
     prioritize_3200_first_choice: true,
-    prefer_major_diversity: true,
-    match_skills: true,
     balance_gender: true,
-    prefer_2200_early_choices: true,
   })
 
   const generating = ref(false)
@@ -199,35 +218,20 @@
     teamAssignments: Record<string, { firstName: string; lastName: string; netID: string }[]>
     projects: { id: string; name: string }[]
     teamMeta: Record<string, { projectId: string; meetingDay: MeetingDay; projectName: string }>
-    fallback: {
-      solverWarning: string | null
-      deactivatedProjects: string[]
+    notes: {
       noChoiceStudentsReassigned: number
-      rebalancedMoveCount: number
     }
   }
   const generateResult = ref<GenerateResponse | null>(null)
 
   const canGenerate = computed(() => !!semesterId.value && teamsForDay.value.length > 0)
 
-  const fallbackNotice = computed(() => {
-    const fb = generateResult.value?.fallback
-    if (!fb) return null
-    const notes: string[] = []
-    if (fb.solverWarning) notes.push(fb.solverWarning)
-    if (fb.deactivatedProjects.length)
-      notes.push(
-        `Deactivated projects (could not be staffed): ${fb.deactivatedProjects.join(', ')}`
-      )
-    if (fb.noChoiceStudentsReassigned > 0)
-      notes.push(
-        `${fb.noChoiceStudentsReassigned} student(s) had no valid choices and were placed by fallback logic.`
-      )
-    if (fb.rebalancedMoveCount > 0)
-      notes.push(
-        `${fb.rebalancedMoveCount} student(s) were moved between teams to satisfy minimum team size.`
-      )
-    return notes.length ? notes : null
+  const generationNotes = computed(() => {
+    const n = generateResult.value?.notes
+    if (!n || n.noChoiceStudentsReassigned === 0) return null
+    return [
+      `${n.noChoiceStudentsReassigned} student(s) had no valid choices and were placed by best-effort logic.`,
+    ]
   })
 
   async function generateTeams() {
@@ -240,6 +244,11 @@
         method: 'POST',
         body: { semesterId: semesterId.value, day: meetingDay.value, config },
       })
+      await Promise.all([
+        refreshProjectsForSemester(),
+        refreshAllProjects(),
+        refreshStudentsForSemester(),
+      ])
     } catch (e: any) {
       generateError.value = e?.data?.message ?? e?.message ?? 'Team generation failed.'
     } finally {
@@ -384,6 +393,14 @@
           title="Unmatched project choices"
           :description="uploadResult.unmatchedProjects.join(', ')"
         />
+        <UAlert
+          v-if="uploadResult.dayChangedStudents.length"
+          icon="i-heroicons-exclamation-triangle"
+          color="warning"
+          variant="subtle"
+          title="Meeting day changed for existing students"
+          :description="`These students already had an enrollment for this semester on a different day, now moved to ${meetingDay === 'WEDNESDAY' ? 'Wednesday' : 'Thursday'}: ${uploadResult.dayChangedStudents.join(', ')}`"
+        />
       </div>
     </section>
 
@@ -402,7 +419,6 @@
       </div>
 
       <div class="grid grid-cols-2 gap-2">
-        <UCheckbox v-model="config.allow_overflow_if_needed" label="Allow overflow if needed" />
         <UCheckbox
           v-model="config.prioritize_returning_students"
           label="Prioritize returning students"
@@ -411,10 +427,7 @@
           v-model="config.prioritize_3200_first_choice"
           label="Prioritize 3200 first choice"
         />
-        <UCheckbox v-model="config.prefer_major_diversity" label="Prefer major diversity" />
-        <UCheckbox v-model="config.match_skills" label="Match skills" />
         <UCheckbox v-model="config.balance_gender" label="Balance gender" />
-        <UCheckbox v-model="config.prefer_2200_early_choices" label="Prefer 2200 early choices" />
       </div>
 
       <UButton
@@ -438,15 +451,15 @@
 
       <div v-if="generateResult" class="space-y-4">
         <UAlert
-          v-if="fallbackNotice"
+          v-if="generationNotes"
           icon="i-heroicons-exclamation-triangle"
           color="warning"
           variant="subtle"
-          title="Hard constraints could not be fully satisfied — fallback logic was used"
+          title="Teams generated — some students needed best-effort placement"
         >
           <template #description>
             <ul class="list-inside list-disc space-y-1">
-              <li v-for="(note, i) in fallbackNotice" :key="i">{{ note }}</li>
+              <li v-for="(note, i) in generationNotes" :key="i">{{ note }}</li>
             </ul>
           </template>
         </UAlert>

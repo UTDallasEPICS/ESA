@@ -4,6 +4,8 @@ import { existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join, resolve } from 'path';
 
+export type Gender = "Male" | "Female" | "Non-binary" | "Prefer not to say";
+
 export type Student = {
   id: string;
   name: string;
@@ -13,8 +15,7 @@ export type Student = {
   choicesString: string;
   class: "2200" | "3200";
   previousProject?: string;
-  skills?: string[];
-  gender?: "Male" | "Female" | "Non-binary" | "Prefer not to say";
+  gender: Gender;
   day?: "Wednesday" | "Thursday";
 };
 
@@ -22,8 +23,6 @@ export type Project = {
   id: string;
   name: string;
   type: "SW" | "HW" | "Both";
-  requiredSkills?: string[];
-  preferredMajors?: string[];
   day?: "Wednesday" | "Thursday";
 };
 
@@ -33,22 +32,14 @@ export type TeamAssignments = Record<string, Student[]>
 
 export interface CPSATRunResult {
   assignments: TeamAssignments;
-  warning?: string;
-  deactivatedProjects?: string[];
 }
 
 export interface CPSATConfig {
   min_team_size?: number;
   max_team_size?: number;
-  allow_overflow_if_needed?: boolean;
-  overflow_per_team?: number;
-  overflow_penalty?: number;
   prioritize_returning_students?: boolean;
   prioritize_3200_first_choice?: boolean;
-  prefer_major_diversity?: boolean;
-  match_skills?: boolean;
   balance_gender?: boolean;
-  prefer_2200_early_choices?: boolean;
 }
 
 export interface CPSATResult {
@@ -58,8 +49,6 @@ export interface CPSATResult {
   solve_time?: number;
   status?: string;
   error?: string;
-  warning?: string;
-  deactivated_projects?: string[];
 }
 
 /**
@@ -104,7 +93,6 @@ export async function generateTeamsORTools(
       choices: s.choices,
       class: s.class,
       previousProject: s.previousProject,
-      skills: s.skills,
       gender: s.gender,
       day: s.day,
     })),
@@ -112,22 +100,14 @@ export async function generateTeamsORTools(
       id: p.id,
       name: p.name,
       type: p.type,
-      requiredSkills: p.requiredSkills,
-      preferredMajors: p.preferredMajors,
       day: p.day,
     })),
     config: config || {
       min_team_size: 4,
       max_team_size: 6,
-      allow_overflow_if_needed: true,
-      overflow_per_team: 1,
-      overflow_penalty: 20000,
       prioritize_returning_students: true,
       prioritize_3200_first_choice: true,
-      prefer_major_diversity: true,
-      match_skills: true,
       balance_gender: true,
-      prefer_2200_early_choices: true,
     },
   };
   
@@ -172,14 +152,8 @@ export async function generateTeamsORTools(
         
         console.log(`\nSolution found in ${result.solve_time?.toFixed(3)}s`);
         console.log(`Status: ${result.status}`);
-        if (result.warning) {
-          console.warn(`⚠️  Warning: ${result.warning}`);
-        }
         console.log(`Score: ${result.score}`);
-        if (result.deactivated_projects && result.deactivated_projects.length > 0) {
-          console.log(`Deactivated Projects (${result.deactivated_projects.length}): ${result.deactivated_projects.join(', ')}`);
-        }
-        
+
         // Convert student IDs back to student objects
         const teamAssignments: TeamAssignments = {};
         const studentMap = new Map(students.map(s => [s.id, s]));
@@ -195,8 +169,6 @@ export async function generateTeamsORTools(
 
         resolve({
           assignments: teamAssignments,
-          warning: result.warning,
-          deactivatedProjects: result.deactivated_projects,
         });
       } catch (error: any) {
         reject(new Error(`Failed to parse Python output: ${error.message}\nOutput: ${stdout}`));
