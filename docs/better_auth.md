@@ -115,7 +115,7 @@ export const auth = betterAuth({
 Create `server/api/auth/[...all].ts`:
 
 ```typescript
-import { auth } from '~~/server/utils/auth'
+import { auth } from '#server/utils/auth'
 
 export default auth.handler
 ```
