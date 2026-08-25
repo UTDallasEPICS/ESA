@@ -31,7 +31,7 @@
 
   const teamsForDay = computed(() =>
     projectsForSemester.value.flatMap((project) =>
-      project.Teams.filter((t) => t.meetingDay === meetingDay.value).map((team) => ({
+      project.Teams.filter((t) => (t.semesterId === semesterId.value && t.meetingDay === meetingDay.value)).map((team) => ({
         id: team.id,
         projectName: project.name,
         partnerName: project.Partner.name,

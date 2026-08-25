@@ -3,6 +3,9 @@
     search: (query: string) => Promise<T[]>
     displayLabel: (item: T) => string
     placeholder?: string
+    disabled?: boolean
+    highlight?: boolean
+    color?: string
   }>()
 
   const modelValue = defineModel<T | undefined>()
@@ -27,7 +30,9 @@
   })
 
   const selectedItem = computed(() =>
-    modelValue.value ? { label: props.displayLabel(modelValue.value), record: modelValue.value } : undefined
+    modelValue.value
+      ? { label: props.displayLabel(modelValue.value), record: modelValue.value }
+      : undefined
   )
 </script>
 
@@ -38,7 +43,10 @@
     :items="items"
     :loading="loading"
     ignore-filter
+    :disabled="disabled"
+    :highlight="highlight"
+    :color="color as any"
     :placeholder="placeholder ?? 'Search…'"
-    @update:model-value="(v) => (modelValue = v?.record)"
+    @update:model-value="(v: any) => (modelValue = v?.record)"
   />
 </template>

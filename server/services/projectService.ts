@@ -31,6 +31,7 @@ export interface ProjectUpdate {
   type?: ProjectType;
   status?: ProjectStatus;
   repoURL?: string;
+  partnerId?: string;
 }
 
 const getAllProjects = async (semesterId?: string): Promise<ProjectRead[]> => {

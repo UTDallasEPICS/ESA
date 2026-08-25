@@ -6,6 +6,12 @@
     { label: 'Students', slot: 'students' },
     { label: 'Partners', slot: 'partners' },
   ]
+
+  // A tab that still holds staged changes when the filter moves asks the user first, and puts the
+  // previous semester back if they decline (§2.3.2).
+  function restoreSemester(previous: string | undefined) {
+    semesterId.value = previous
+  }
 </script>
 
 <template>
@@ -17,13 +23,13 @@
 
     <UTabs :items="items" class="w-full">
       <template #projects>
-        <ProjectsTab :semester-id="semesterId" />
+        <ProjectsTab :semester-id="semesterId" @restore-semester="restoreSemester" />
       </template>
       <template #students>
-        <StudentsTab :semester-id="semesterId" />
+        <StudentsTab :semester-id="semesterId" @restore-semester="restoreSemester" />
       </template>
       <template #partners>
-        <PartnersTab :semester-id="semesterId" />
+        <PartnersTab :semester-id="semesterId" @restore-semester="restoreSemester" />
       </template>
     </UTabs>
   </UContainer>
