@@ -545,28 +545,27 @@
       </span>
     </div>
 
-    <div class="max-h-[70vh] overflow-y-auto">
-      <UTable
-        sticky
-        v-model:expanded="expanded"
-        :data="visibleRows"
-        :columns="tableColumns"
-        :loading="loading"
-        :meta="tableMeta"
-        :get-row-id="(row: DataTableRow<T>) => row.id"
-      >
-        <template v-if="expandable" #expanded="{ row }">
-          <slot
-            name="expanded"
-            :row="row.original.record"
-            :row-id="row.original.id"
-            :state="row.original.state"
-            :is-new="row.original.isNew"
-            :deleted="row.original.deleted"
-          />
-        </template>
-      </UTable>
-    </div>
+    <UTable
+      sticky
+      class="max-h-[70vh]"
+      v-model:expanded="expanded"
+      :data="visibleRows"
+      :columns="tableColumns"
+      :loading="loading"
+      :meta="tableMeta"
+      :get-row-id="(row: DataTableRow<T>) => row.id"
+    >
+      <template v-if="expandable" #expanded="{ row }">
+        <slot
+          name="expanded"
+          :row="row.original.record"
+          :row-id="row.original.id"
+          :state="row.original.state"
+          :is-new="row.original.isNew"
+          :deleted="row.original.deleted"
+        />
+      </template>
+    </UTable>
 
     <div class="flex items-center justify-between">
       <USelectMenu v-model="pageSize" :items="[10, 25, 50]" class="w-24" />
