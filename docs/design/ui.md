@@ -10,6 +10,59 @@ Stack: Nuxt 4 + Nuxt UI v4 + Tailwind. All components live in `app/`; no other U
 
 ---
 
+## Table of contents
+
+1. [App Overview](#1-app-overview)
+   1. [Shell (`app/app.vue`)](#11-shell-appappvue)
+   2. [Routes](#12-routes)
+   3. [Authentication](#13-authentication)
+   4. [Account Activation](#14-account-activation)
+2. [Shared Components](#2-shared-components)
+   1. [Navbar (`components/Navbar.vue`)](#21-navbar-componentsnavbarvue)
+   2. [Semester Filter (`components/SemesterFilter.vue`)](#22-semester-filter-componentssemesterfiltervue)
+   3. [Data Table (`components/DataTable.vue`)](#23-data-table-componentsdatatablevue)
+      1. [Staged changes](#231-staged-changes)
+      2. [Toolbar (above the table)](#232-toolbar-above-the-table)
+      3. [Column headers](#233-column-headers)
+      4. [Expansion and selection columns](#234-expansion-and-selection-columns)
+      5. [Cells and inline editing](#235-cells-and-inline-editing)
+      6. [Pagination (below the table)](#236-pagination-below-the-table)
+   4. [Confirmation Modal (`components/ConfirmationModal.vue` + `composables/useConfirm.ts`)](#24-confirmation-modal-componentsconfirmationmodalvue-composablesuseconfirmts)
+   5. [Record Search Input (`components/RecordSearchInput.vue`)](#25-record-search-input-componentsrecordsearchinputvue)
+   6. [Utilities](#26-utilities)
+   7. [Icon Reference](#27-icon-reference)
+3. [Database (`pages/database.vue`)](#3-database-pagesdatabasevue)
+   1. [Projects Tab](#31-projects-tab)
+      1. [Table](#311-table)
+      2. [New Project Row](#312-new-project-row)
+      3. [Expanded Row — Description and Teams](#313-expanded-row-description-and-teams)
+      4. [Team Creation Modal](#314-team-creation-modal)
+      5. [Member Creation Modal](#315-member-creation-modal)
+      6. [Move Student Modal](#316-move-student-modal)
+   2. [Students Tab](#32-students-tab)
+      1. [Table](#321-table)
+      2. [New Student Row](#322-new-student-row)
+      3. [Expanded Row — Semester Info](#323-expanded-row-semester-info)
+      4. [Team Preference Modal](#324-team-preference-modal)
+      5. [Semester Info Creation Modal](#325-semester-info-creation-modal)
+   3. [Partners Tab](#33-partners-tab)
+      1. [Table](#331-table)
+      2. [Expanded Row — Contacts and Projects](#332-expanded-row-contacts-and-projects)
+      3. [Contact Creation Modal](#333-contact-creation-modal)
+   4. [Implementation notes and known limits (Database)](#34-implementation-notes-and-known-limits-database)
+      1. [Shared composables and utils](#341-shared-composables-and-utils)
+4. [Team Formation (`pages/team-formation.vue`)](#4-team-formation-pagesteam-formationvue)
+   1. [Section 1 — Semester & Meeting Day](#41-section-1-semester-meeting-day)
+   2. [Team Export](#42-team-export)
+   3. [Section 2 — Bid File](#43-section-2-bid-file)
+   4. [Section 3 — Team Generation](#44-section-3-team-generation)
+5. [User Management (`pages/users.vue`)](#5-user-management-pagesusersvue)
+   1. [Active Users card](#51-active-users-card)
+   2. [Inactive Users card](#52-inactive-users-card)
+   3. [Business rules (`server/services/userService.ts`)](#53-business-rules-serverservicesuserservicets)
+
+---
+
 ## 1. App Overview
 
 ### 1.1 Shell (`app/app.vue`)
@@ -78,7 +131,7 @@ set either on themselves through `updateUser`.
 | Layer    | Enforcement                                                                                                    |
 | -------- | --------------------------------------------------------------------------------------------------------------- |
 | Frontend | `auth.global.ts` (above) redirects any inactive session to `pages/inactive.vue` — a centered card explaining the account needs admin approval, with a Log Out button — and bounces an active session away from `/inactive`. |
-| Server   | `server/middleware/active-user.ts` runs on every request; for a session where `user.active === false` it 403s any `/api/**` route other than `/api/auth/**`, so sign-in/sign-out/session calls keep working while every other endpoint (including the ones a page's SSR fetch would hit) is blocked regardless of what the frontend redirect does. |
+| Server   | `server/middleware/authMiddleware.ts` runs on every request; for a session where `user.active === false` it 403s any `/api/**` route other than `/api/auth/**`, so sign-in/sign-out/session calls keep working while every other endpoint (including the ones a page's SSR fetch would hit) is blocked regardless of what the frontend redirect does. |
 
 Because the Nitro middleware checks the session directly, an inactive user cannot reach any data endpoint by
 calling it directly, even if a client-side redirect were bypassed.
@@ -136,33 +189,24 @@ Footer: Cancel (✗) closes with `null`; Confirm (✓) submits the form.
 
 ### 2.3 Data Table (`components/DataTable.vue`)
 
+> See `docs/design/data_table.md` for the full component reference: every prop/emit/slot, the column
+> configuration API (`DataTableColumn`, filters, `editable` types, `editable.child` proxy columns),
+> rendering details for every cell/row/toolbar state, and worked examples.
+
 A generic `UTable` composition used only for the three **major records** — Partner, Project, Student. Everything
 else (Team, Contact, Choice, Enrollment, Membership) renders as a plain list or `UAccordion` 
 card inside the parent record's expanded row.
 
-> **Panels are gone.** v1.0's Item Panel and Creation Panel (and the `RecordPanel.vue` slideover that implemented
-> the latter) are removed. A record is created by adding a row, inspected by expanding a row, and edited in place;
-> the table is the only editing surface. Modals remain only for collecting the fields of a **minor** record before
-> it is staged (§3), and for confirmations (§2.4).
-
-The parent tab supplies data plus a lightweight column definition; the table owns all rendering:
-
-```ts
-interface DataTableColumn<T> {
-  id: string
-  header: string
-  accessorKey: keyof T & string
-  format?: (value, row) => string          // display-only columns
-  sortable?: boolean
-  filter?: { type: 'search' | 'multiselect'; options?: {label, value}[] }
-  editable?: { type: 'text' | 'select' | 'switch' | 'record-search'; options?: {label, value}[]; search?: (query: string) => Promise<T[]> }
-}
-```
-
-Props: `data`, `columns`, `rowKey`, `loading`, `expandable`, `newRow` (a factory returning a blank draft record).
-Emits: `save(changes)`, `cancel`. The table body sits in a `max-h-[70vh]` scroll container with a sticky header.
+The parent tab supplies data plus a lightweight column definition; the table owns all rendering. The full
+`DataTableColumn` shape (filters, the four `editable` types, `editable.child` proxy columns, `required`) and the
+component's props/emits are in `data_table.md` §2–§5 — not repeated here. The table body sits in a `max-h-[70vh]`
+scroll container with a sticky header.
 
 #### 2.3.1 Staged changes
+
+> See `docs/design/staging.md` for the full API surface of the composables behind this section
+> (`useStagedChanges`, `useSemesterFilter`'s guards, `useStagedSave`) and worked examples of staging
+> both rows and nested children.
 
 **There are no creation or edit panels.** Creating, editing, and deleting all happen in the table itself, and every
 pending change is **staged locally** in one per-table store. The table issues **no API call until Confirm is
@@ -193,30 +237,15 @@ Rules:
 - Expansion editors (teams, contacts, choices, semester info — §3) write into the **same** store, so a change made
   inside a row's expansion turns that row blue and is persisted by the same Confirm.
 
-Confirm emits one payload describing everything staged:
-
-```ts
-interface DataTableChanges<T> {
-  created: Draft<T>[] // new rows, including any minor records drafted in their expansion
-  updated: Record<RowId, Partial<T> & { nested?: NestedChanges }>
-  deleted: RowId[]
-}
-```
-
-The parent translates that single payload into its API calls (see each tab in §3) and refreshes afterwards.
+Confirm emits one payload (`StagedPayload` — `created`/`updated`/`deleted`, defined in `staging.md` §1.5)
+describing everything staged; the parent translates it into its own API calls (see each tab in §3) and refreshes
+afterwards.
 
 #### 2.3.2 Toolbar (above the table)
 
-| Button  | Icon | Enabled when                             | Result                                                                                                                  |
-| ------- | ---- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Add     | +    | Always                                   | Appends one blank draft row (from `newRow`), pre-expanded and focused on its first cell. Each click adds another. No request. |
-| Delete  | −    | ≥1 row selected                          | Marks every selected row for deletion and clears the selection (a selected staged-new row is dropped instead). No request. |
-| Undo    | ↺    | ≥1 selected row is added, edited, or marked for deletion | Undoes each such selected row individually — drops an addition, restores an edited row to its original state, unmarks a deletion — and clears the selection. No request. |
-| Confirm | ✓    | **Only rendered while the store is non-empty** (a row is being added, edited, or marked for deletion) | Emits `save` with the payload above; on success the store is cleared and highlights vanish. Disabled while any staged row is invalid. |
-| Cancel  | ✗    | **Only rendered while the store is non-empty**       | Discards every staged addition, edit, and deletion at once; the table returns to its fetched state                       |
-
-Undo, unlike Confirm/Cancel, is always rendered — only its enabled state depends on the selection. Selecting a
-mix of clean and staged rows still enables it; it simply leaves the clean rows untouched.
+Add / Delete / Undo / Confirm / Cancel, each issuing no request of its own — only Confirm and Cancel ever talk to
+the network, via the `save`/`cancel` payload above. The exact icon and enablement condition for each button is in
+`data_table.md` §6.1.
 
 Because Confirm and Cancel are the only write paths, switching the semester filter or switching tabs with staged
 changes is a destructive act. Both are **gated**, not restored: `database.vue`'s `provideSemesterFilter()`
@@ -229,63 +258,28 @@ tab's staged changes with no prompt at all.
 #### 2.3.3 Column headers
 
 Each header is a small stack: label, then (when configured) a sort control, a filter control, and a filter-clear
-button.
-
-| Control      | Component                    | States / behavior                                                                                 |
-| ------------ | ---------------------------- | -------------------------------------------------------------------------------------------------- |
-| Sort         | `UButton` (ghost, xs)        | Cycles **unset** (↕) → **ascending** (↑) → **descending** (↓) → unset. Sorting one column replaces any other column's sort. |
-| Filter — search      | `UInput` (xs, w-28)  | Case-insensitive substring match on the column value                                                |
-| Filter — multiselect | `USelectMenu` (multiple) | Row passes if its value is in the selected set; an empty set means no filtering                 |
-| Filter Clear | `UButton` ✗ (ghost, xs)      | Rendered only while that column's filter has a value; clears it                                     |
-
-Sorting, filtering, and pagination are all client-side over the already-fetched rows.
+button. Sorting, filtering, and pagination are all client-side over the already-fetched rows — see `data_table.md`
+§6.2 for each control's component and exact behavior.
 
 #### 2.3.4 Expansion and selection columns
 
-| Column | Rendered when   | Behavior                                                                                     |
-| ------ | --------------- | -------------------------------------------------------------------------------------------- |
-| Expand | `expandable`    | Chevron button per row: ▸ collapsed / ▾ expanded. Toggling renders the parent's `#expanded` slot beneath the row. Multiple rows may be open at once. |
-| Select | Always          | Checkbox per row plus a header checkbox                                                        |
-
-Header checkbox states: **all selected** (checked), **some selected** (indeterminate), **none selected** (empty).
-Clicking it selects every row unless all are already selected, in which case it deselects everything.
+An `expandable` table gets a chevron column that toggles the parent's `#expanded` slot beneath a row (multiple
+rows may be open at once); every table gets a checkbox column with a tri-state header checkbox (all/some/none
+selected). See `data_table.md` §6.5.
 
 #### 2.3.5 Cells and inline editing
 
-| Column kind          | Rendering                                                                    |
-| -------------------- | ---------------------------------------------------------------------------- |
-| Not `editable`       | `format(value, row)` if given, else the stringified value; empty renders `—`  |
-| `editable: 'text'`   | Ghost `UInput`                                                               |
-| `editable: 'select'` | `USelectMenu` over the column's options                                      |
-| `editable: 'switch'` | `USwitch` bound to the boolean value                                         |
-| `editable: 'record-search'` | `RecordSearchInput` (§2.5) over `search`, for a column that edits a linked major record (e.g. a Project row's Partner) |
-
-| Cell state       | Condition                                                | Appearance                                       |
-| ---------------- | -------------------------------------------------------- | ------------------------------------------------ |
-| Clean            | Value matches the fetched record                          | Plain cell                                        |
-| Edited           | Value differs from the fetched record                     | Yellow outline on the input                       |
-| On a new row     | The row is a staged addition                              | No per-field outline — the whole row is green      |
-| Invalid          | A required field on a staged row is blank or malformed    | Red outline; Confirm is disabled while any remain |
-| Locked           | The row is marked for deletion                            | Input disabled                                     |
-
-On a non-`editable` column the cell is display-only even on a staged new row; values for such columns come from
-the expansion (e.g. a project's Partner) or are derived server-side.
+A column renders one of four editors (`text` / `select` / `switch` / `record-search`, the last being
+`RecordSearchInput` — §2.5) or, without `editable`, a plain formatted/stringified value. A cell's outline —
+none / yellow (edited) / red (invalid) — and whether it's disabled follow the same state a row's highlight does;
+the full per-state table, including that a non-`editable` column stays display-only even on a staged new row, is
+in `data_table.md` §6.3.
 
 #### 2.3.6 Pagination (below the table)
 
-| Control            | Component                              | Behavior                                                        |
-| ------------------ | -------------------------------------- |-----------------------------------------------------------------|
-| Rows per page      | `USelectMenu` with 10 / 25 / 50 (w-24) | Changing the size resets to the first page                      |
-| Page navigation    | `UPagination`                          | First (<<), Previous (<), Next (>), Last (>>) plus page numbers |
-
-| Table state | Condition                                        | Appearance                                                             |
-| ----------- | ------------------------------------------------ | ---------------------------------------------------------------------- |
-| Loading     | `loading` prop true                              | `UTable`'s built-in loading bar                                        |
-| Empty       | `data` is empty and nothing is staged            | `UTable`'s default empty message                                       |
-| Clean       | Store empty                                      | Only Add and Delete in the toolbar                                     |
-| Dirty       | ≥1 staged addition, edit, or deletion            | Confirm/Cancel appear; affected rows carry their green/blue/red highlight |
-| Invalid     | Dirty, and a staged row fails validation         | Confirm disabled; offending fields outlined red                        |
-| Saving      | Confirm pressed, requests in flight              | Toolbar buttons disabled, Confirm shows a spinner                      |
+A rows-per-page `USelectMenu` (10/25/50) and a `UPagination` beneath the table, both client-side over the
+already-fetched, filtered, sorted rows. `data_table.md` §6.6 has the full control table and the table's overall
+Loading/Empty/Clean/Dirty/Invalid/Saving states.
 
 ### 2.4 Confirmation Modal (`components/ConfirmationModal.vue` + `composables/useConfirm.ts`)
 
@@ -611,9 +605,9 @@ on a new partner) happens on the table's Confirm.
 
 ### 3.4 Implementation notes and known limits (Database)
 
-The staged-changes model is **built**. `app/composables/useStagedChanges.ts` holds one store per table —
-row creations, row edits, deletions, and nested minor-record changes — and `DataTable` renders through it;
-each tab turns the single Confirm payload into its API calls. `RecordPanel.vue` is deleted.
+The staged-changes model is **built** — `docs/design/staging.md` is the composable-level reference (the
+store's full API, the semester/tab discard gate, the shared Confirm envelope). `RecordPanel.vue` is
+deleted.
 
 Staged changes survive neither a tab switch nor a semester change without an explicit Discard: both are gated
 through `useSemesterFilter()` (§2.3.2, §3), so the user is asked before either happens, and a decline leaves the
@@ -631,6 +625,10 @@ staged work and the current tab/semester untouched. What remains:
 
 Choice reordering deliberately stages a new rank on **only** the moved choice: `choiceService.updateChoice`
 already shifts siblings, so rewriting every rank would fight it.
+
+The proxy-column, staged-primary-contact, and delete+create rows above are mechanism-level consequences
+of how `useStagedChanges`'s `children`/`fields` resolve targets, not independent quirks — see
+`docs/design/staging.md` §7 for why each one falls out of the store's design.
 
 #### 3.4.1 Shared composables and utils
 

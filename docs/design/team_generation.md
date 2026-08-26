@@ -14,6 +14,15 @@ to heuristic placement.
 
 ---
 
+## Table of contents
+
+1. [Core and Configurable Goals](#1-core-and-configurable-goals)
+2. [Hard Constraints](#2-hard-constraints)
+3. [Soft Constraints](#3-soft-constraints)
+4. [Bonus/Penalty Table](#4-bonuspenalty-table)
+
+---
+
 ## 1. Core and Configurable Goals
 
 **Core goal (always on, not configurable):** every non-mentor student enrolled in the semester + day being solved
