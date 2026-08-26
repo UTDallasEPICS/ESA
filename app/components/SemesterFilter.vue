@@ -3,7 +3,6 @@
   import { ACTION_ICONS } from '~/utils/icons'
   import { errorMessage } from '~/utils/errors'
   import { formatSemester } from '~/utils/labels'
-  import { useSemesterLookup } from '~/composables/useSemesters'
 
   // Fully controlled rather than `defineModel`: the Database page may refuse a change when a tab
   // holds staged work, and a local model value would leave the dropdown showing a semester the page

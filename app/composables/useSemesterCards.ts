@@ -6,7 +6,6 @@
 // staged as a delete plus a create — `membershipSlot` re-collapses that pair so the card can read
 // as a single Team field.
 
-import type { StageState, StagedChanges, MergedChild } from '~/composables/useStagedChanges'
 import type { ProjectRead } from '#server/services/projectService'
 import type { StudentRead } from '#server/services/studentService'
 import type { ChoiceRead } from '#server/services/choiceService'

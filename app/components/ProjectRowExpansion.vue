@@ -1,14 +1,8 @@
 <script setup lang="ts">
   import { ACTION_ICONS } from '~/utils/icons'
-  import { STAGE_TINTS, type MergedChild } from '~/composables/useStagedChanges'
   import type { MembershipRead } from '#server/services/membershipService'
   import type { ProjectRead } from '#server/services/projectService'
   import type { TeamRead } from '#server/services/teamService'
-  import { useRowStaging } from '~/composables/useRowStaging'
-  import { useSemesterFilter } from '~/composables/useSemesterFilter'
-  import { useSemesterLookup } from '~/composables/useSemesters'
-  import { useAllStudents, useAllProjects } from '~/composables/useDirectory'
-  import { useRecordModals } from '~/composables/useRecordModals'
 
   type TeamLike = Partial<TeamRead> & { semesterId: string; meetingDay: TeamRead['meetingDay'] }
   type MemberLike = Partial<MembershipRead> & {

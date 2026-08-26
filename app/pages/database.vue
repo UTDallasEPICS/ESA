@@ -2,7 +2,6 @@
   // The page owns the semester filter and the active tab, and gates both: a tab holding staged
   // changes is asked before either moves. Switching tabs matters as much as switching semester —
   // UTabs unmounts the inactive panel, which would take its staged work with it silently (§2.3.2).
-  import { provideSemesterFilter } from '~/composables/useSemesterFilter'
 
   const { semesterId, request, confirmDiscard } = provideSemesterFilter()
 

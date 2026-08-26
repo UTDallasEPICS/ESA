@@ -1,9 +1,7 @@
 <script setup lang="ts">
   import { ACTION_ICONS } from '~/utils/icons'
-  import { STAGE_TINTS, type MergedChild } from '~/composables/useStagedChanges'
   import type { ContactRead } from '#server/services/contactService'
   import type { PartnerRead } from '#server/services/partnerService'
-  import { useRowStaging } from '~/composables/useRowStaging'
 
   /** A merged contact plus whether it is the partner's primary once staging is applied. */
   interface ContactCard extends MergedChild<ContactRead> {

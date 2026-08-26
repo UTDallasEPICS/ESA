@@ -4,12 +4,7 @@
   import type { TableColumn } from '@nuxt/ui'
   import RecordSearchInput from '~/components/RecordSearchInput.vue'
   import { ACTION_ICONS } from '~/utils/icons'
-  import {
-    STAGE_TINTS,
-    type StagedChanges,
-    type StageState,
-    type StagedPayload,
-  } from '~/composables/useStagedChanges'
+  import type { StagedChanges, StagedPayload } from '~/composables/useStagedChanges'
 
   export interface DataTableFilter {
     type: 'search' | 'multiselect'

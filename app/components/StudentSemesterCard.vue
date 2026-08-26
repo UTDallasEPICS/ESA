@@ -1,20 +1,10 @@
 <script setup lang="ts">
   import { ACTION_ICONS } from '~/utils/icons'
-  import { STAGE_TINTS } from '~/composables/useStagedChanges'
-  import {
-    type ChoiceEntry,
-    type SemesterCard,
-    type StudentRow,
-    useSemesterCards,
-  } from '~/composables/useSemesterCards'
+  import type { ChoiceEntry, SemesterCard, StudentRow } from '~/composables/useSemesterCards'
   import { ENROLLMENT_FIELDS } from '~/utils/options'
   import { projectLabel } from '~/utils/labels'
   import { searchProjects } from '~/utils/search'
   import type { ProjectRead } from '#server/services/projectService'
-  import { useRowStaging } from '~/composables/useRowStaging'
-  import { useAllProjects } from '~/composables/useDirectory'
-  import { useRecordModals } from '~/composables/useRecordModals'
-  import { useSemesterLookup } from '~/composables/useSemesters'
 
   const props = defineProps<{
     rowId: string

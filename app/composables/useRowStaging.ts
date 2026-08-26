@@ -4,8 +4,6 @@
 // `rowId`, the row record, and the card being rendered vary per node and stay props — injection
 // cannot express per-instance values, and a per-row provide would be worse than the prop.
 
-import type { StagedChanges } from '~/composables/useStagedChanges'
-
 /**
  * Row-expansion components only ever edit a row's own fields or its nested children — never the
  * row-lifecycle group (`rows`), which is DataTable.vue's own machinery. Narrowing the injected type

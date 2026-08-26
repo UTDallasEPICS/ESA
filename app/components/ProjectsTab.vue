@@ -1,6 +1,5 @@
 <script setup lang="ts">
   import type { DataTableColumn } from '~/components/DataTable.vue'
-  import { groupChildren, type StagedRecord } from '~/composables/useStagedChanges'
   import { enumColumn, textColumn } from '~/utils/columns'
   import {
     dayLabel,
@@ -12,10 +11,6 @@
   import type { PartnerRead } from '#server/services/partnerService'
   import type { ProjectRead } from '#server/services/projectService'
   import type { TeamRead } from '#server/services/teamService'
-  import { useSemesterFilter } from '~/composables/useSemesterFilter'
-  import { useAllPartners } from '~/composables/useDirectory'
-  import { useStagedSave } from '~/composables/useStagedSave'
-  import { provideRowStaging } from '~/composables/useRowStaging'
 
   type MeetingDay = TeamRead['meetingDay']
 

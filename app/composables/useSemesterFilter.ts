@@ -5,8 +5,6 @@
 // if the user declines — refetches twice and flashes the wrong dataset behind the dialog, because
 // each tab's `useFetch` query is reactive to the id. So the id moves only after the answer.
 
-import type { StagedChanges } from '~/composables/useStagedChanges'
-
 /** What `request` has to ask before moving the filter. `StagedChanges` satisfies this as-is. */
 export interface SemesterGuard {
   isDirty: Readonly<Ref<boolean>>

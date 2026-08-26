@@ -1,18 +1,9 @@
 <script setup lang="ts">
   import type { DataTableColumn } from '~/components/DataTable.vue'
-  import type { ChildStage, StagedRecord } from '~/composables/useStagedChanges'
-  import { STAGE_TINTS } from '~/composables/useStagedChanges'
-  import { type StudentRow, useSemesterCards } from '~/composables/useSemesterCards'
   import { ACTION_ICONS } from '~/utils/icons'
   import { textColumn } from '~/utils/columns'
   import { ENROLLMENT_FIELDS, MENTOR_FILTER_OPTIONS } from '~/utils/options'
   import type { StudentRead } from '#server/services/studentService'
-  import { useSemesterFilter } from '~/composables/useSemesterFilter'
-  import { useRecordModals } from '~/composables/useRecordModals'
-  import { useAllProjects } from '~/composables/useDirectory'
-  import { useSemesterLookup } from '~/composables/useSemesters'
-  import { useStagedSave } from '~/composables/useStagedSave'
-  import { provideRowStaging } from '~/composables/useRowStaging'
 
   const { semesterId, guard } = useSemesterFilter()
   const { openSemesterInfoModal } = useRecordModals()

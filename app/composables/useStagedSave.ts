@@ -6,7 +6,6 @@
 // has to delete before it creates and append-then-move its choices — but all of that is intra-record
 // domain logic that belongs in the tab, passed in as `create` / `update` / `remove`.
 
-import type { StagedChanges, StagedPayload, StagedRecord } from '~/composables/useStagedChanges'
 import { errorMessage } from '~/utils/errors'
 import { plural } from '~/utils/labels'
 

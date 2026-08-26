@@ -1,14 +1,12 @@
 <script setup lang="ts">
   import { ACTION_ICONS } from '~/utils/icons'
-  import { STAGE_TINTS, type MergedChild } from '~/composables/useStagedChanges'
+  import type { MergedChild } from '~/composables/useStagedChanges'
   import { studentLabel, formatSemester, semesterOrder } from '~/utils/labels'
   import { GENDER_OPTIONS, YEAR_OPTIONS, CLASS_OPTIONS, type SelectOption } from '~/utils/options'
   import type { MembershipRead } from '#server/services/membershipService'
   import type { ProjectRead } from '#server/services/projectService'
   import type { TeamRead } from '#server/services/teamService'
   import type { EnrollmentRead } from '#server/services/enrollmentService'
-  import { useRowStaging } from '~/composables/useRowStaging'
-  import { useAllStudents } from '~/composables/useDirectory'
 
   type TeamLike = Partial<TeamRead> & { semesterId: string; meetingDay: TeamRead['meetingDay'] }
   type MemberLike = Partial<MembershipRead> & {
