@@ -82,13 +82,13 @@
     cancel: []
   }>()
 
-  // Registers every row's fetched record with the staging store, so getValue/setValue never need
-  // one passed in — a watcher rather than a computed, since registering is a write and Vue computeds
-  // must stay pure.
+  // Registers every row's fetched record with the staging store, so fields.get/fields.set never
+  // need one passed in — a watcher rather than a computed, since registering is a write and Vue
+  // computeds must stay pure.
   watch(
     () => props.data,
     (rows) => {
-      for (const row of rows) props.staging.registerRow(props.rowKey(row), row)
+      for (const row of rows) props.staging.rows.register(props.rowKey(row), row)
     },
     { immediate: true }
   )
@@ -108,26 +108,26 @@
   function valueFor(col: DataTableColumn<T>, row: DataTableRow<T>) {
     const target = col.editable?.child?.(row.record)
     if (target) {
-      return props.staging.getChildValue(row.id, target.collection, target.id, target.field)
+      return props.staging.children.get(row.id, target.collection, target.id, target.field)
     }
-    return props.staging.getValue(row.id, col.accessorKey)
+    return props.staging.fields.get(row.id, col.accessorKey)
   }
 
   function setValueFor(col: DataTableColumn<T>, row: DataTableRow<T>, value: any) {
     const target = col.editable?.child?.(row.record)
     if (target) {
-      props.staging.setChildValue(row.id, target.collection, target.id, target.field, value)
+      props.staging.children.set(row.id, target.collection, target.id, target.field, value)
       return
     }
-    props.staging.setValue(row.id, col.accessorKey, value)
+    props.staging.fields.set(row.id, col.accessorKey, value)
   }
 
   function isEditedFor(col: DataTableColumn<T>, row: DataTableRow<T>) {
     const target = col.editable?.child?.(row.record)
     if (target) {
-      return props.staging.isChildFieldEdited(row.id, target.collection, target.id, target.field)
+      return props.staging.children.isEdited(row.id, target.collection, target.id, target.field)
     }
-    return props.staging.isFieldEdited(row.id, col.accessorKey)
+    return props.staging.fields.isEdited(row.id, col.accessorKey)
   }
 
   /** A column is editable on a row unless it proxies a minor record that does not exist yet. */
@@ -140,26 +140,25 @@
   // ---------------------------------------------------------------- rows
 
   const draftRows = computed<DataTableRow<T>[]>(() =>
-    props.staging.newRowIds.value
-      .map((id) => ({
-        id,
-        record: props.staging.draftRow(id) as T,
-        state: 'new' as StageState,
-        isNew: true,
-        deleted: false,
-      }))
-      .filter((row) => !!row.record)
+    props.staging.rows.drafts().map(({ id, fields }) => ({
+      id,
+      record: fields as T,
+      state: 'new' as StageState,
+      isNew: true,
+      deleted: false,
+    }))
   )
 
   const existingRows = computed<DataTableRow<T>[]>(() =>
     props.data.map((record) => {
       const id = props.rowKey(record)
+      const state = props.staging.rows.state(id)
       return {
         id,
-        record: props.staging.mergeRow(id, record),
-        state: props.staging.rowState(id),
+        record: props.staging.rows.merge<T>(id),
+        state,
         isNew: false,
-        deleted: props.staging.isDeleted(id),
+        deleted: state === 'deleted',
       }
     })
   )
@@ -253,23 +252,23 @@
   // Undo is only enabled once the selection actually contains something to undo — a selected but
   // untouched row contributes nothing.
   const hasUndoableSelection = computed(() =>
-    [...selected.value].some((id) => props.staging.rowState(id) !== 'clean')
+    [...selected.value].some((id) => props.staging.rows.state(id) !== 'clean')
   )
 
   function onAdd() {
     if (!props.newRow) return
-    const id = props.staging.addRow(props.newRow())
+    const id = props.staging.rows.add(props.newRow())
     pageIndex.value = 0
     if (props.expandable) expanded.value = { ...expanded.value, [id]: true }
   }
 
   function onDelete() {
-    props.staging.markDeleted([...selected.value])
+    props.staging.rows.markDeleted([...selected.value])
     selected.value = new Set()
   }
 
   function onUndo() {
-    for (const id of selected.value) props.staging.undoRow(id)
+    for (const id of selected.value) props.staging.rows.undo(id)
     selected.value = new Set()
   }
 

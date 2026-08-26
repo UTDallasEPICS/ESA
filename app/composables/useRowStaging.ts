@@ -6,8 +6,15 @@
 
 import type { StagedChanges } from '~/composables/useStagedChanges'
 
+/**
+ * Row-expansion components only ever edit a row's own fields or its nested children — never the
+ * row-lifecycle group (`rows`), which is DataTable.vue's own machinery. Narrowing the injected type
+ * to this subset keeps that distinction visible at every call site that injects it.
+ */
+export type RowFieldStaging = Pick<StagedChanges, 'fields' | 'children'>
+
 export interface RowStagingContext {
-  staging: StagedChanges
+  staging: RowFieldStaging
   saving: Readonly<Ref<boolean>>
 }
 

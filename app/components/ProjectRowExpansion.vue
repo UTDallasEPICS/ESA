@@ -7,7 +7,7 @@
   import { useRowStaging } from '~/composables/useRowStaging'
   import { useSemesterFilter } from '~/composables/useSemesterFilter'
   import { useSemesterLookup } from '~/composables/useSemesters'
-  import { useAllStudents } from '~/composables/useDirectory'
+  import { useAllStudents, useAllProjects } from '~/composables/useDirectory'
   import { useRecordModals } from '~/composables/useRecordModals'
 
   type TeamLike = Partial<TeamRead> & { semesterId: string; meetingDay: TeamRead['meetingDay'] }
@@ -28,19 +28,15 @@
   const { semesterId } = useSemesterFilter()
   const { semesters, semesterLabel, semesterSortKey, teamLabel } = useSemesterLookup()
   const { data: allStudents } = useAllStudents()
+  const { data: allProjects } = useAllProjects()
   const { openTeamModal, openMemberModal, openMoveModal } = useRecordModals()
 
   // ------------------------------------------------------------------- teams
 
   /** Every team on the project — fetched ones with their staged edits, then staged-new ones. */
   const allTeamCards = computed(() =>
-    staging
-      .mergeChildren<TeamLike>(
-        props.rowId,
-        'Teams',
-        (props.row.Teams ?? []) as unknown as TeamLike[],
-        (team) => team.id!
-      )
+    staging.children
+      .merge<TeamLike>(props.rowId, 'Teams')
       .sort((a, b) => semesterSortKey(b.record.semesterId) - semesterSortKey(a.record.semesterId))
   )
 
@@ -58,11 +54,11 @@
   // ------------------------------------------------------------- description
 
   function descriptionValue() {
-    return staging.getValue(props.rowId, 'description') ?? ''
+    return staging.fields.get(props.rowId, 'description') ?? ''
   }
 
   function setDescription(value: string) {
-    staging.setValue(props.rowId, 'description', value)
+    staging.fields.set(props.rowId, 'description', value)
   }
 
   // ------------------------------------------------------------------ modals
@@ -79,14 +75,11 @@
       defaultSemesterId:
         semesterId.value && !used.has(semesterId.value) ? semesterId.value : undefined,
     })
-    if (draft) staging.addChild(props.rowId, 'Teams', draft)
+    if (draft) staging.children.add(props.rowId, 'Teams', draft)
   }
 
   function stagedMembers() {
-    const originals = (props.row.Teams ?? []).flatMap(
-      (team) => (team.Memberships ?? []) as unknown as MemberLike[]
-    )
-    return staging.mergeChildren<MemberLike>(props.rowId, 'Memberships', originals, (m) => m.id!)
+    return staging.children.merge<MemberLike>(props.rowId, 'Memberships')
   }
 
   async function addMember(teamId: string, isMentor: boolean) {
@@ -98,24 +91,43 @@
     )
     const student = await openMemberModal({
       title: isMentor ? 'Add Mentor' : 'Add Student',
-      students: allStudents.value.filter((s) => !taken.has(s.id)),
+      students: allStudents.value.filter((s) => !taken.has(s.id) && (!isMentor || s.isMentor)),
     })
     if (student) {
-      staging.addChild(props.rowId, 'Memberships', { teamId, studentId: student.id, isMentor })
+      staging.children.add(props.rowId, 'Memberships', { teamId, studentId: student.id, isMentor })
     }
+  }
+
+  /**
+   * The destination choices for a move: every other team, across every project, that meets on the
+   * same day in the same semester as the team the member is leaving — not just this project's own
+   * teams, and not gated by the ambient semester filter, which would leave nothing to move to when
+   * a filter is set.
+   */
+  function moveDestinations(sourceTeamId: string) {
+    const source = allTeamCards.value.find((card) => card.id === sourceTeamId)?.record
+    if (!source) return []
+    return allProjects.value.flatMap((project) =>
+      (project.Teams ?? [])
+        .filter(
+          (team) =>
+            team.id !== sourceTeamId &&
+            team.semesterId === source.semesterId &&
+            team.meetingDay === source.meetingDay
+        )
+        .map((team) => ({ label: `${project.name} — ${teamLabel(team)}`, value: team.id }))
+    )
   }
 
   /** A move is two staged halves: the source membership goes, an identical one arrives (§3.1.6). */
   async function moveMember(member: MergedChild<MemberLike>) {
     const destination = await openMoveModal({
-      teams: teamCards.value
-        .filter((card) => !card.deleted && card.id !== member.record.teamId)
-        .map((card) => ({ label: teamLabel(card.record), value: card.id })),
+      teams: moveDestinations(member.record.teamId),
     })
     if (!destination) return
-    if (member.isNew) staging.undoChild(props.rowId, 'Memberships', member.id)
-    else staging.markChildDeleted(props.rowId, 'Memberships', member.id)
-    staging.addChild(props.rowId, 'Memberships', {
+    if (member.isNew) staging.children.undo(props.rowId, 'Memberships', member.id)
+    else staging.children.markDeleted(props.rowId, 'Memberships', member.id)
+    staging.children.add(props.rowId, 'Memberships', {
       teamId: destination,
       studentId: member.record.studentId,
       isMentor: !!member.record.isMentor,
@@ -131,8 +143,8 @@
         :rows="3"
         class="w-full"
         :disabled="disabled || saving"
-        :highlight="staging.isFieldEdited(rowId, 'description')"
-        :color="staging.isFieldEdited(rowId, 'description') ? 'warning' : undefined"
+        :highlight="staging.fields.isEdited(rowId, 'description')"
+        :color="staging.fields.isEdited(rowId, 'description') ? 'warning' : undefined"
         @update:model-value="setDescription"
       />
     </UFormField>

@@ -36,9 +36,9 @@
     students,
     (list) => {
       for (const student of list) {
-        staging.registerChildren(student.id, 'Enrollments', student.Enrollments ?? [], (e) => e.id)
-        staging.registerChildren(student.id, 'Memberships', student.Memberships ?? [], (m) => m.id)
-        staging.registerChildren(student.id, 'Choices', student.Choices ?? [], (c) => c.id)
+        staging.children.register(student.id, 'Enrollments', student.Enrollments ?? [], (e) => e.id)
+        staging.children.register(student.id, 'Memberships', student.Memberships ?? [], (m) => m.id)
+        staging.children.register(student.id, 'Choices', student.Choices ?? [], (c) => c.id)
       }
     },
     { immediate: true }
@@ -163,14 +163,14 @@
 
     if (isMentor) {
       // Left unassigned the card still stages, and its membership is only sent once a team is set.
-      staging.addChild(rowId, 'Memberships', {
+      staging.children.add(rowId, 'Memberships', {
         semesterId: draft.semesterId,
         teamId,
         isMentor: true,
       })
       return
     }
-    staging.addChild(rowId, 'Enrollments', {
+    staging.children.add(rowId, 'Enrollments', {
       semesterId: draft.semesterId,
       meetingDay: draft.meetingDay,
       major: draft.major,
@@ -179,7 +179,7 @@
       gender: draft.gender,
     })
     if (teamId) {
-      staging.addChild(rowId, 'Memberships', {
+      staging.children.add(rowId, 'Memberships', {
         semesterId: draft.semesterId,
         teamId,
         isMentor: false,
@@ -197,6 +197,8 @@
       year: fields.year,
       class: fields.class,
       gender: fields.gender,
+      skills: fields.skills,
+      comments: fields.comments,
     }
   }
 
@@ -394,7 +396,29 @@
           />
         </div>
 
-        <UAccordion :items="accordionItems(row, rowId)" type="multiple">
+        <!-- Semester set: every matching card open and non-collapsible. -->
+        <template v-if="semesterId">
+          <div
+            v-for="item in accordionItems(row, rowId)"
+            :key="item.value"
+            class="rounded border border-gray-200 dark:border-gray-800"
+            :class="item.class"
+          >
+            <div class="border-b border-gray-200 px-3 py-2 font-medium dark:border-gray-800">
+              {{ item.label }}
+            </div>
+            <StudentSemesterCard
+              :row-id="rowId"
+              :row="row"
+              :card="item.card"
+              :choices="item.choices"
+              :disabled="deleted"
+            />
+          </div>
+        </template>
+
+        <!-- Semester unset: every semester, collapsible, multi-open. -->
+        <UAccordion v-else :items="accordionItems(row, rowId)" type="multiple">
           <template #body="{ item }">
             <StudentSemesterCard
               :row-id="rowId"

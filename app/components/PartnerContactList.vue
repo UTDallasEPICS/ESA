@@ -30,25 +30,20 @@
   const { staging, saving } = useRowStaging()
 
   function contactValue(contactId: string, field: ContactField) {
-    return staging.getChildValue(props.rowId, 'Contacts', contactId, field) ?? ''
+    return staging.children.get(props.rowId, 'Contacts', contactId, field) ?? ''
   }
 
   function setContact(contactId: string, field: ContactField, value: any) {
-    staging.setChildValue(props.rowId, 'Contacts', contactId, field, value ?? '')
+    staging.children.set(props.rowId, 'Contacts', contactId, field, value ?? '')
   }
 
   function contactEdited(contactId: string, field: ContactField) {
-    return staging.isChildFieldEdited(props.rowId, 'Contacts', contactId, field)
+    return staging.children.isEdited(props.rowId, 'Contacts', contactId, field)
   }
 
   /** Fetched contacts with staged edits applied, plus staged-new ones, flagged with the primary. */
   const cards = computed<ContactCard[]>(() => {
-    const merged = staging.mergeChildren(
-      props.rowId,
-      'Contacts',
-      props.row.Contacts ?? [],
-      (c) => c.id
-    )
+    const merged = staging.children.merge<ContactRead>(props.rowId, 'Contacts')
     const live = merged.filter((card) => !card.deleted)
     const primaryId = (live.find((card) => card.record?.isPrimary) ?? live[0])?.id
     return merged.map((card) => ({ ...card, isPrimary: card.id === primaryId }))
@@ -58,9 +53,9 @@
   function makePrimary(id: string) {
     const current = cards.value.find((card) => card.isPrimary)
     if (current && current.id !== id) {
-      staging.setChildValue(props.rowId, 'Contacts', current.id, 'isPrimary', false)
+      staging.children.set(props.rowId, 'Contacts', current.id, 'isPrimary', false)
     }
-    staging.setChildValue(props.rowId, 'Contacts', id, 'isPrimary', true)
+    staging.children.set(props.rowId, 'Contacts', id, 'isPrimary', true)
   }
 </script>
 
@@ -129,7 +124,7 @@
               color="error"
               variant="ghost"
               :disabled="disabled || saving"
-              @click="staging.markChildDeleted(rowId, 'Contacts', contact.id)"
+              @click="staging.children.markDeleted(rowId, 'Contacts', contact.id)"
             />
             <UButton
               v-if="contact.state !== 'clean'"
@@ -139,7 +134,7 @@
               color="neutral"
               variant="ghost"
               :disabled="disabled || saving"
-              @click="staging.undoChild(rowId, 'Contacts', contact.id)"
+              @click="staging.children.undo(rowId, 'Contacts', contact.id)"
             />
           </div>
         </div>

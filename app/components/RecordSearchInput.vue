@@ -19,15 +19,19 @@
   )
 
   let searchToken = 0
-  watch(searchTerm, async (query) => {
-    const token = ++searchToken
-    loading.value = true
-    const found = await props.search(query)
-    if (token === searchToken) {
-      results.value = found
-      loading.value = false
-    }
-  })
+  watch(
+    searchTerm,
+    async (query) => {
+      const token = ++searchToken
+      loading.value = true
+      const found = await props.search(query)
+      if (token === searchToken) {
+        results.value = found
+        loading.value = false
+      }
+    },
+    { immediate: true }
+  )
 
   const selectedItem = computed(() =>
     modelValue.value

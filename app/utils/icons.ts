@@ -1,4 +1,4 @@
-// Icon Reference (docs/UIDesign-v1.1.md §2.7)
+// Icon Reference (docs/design/ui.md §2.7)
 export const ACTION_ICONS = {
   add: 'i-heroicons-plus',
   delete: 'i-heroicons-minus',

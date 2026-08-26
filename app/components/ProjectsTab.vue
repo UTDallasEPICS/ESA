@@ -47,8 +47,8 @@
     projects,
     (list) => {
       for (const project of list) {
-        staging.registerChildren(project.id, 'Teams', project.Teams ?? [], (t) => t.id)
-        staging.registerChildren(
+        staging.children.register(project.id, 'Teams', project.Teams ?? [], (t) => t.id)
+        staging.children.register(
           project.id,
           'Memberships',
           (project.Teams ?? []).flatMap((t) => t.Memberships ?? []),

@@ -15,8 +15,6 @@
     primaryPhone: string
   }
 
-  type ContactField = 'name' | 'email' | 'phone'
-
   const { semesterId, guard } = useSemesterFilter()
   const { openContactModal } = useRecordModals()
 
@@ -39,7 +37,7 @@
     partners,
     (list) => {
       for (const partner of list) {
-        staging.registerChildren(partner.id, 'Contacts', partner.Contacts ?? [], (c) => c.id)
+        staging.children.register(partner.id, 'Contacts', partner.Contacts ?? [], (c) => c.id)
       }
     },
     { immediate: true }
@@ -59,35 +57,21 @@
     })
   )
 
-  /**
-   * The contact a proxy column edits: the partner's primary, else its first contact, else a
-   * synthetic `new:` id so that typing into the column stages a contact creation instead.
-   */
-  function contactTargetId(row: PartnerRow) {
-    const primary = row.Contacts?.find((c) => c.isPrimary) ?? row.Contacts?.[0]
-    return primary?.id ?? `new:Contacts:primary:${row.id}`
-  }
-
+  // Display-only: the primary contact's info is editable only from the row expansion
+  // (PartnerContactList), not inline in the table.
   function contactColumn(
     id: string,
     header: string,
-    accessorKey: 'primaryName' | 'primaryEmail' | 'primaryPhone',
-    field: ContactField
+    accessorKey: 'primaryName' | 'primaryEmail' | 'primaryPhone'
   ): DataTableColumn<PartnerRow> {
-    return textColumn<PartnerRow>(accessorKey, header, {
-      id,
-      editable: {
-        type: 'text',
-        child: (row) => ({ collection: 'Contacts', id: contactTargetId(row), field }),
-      },
-    })
+    return textColumn<PartnerRow>(accessorKey, header, { id, editable: undefined })
   }
 
   const columns: DataTableColumn<PartnerRow>[] = [
     textColumn<PartnerRow>('name', 'Name', { required: true }),
-    contactColumn('primaryName', 'Contact', 'primaryName', 'name'),
-    contactColumn('primaryEmail', 'Email', 'primaryEmail', 'email'),
-    contactColumn('primaryPhone', 'Phone', 'primaryPhone', 'phone'),
+    contactColumn('primaryName', 'Contact', 'primaryName'),
+    contactColumn('primaryEmail', 'Email', 'primaryEmail'),
+    contactColumn('primaryPhone', 'Phone', 'primaryPhone'),
   ]
 
   function newRow() {
@@ -104,7 +88,7 @@
   /** Stages the contact under its partner row; the POST happens on the table's Confirm (§3.3.3). */
   async function addContact(rowId: string) {
     const draft = await openContactModal()
-    if (draft) staging.addChild(rowId, 'Contacts', draft)
+    if (draft) staging.children.add(rowId, 'Contacts', draft)
   }
 
   // ------------------------------------------------------------------ save

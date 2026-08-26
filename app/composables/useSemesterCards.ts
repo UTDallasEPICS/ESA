@@ -52,7 +52,7 @@ export interface ChoiceEntry {
 }
 
 export function useSemesterCards(input: {
-  staging: StagedChanges
+  staging: RowFieldStaging
   projects: Ref<ProjectRead[]>
   semesterLabel: (id?: string | null) => string
   semesterSortKey: (id?: string | null) => number
@@ -86,7 +86,7 @@ export function useSemesterCards(input: {
    * both — the two halves of a team change have to read as a single field on the card.
    */
   function membershipSlot(row: StudentRow, rowId: string, semesterId: string, isMentor: boolean) {
-    const merged = staging.mergeChildren(rowId, 'Memberships', row.Memberships ?? [], (m) => m.id)
+    const merged = staging.children.merge(rowId, 'Memberships')
     let existing: MergedChild<any> | undefined
     let added: MergedChild<any> | undefined
     for (const membership of merged) {
@@ -109,12 +109,7 @@ export function useSemesterCards(input: {
   function cardsFor(row: StudentRow, rowId: string): SemesterCard[] {
     const cards: SemesterCard[] = []
 
-    const enrollments = staging.mergeChildren(
-      rowId,
-      'Enrollments',
-      row.Enrollments ?? [],
-      (e) => e.id
-    )
+    const enrollments = staging.children.merge(rowId, 'Enrollments')
     for (const enrollment of enrollments) {
       const semesterId = enrollment.record.semesterId
       if (!semesterId) continue
@@ -135,12 +130,7 @@ export function useSemesterCards(input: {
       })
     }
 
-    const memberships = staging.mergeChildren(
-      rowId,
-      'Memberships',
-      row.Memberships ?? [],
-      (m) => m.id
-    )
+    const memberships = staging.children.merge(rowId, 'Memberships')
     const mentorSemesters = new Set<string>()
     for (const membership of memberships) {
       if (!membership.record.isMentor) continue
@@ -178,24 +168,28 @@ export function useSemesterCards(input: {
     // A staged-new membership with no fetched counterpart is simply retargeted in place; on a
     // Mentor card it is the card itself, so it survives being cleared.
     if (slot.added && !slot.existing) {
-      if (!teamId && !isMentor) staging.undoChild(rowId, 'Memberships', slot.added.id)
-      else staging.setChildValue(rowId, 'Memberships', slot.added.id, 'teamId', teamId)
+      if (!teamId && !isMentor) staging.children.undo(rowId, 'Memberships', slot.added.id)
+      else staging.children.set(rowId, 'Memberships', slot.added.id, 'teamId', teamId)
       return
     }
-    if (slot.added) staging.undoChild(rowId, 'Memberships', slot.added.id)
+    if (slot.added) staging.children.undo(rowId, 'Memberships', slot.added.id)
     if (!slot.existing) {
       if (teamId) {
-        staging.addChild(rowId, 'Memberships', { semesterId: card.semesterId, teamId, isMentor })
+        staging.children.add(rowId, 'Memberships', {
+          semesterId: card.semesterId,
+          teamId,
+          isMentor,
+        })
       }
       return
     }
     const shouldDelete = teamId !== slot.originalTeamId
     if (slot.existing.deleted !== shouldDelete) {
-      if (shouldDelete) staging.markChildDeleted(rowId, 'Memberships', slot.existing.id)
-      else staging.undoChild(rowId, 'Memberships', slot.existing.id)
+      if (shouldDelete) staging.children.markDeleted(rowId, 'Memberships', slot.existing.id)
+      else staging.children.undo(rowId, 'Memberships', slot.existing.id)
     }
     if (teamId && shouldDelete) {
-      staging.addChild(rowId, 'Memberships', { semesterId: card.semesterId, teamId, isMentor })
+      staging.children.add(rowId, 'Memberships', { semesterId: card.semesterId, teamId, isMentor })
     }
   }
 
@@ -204,19 +198,19 @@ export function useSemesterCards(input: {
       // Dropping a staged-new card takes its staged team assignment with it, so nothing is left
       // behind to be POSTed for a card that is no longer on screen.
       if (card.state === 'new' && card.addedMembershipId) {
-        staging.undoChild(rowId, 'Memberships', card.addedMembershipId)
+        staging.children.undo(rowId, 'Memberships', card.addedMembershipId)
       }
-      staging.markChildDeleted(rowId, 'Enrollments', card.childId)
+      staging.children.markDeleted(rowId, 'Enrollments', card.childId)
       return
     }
-    if (card.addedMembershipId) staging.undoChild(rowId, 'Memberships', card.addedMembershipId)
-    if (card.membershipId) staging.markChildDeleted(rowId, 'Memberships', card.membershipId)
+    if (card.addedMembershipId) staging.children.undo(rowId, 'Memberships', card.addedMembershipId)
+    if (card.membershipId) staging.children.markDeleted(rowId, 'Memberships', card.membershipId)
   }
 
   function undoCard(rowId: string, card: SemesterCard) {
-    if (card.addedMembershipId) staging.undoChild(rowId, 'Memberships', card.addedMembershipId)
-    if (card.membershipId) staging.undoChild(rowId, 'Memberships', card.membershipId)
-    if (card.role === 'Student') staging.undoChild(rowId, 'Enrollments', card.childId)
+    if (card.addedMembershipId) staging.children.undo(rowId, 'Memberships', card.addedMembershipId)
+    if (card.membershipId) staging.children.undo(rowId, 'Memberships', card.membershipId)
+    if (card.role === 'Student') staging.children.undo(rowId, 'Enrollments', card.childId)
   }
 
   /**
@@ -226,8 +220,8 @@ export function useSemesterCards(input: {
    */
   function choiceEntries(row: StudentRow, rowId: string, semesterId: string): ChoiceEntry[] {
     const originals = row.Choices ?? []
-    return staging
-      .mergeChildren<StagedChoice>(rowId, 'Choices', originals, (choice) => choice.id)
+    return staging.children
+      .merge<StagedChoice>(rowId, 'Choices')
       .filter((choice) => choice.record.semesterId === semesterId)
       .map((choice) => ({
         id: choice.id,
@@ -251,7 +245,7 @@ export function useSemesterCards(input: {
     const entry = entries[index]
     const neighbour = entries[index + direction]
     if (!entry || !neighbour) return
-    staging.setChildValue(rowId, 'Choices', entry.id, 'rank', entry.rank + direction)
+    staging.children.set(rowId, 'Choices', entry.id, 'rank', entry.rank + direction)
   }
 
   return {

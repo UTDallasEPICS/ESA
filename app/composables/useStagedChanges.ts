@@ -1,12 +1,20 @@
-// Per-table staging store for the editing model in docs/UIDesign-v1.1.md §2.3.1.
+// Per-table staging store for the editing model in docs/design/ui.md §2.3.1.
 //
 // Every creation, edit, and deletion made in a DataTable — including the ones made inside a row's
 // expansion — is held here until Confirm. Nothing in this file talks to the network: the owning tab
 // reads `payload()` on Confirm and turns it into API calls itself.
+//
+// The returned API is grouped by audience rather than flat: `rows` is DataTable's own row-lifecycle
+// machinery (nothing outside DataTable.vue calls it); `fields` reads/writes a row's own fields, used
+// by DataTable's generic columns and by expansion components editing untabled fields; `children`
+// stages nested minor records (Team, Contact, Choice, …) and is the one broadly shared across tabs
+// and row-expansion components. `isDirty`/`reset`/`payload` stay top-level because
+// `useSemesterFilter.ts`'s `SemesterGuard` expects `{isDirty, reset}` directly on the object passed
+// to `guard()`.
 
 export type StageState = 'new' | 'deleted' | 'edited' | 'clean'
 
-/** A staged change to a minor record nested under a major record (Team, Contact, Choice, …). */
+/** A staged change to a minor record nested under a row (Team, Contact, Choice, …). */
 export interface ChildStage {
   id: string
   isNew: boolean
@@ -14,9 +22,9 @@ export interface ChildStage {
   /** Edited fields for an existing child; the whole draft for a staged-new one. */
   fields: Record<string, any>
   /**
-   * The fetched record this child edits, cached by `registerChildren` so callers never have to
-   * look it up and pass it to every get/set call themselves. Unset for a staged-new child, which
-   * has no server-side counterpart to compare against.
+   * The fetched record this child edits, cached by `children.register` so callers never have to
+   * look it up and pass it to every get/set/merge call themselves. Unset for a staged-new child,
+   * which has no server-side counterpart to compare against.
    */
   original?: Record<string, any>
 }
@@ -27,7 +35,7 @@ interface RowStage {
   /** Edited fields for an existing row; the whole draft for a staged-new one. */
   fields: Record<string, any>
   children: Record<string, Record<string, ChildStage>>
-  /** The fetched record this row edits, cached by `registerRow`. Unset for a staged-new row. */
+  /** The fetched record this row edits, cached by `rows.register`. Unset for a staged-new row. */
   original?: Record<string, any>
 }
 
@@ -100,7 +108,6 @@ export function groupChildren(children?: ChildStage[]): ChildGroups {
 
 export function useStagedChanges() {
   const stages = reactive<Record<string, RowStage>>({})
-  const newRowIds = ref<string[]>([])
   let counter = 0
 
   function nextId(kind: string) {
@@ -135,13 +142,30 @@ export function useStagedChanges() {
     return false
   }
 
+  /**
+   * Clears whatever is staged on an existing row's children in place: a staged-new child is
+   * dropped, an edited or deleted one reverts to clean, keeping its cached original.
+   */
+  function clearChildren(stage: RowStage) {
+    for (const bucket of Object.values(stage.children)) {
+      for (const childId of Object.keys(bucket)) {
+        const child = bucket[childId]!
+        if (child.isNew) delete bucket[childId]
+        else {
+          child.deleted = false
+          child.fields = {}
+        }
+      }
+    }
+  }
+
   // ---------------------------------------------------------------- rows
+  // DataTable.vue's own row-lifecycle machinery — nothing outside it calls this group.
 
   /** Stage a new row from a blank draft. Returns its temporary id. */
   function addRow(draft: Record<string, any>): string {
     const id = nextId('row')
     stages[id] = { isNew: true, deleted: false, fields: { ...draft }, children: {} }
-    newRowIds.value = [...newRowIds.value, id]
     return id
   }
 
@@ -149,12 +173,11 @@ export function useStagedChanges() {
    *  colouring it red — there is nothing on the server yet to delete). */
   function dropRow(id: string) {
     delete stages[id]
-    newRowIds.value = newRowIds.value.filter((rowId) => rowId !== id)
   }
 
   /** Mark each id for deletion. Staged-new rows are dropped instead, since there is nothing to
-   *  delete server-side; use `undoRow` to unmark an existing row. */
-  function markDeleted(ids: string[]) {
+   *  delete server-side; use `undo` to unmark an existing row. */
+  function markRowsDeleted(ids: string[]) {
     for (const id of ids) {
       if (isNewId(id)) {
         dropRow(id)
@@ -165,9 +188,10 @@ export function useStagedChanges() {
   }
 
   /**
-   * Undoes whatever is staged on a row: a staged-new row is dropped, an edited row's fields revert
-   * to clean, and a deletion mark is lifted. Any staged changes to the row's children are left
-   * alone — they carry their own individual undo.
+   * Undoes whatever is staged on a row and its children: a staged-new row is dropped, an edited
+   * row's fields revert to clean, a deletion mark is lifted, and any staged child changes (e.g. a
+   * Student's Enrollments/Choices/Memberships) are cleared too — a row can be "edited" purely from
+   * child changes, so undoing the row must undo them for the row to actually turn clean.
    */
   function undoRow(id: string) {
     const stage = stages[id]
@@ -178,10 +202,7 @@ export function useStagedChanges() {
     }
     stage.deleted = false
     stage.fields = {}
-  }
-
-  function isDeleted(id: string) {
-    return !!stages[id]?.deleted
+    clearChildren(stage)
   }
 
   function rowState(id: string): StageState {
@@ -193,14 +214,41 @@ export function useStagedChanges() {
   }
 
   /**
-   * Caches the fetched record behind an existing row, so `getValue`/`setValue` never need it
-   * passed in again. Called by DataTable for every row on every render of `data` — cheap, and it
-   * keeps the cache current across a refetch.
+   * Caches the fetched record behind an existing row, so `fields.get`/`fields.set`/`rows.merge`
+   * never need it passed in again. Called by DataTable for every row on every render of `data` —
+   * cheap, and it keeps the cache current across a refetch.
    */
   function registerRow(id: string, record: Record<string, any>) {
     if (isNewId(id)) return
     stageFor(id).original = record
   }
+
+  /**
+   * A fetched row with its staged edits applied, for display, sorting, and filtering. Reads the
+   * record cached by `rows.register` rather than taking one as an argument, so callers don't have
+   * to keep re-threading the same object through — `register` runs immediately on every change to
+   * the owning fetch, ahead of any render that could call `merge`, so the cache is always current.
+   */
+  function mergeRow<T extends Record<string, any>>(id: string): T {
+    const stage = stages[id]
+    if (!stage) throw new Error(`rows.merge: row "${id}" was never registered`)
+    if (stage.isNew) return stage.fields as T
+    if (!Object.keys(stage.fields).length) return stage.original as T
+    return { ...stage.original, ...stage.fields } as T
+  }
+
+  /** Every staged-new row's temporary id and draft, in the order they were added. */
+  function drafts(): { id: string; fields: Record<string, any> }[] {
+    const result: { id: string; fields: Record<string, any> }[] = []
+    for (const [id, stage] of Object.entries(stages)) {
+      if (stage.isNew) result.push({ id, fields: stage.fields })
+    }
+    return result
+  }
+
+  // ------------------------------------------------------------- fields
+  // A row's own fields — used by DataTable's generic columns and by expansion components editing
+  // fields that aren't rendered as a column (e.g. a Project's description).
 
   /** The staged value for a field, falling back to the row's registered original. */
   function getValue(id: string, field: string) {
@@ -230,19 +278,6 @@ export function useStagedChanges() {
     return !!stage && !stage.isNew && field in stage.fields
   }
 
-  /** The full draft object behind a staged-new row. */
-  function draftRow(id: string): Record<string, any> | undefined {
-    const stage = stages[id]
-    return stage?.isNew ? stage.fields : undefined
-  }
-
-  /** A fetched row with its staged edits applied, for display, sorting, and filtering. */
-  function mergeRow<T extends Record<string, any>>(id: string, record: T): T {
-    const stage = stages[id]
-    if (!stage || stage.isNew || !Object.keys(stage.fields).length) return record
-    return { ...record, ...stage.fields }
-  }
-
   // ------------------------------------------------------------ children
 
   function childrenFor(rowId: string, collection: string): Record<string, ChildStage> {
@@ -262,7 +297,7 @@ export function useStagedChanges() {
   }
 
   /** Mark an existing child for deletion, or drop a staged-new one, since there is nothing to
-   *  delete server-side; use `undoChild` to unmark it. */
+   *  delete server-side; use `undo` to unmark it. */
   function markChildDeleted(rowId: string, collection: string, childId: string) {
     const bucket = childrenFor(rowId, collection)
     const existing = bucket[childId]
@@ -294,9 +329,13 @@ export function useStagedChanges() {
   }
 
   /**
-   * Caches the fetched records behind an existing row's children, so `getChildValue`/
-   * `setChildValue` never need one passed in again. Keyed the same way `mergeChildren` is; call it
-   * with every item in the collection whenever the owning tab's fetch changes.
+   * Caches the fetched records behind an existing row's children, so `children.get`/`children.set`/
+   * `children.merge` never need one passed in again. Rebuilds the bucket in `records`' order on
+   * every call — reusing each already-known child's `ChildStage` by id rather than replacing it, so
+   * staged edits survive — which keeps `children.merge`'s output in the current server order even
+   * across a reorder-and-refresh, instead of freezing at whatever order a child was first seen in.
+   * Any still-staged-new child (not yet saved, so absent from `records`) is carried over to the end
+   * in its prior relative order.
    */
   function registerChildren<C extends Record<string, any>>(
     rowId: string,
@@ -305,13 +344,23 @@ export function useStagedChanges() {
     key: (record: C) => string
   ) {
     if (isNewId(rowId)) return
-    const bucket = childrenFor(rowId, collection)
+    const stage = stageFor(rowId)
+    const oldBucket = stage.children[collection] ?? {}
+    const newBucket: Record<string, ChildStage> = {}
     for (const record of records) {
       const id = key(record)
-      const existing = bucket[id]
-      if (existing) existing.original = record
-      else bucket[id] = { id, isNew: false, deleted: false, fields: {}, original: record }
+      const existing = oldBucket[id]
+      if (existing) {
+        existing.original = record
+        newBucket[id] = existing
+      } else {
+        newBucket[id] = { id, isNew: false, deleted: false, fields: {}, original: record }
+      }
     }
+    for (const [id, childStage] of Object.entries(oldBucket)) {
+      if (childStage.isNew) newBucket[id] = childStage
+    }
+    stage.children[collection] = newBucket
   }
 
   function getChildValue(rowId: string, collection: string, childId: string, field: string) {
@@ -366,27 +415,30 @@ export function useStagedChanges() {
   }
 
   /**
-   * Fetched children with staged edits applied, followed by staged-new ones. Deleted children stay
-   * in the list so the UI can keep them in view, tinted red.
+   * Fetched children with staged edits applied, followed by staged-new ones, in the order cached by
+   * `children.register`. Deleted children stay in the list so the UI can keep them in view, tinted
+   * red. Reads entirely off the registered cache rather than taking the original list again — a
+   * bucket only ever exists once `register` has populated it, so an empty/missing bucket here just
+   * means the row genuinely has no children in this collection yet, not a registration bug.
    */
-  function mergeChildren<C extends Record<string, any>>(
+  function mergeChildren<C extends Record<string, any> = Record<string, any>>(
     rowId: string,
-    collection: string,
-    originals: C[],
-    key: (child: C) => string
+    collection: string
   ): MergedChild<C>[] {
     const bucket = stages[rowId]?.children[collection] ?? {}
-    const merged: MergedChild<C>[] = originals.map((record) => {
-      const id = key(record)
-      const stage = bucket[id]
-      return {
-        id,
-        record: stage && !stage.isNew ? { ...record, ...stage.fields } : record,
-        state: childState(rowId, collection, id),
+    const merged: MergedChild<C>[] = []
+    for (const stage of Object.values(bucket)) {
+      if (stage.isNew) continue
+      merged.push({
+        id: stage.id,
+        record: (Object.keys(stage.fields).length
+          ? { ...stage.original, ...stage.fields }
+          : stage.original) as C,
+        state: childState(rowId, collection, stage.id),
         isNew: false,
-        deleted: !!stage?.deleted,
-      }
-    })
+        deleted: stage.deleted,
+      })
+    }
     for (const stage of Object.values(bucket)) {
       if (!stage.isNew) continue
       merged.push({
@@ -404,9 +456,23 @@ export function useStagedChanges() {
 
   const isDirty = computed(() => Object.values(stages).some(hasRowChanges))
 
+  /**
+   * Discards every staged change (Cancel). A staged-new row is dropped entirely; an existing row's
+   * edits, deletion mark, and staged children are cleared, but its registered `original` — and its
+   * children's — stays cached, since nothing refetches on Cancel and dropping the cache would leave
+   * every field reading as undefined until the next refresh.
+   */
   function reset() {
-    for (const id of Object.keys(stages)) delete stages[id]
-    newRowIds.value = []
+    for (const id of Object.keys(stages)) {
+      const stage = stages[id]!
+      if (stage.isNew) {
+        delete stages[id]
+        continue
+      }
+      stage.deleted = false
+      stage.fields = {}
+      clearChildren(stage)
+    }
   }
 
   function toRecord(id: string, stage: RowStage): StagedRecord {
@@ -422,42 +488,42 @@ export function useStagedChanges() {
     const created: StagedRecord[] = []
     const updated: StagedRecord[] = []
     const deleted: string[] = []
-    for (const id of newRowIds.value) {
-      const stage = stages[id]
-      if (stage?.isNew) created.push(toRecord(id, stage))
-    }
     for (const [id, stage] of Object.entries(stages)) {
-      if (stage.isNew) continue
-      if (stage.deleted) deleted.push(id)
+      if (stage.isNew) created.push(toRecord(id, stage))
+      else if (stage.deleted) deleted.push(id)
       else if (hasRowChanges(stage)) updated.push(toRecord(id, stage))
     }
     return { created, updated, deleted }
   }
 
   return {
-    newRowIds,
-    addRow,
-    markDeleted,
-    undoRow,
-    isDeleted,
-    rowState,
-    registerRow,
-    getValue,
-    setValue,
-    isFieldEdited,
-    draftRow,
-    mergeRow,
-    addChild,
-    markChildDeleted,
-    undoChild,
-    registerChildren,
-    getChildValue,
-    setChildValue,
-    isChildFieldEdited,
-    mergeChildren,
     isDirty,
     reset,
     payload,
+    rows: {
+      add: addRow,
+      markDeleted: markRowsDeleted,
+      undo: undoRow,
+      state: rowState,
+      register: registerRow,
+      merge: mergeRow,
+      drafts,
+    },
+    fields: {
+      get: getValue,
+      set: setValue,
+      isEdited: isFieldEdited,
+    },
+    children: {
+      add: addChild,
+      markDeleted: markChildDeleted,
+      undo: undoChild,
+      register: registerChildren,
+      get: getChildValue,
+      set: setChildValue,
+      isEdited: isChildFieldEdited,
+      merge: mergeChildren,
+    },
   }
 }
 

@@ -39,15 +39,15 @@
   // --------------------------------------------------------- enrollment fields
 
   function enrollmentValue(childId: string, field: string) {
-    return staging.getChildValue(props.rowId, 'Enrollments', childId, field)
+    return staging.children.get(props.rowId, 'Enrollments', childId, field)
   }
 
   function setEnrollmentValue(childId: string, field: string, value: any) {
-    staging.setChildValue(props.rowId, 'Enrollments', childId, field, value)
+    staging.children.set(props.rowId, 'Enrollments', childId, field, value)
   }
 
   function enrollmentEdited(childId: string, field: string) {
-    return staging.isChildFieldEdited(props.rowId, 'Enrollments', childId, field)
+    return staging.children.isEdited(props.rowId, 'Enrollments', childId, field)
   }
 
   // ---------------------------------------------------------------- team field
@@ -79,7 +79,7 @@
     })
     if (!project) return
     const rank = Math.max(0, ...props.choices.map((entry) => entry.rank)) + 1
-    staging.addChild(props.rowId, 'Choices', {
+    staging.children.add(props.rowId, 'Choices', {
       semesterId: props.card.semesterId,
       projectId: project.id,
       rank,
@@ -134,6 +134,30 @@
           :highlight="enrollmentEdited(card.childId, field.field)"
           color="warning"
           @update:model-value="(value: any) => setEnrollmentValue(card.childId, field.field, value)"
+        />
+      </UFormField>
+    </div>
+
+    <div v-if="card.role === 'Student'" class="space-y-2">
+      <UFormField label="Skills">
+        <UInputTags
+          :model-value="enrollmentValue(card.childId, 'skills') ?? []"
+          class="w-full"
+          :disabled="disabled || card.deleted || saving"
+          :highlight="enrollmentEdited(card.childId, 'skills')"
+          color="warning"
+          @update:model-value="(value: any) => setEnrollmentValue(card.childId, 'skills', value)"
+        />
+      </UFormField>
+      <UFormField label="Comments">
+        <UTextarea
+          :model-value="enrollmentValue(card.childId, 'comments') ?? ''"
+          :rows="2"
+          class="w-full"
+          :disabled="disabled || card.deleted || saving"
+          :highlight="enrollmentEdited(card.childId, 'comments')"
+          color="warning"
+          @update:model-value="(value: any) => setEnrollmentValue(card.childId, 'comments', value)"
         />
       </UFormField>
     </div>
@@ -213,7 +237,7 @@
               color="error"
               variant="ghost"
               :disabled="disabled || card.deleted || saving"
-              @click="staging.markChildDeleted(rowId, 'Choices', entry.id)"
+              @click="staging.children.markDeleted(rowId, 'Choices', entry.id)"
             />
             <UButton
               v-if="entry.state !== 'clean'"
@@ -223,7 +247,7 @@
               color="neutral"
               variant="ghost"
               :disabled="disabled || card.deleted || saving"
-              @click="staging.undoChild(rowId, 'Choices', entry.id)"
+              @click="staging.children.undo(rowId, 'Choices', entry.id)"
             />
           </div>
         </li>
