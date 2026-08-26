@@ -36,7 +36,10 @@ export const auth = betterAuth({
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
-        console.log("OTP:" + otp);
+        // Dev-only: OTPs are sign-in credentials (this app has no password auth), so never log them in production.
+        if (import.meta.dev) {
+          console.log(`OTP for ${email} (${type}): ${otp}`);
+        }
         await transporter.sendMail({
           from: process.env.EMAIL_FROM,
           to: email,
