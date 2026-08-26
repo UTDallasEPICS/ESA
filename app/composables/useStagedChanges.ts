@@ -13,6 +13,12 @@ export interface ChildStage {
   deleted: boolean
   /** Edited fields for an existing child; the whole draft for a staged-new one. */
   fields: Record<string, any>
+  /**
+   * The fetched record this child edits, cached by `registerChildren` so callers never have to
+   * look it up and pass it to every get/set call themselves. Unset for a staged-new child, which
+   * has no server-side counterpart to compare against.
+   */
+  original?: Record<string, any>
 }
 
 interface RowStage {
@@ -21,6 +27,8 @@ interface RowStage {
   /** Edited fields for an existing row; the whole draft for a staged-new one. */
   fields: Record<string, any>
   children: Record<string, Record<string, ChildStage>>
+  /** The fetched record this row edits, cached by `registerRow`. Unset for a staged-new row. */
+  original?: Record<string, any>
 }
 
 export interface StagedRecord {
@@ -47,10 +55,47 @@ export interface MergedChild<C> {
   deleted: boolean
 }
 
+/** Green / blue / red row and card tints for each stage state (§2.3.1). */
+export const STAGE_TINTS: Record<StageState, string> = {
+  new: 'bg-success-50 dark:bg-success-950/50',
+  edited: 'bg-info-50 dark:bg-info-950/50',
+  deleted: 'bg-error-50 dark:bg-error-950/50',
+  clean: '',
+}
+
 const NEW_PREFIX = 'new:'
 
-export function isNewId(id: string) {
+function isNewId(id: string) {
   return id.startsWith(NEW_PREFIX)
+}
+
+export interface ChildGroups {
+  added: ChildStage[]
+  edited: ChildStage[]
+  deleted: ChildStage[]
+}
+
+function isChildDirty(child: ChildStage) {
+  return child.isNew || child.deleted || Object.keys(child.fields).length > 0
+}
+
+/**
+ * Splits a collection's staged children into the three things a save has to do with them. `edited`
+ * excludes children whose fields ended up unchanged, so a caller can skip an empty PUT. Callers
+ * still choose their own ordering — enrollments and memberships must delete before they create.
+ */
+export function groupChildren(children?: ChildStage[]): ChildGroups {
+  const groups: ChildGroups = { added: [], edited: [], deleted: [] }
+  for (const child of children ?? []) {
+    if (child.deleted) {
+      if (!child.isNew) groups.deleted.push(child)
+    } else if (child.isNew) {
+      groups.added.push(child)
+    } else if (Object.keys(child.fields).length) {
+      groups.edited.push(child)
+    }
+  }
+  return groups
 }
 
 export function useStagedChanges() {
@@ -66,15 +111,28 @@ export function useStagedChanges() {
     return (stages[id] ??= { isNew: isNewId(id), deleted: false, fields: {}, children: {} })
   }
 
-  /** Drop a row's stage once it holds nothing, so the toolbar can hide Confirm/Cancel again. */
-  function prune(id: string) {
-    const stage = stages[id]
-    if (!stage || stage.isNew || stage.deleted) return
-    if (Object.keys(stage.fields).length) return
-    for (const collection of Object.values(stage.children)) {
-      if (Object.keys(collection).length) return
+  /**
+   * null, undefined, and '' are treated as the same "blank" for revert purposes — a cleared text
+   * input models absence as '', a nullable fetched field models it as null, and a field reverted to
+   * either should stop reading as edited.
+   */
+  function isBlank(value: any) {
+    return value == null || value === ''
+  }
+
+  function isReverted(value: any, original: any) {
+    return value === original || (isBlank(value) && isBlank(original))
+  }
+
+  function hasRowChanges(stage: RowStage) {
+    if (stage.isNew || stage.deleted) return true
+    if (Object.keys(stage.fields).length) return true
+    for (const bucket of Object.values(stage.children)) {
+      for (const child of Object.values(bucket)) {
+        if (isChildDirty(child)) return true
+      }
     }
-    delete stages[id]
+    return false
   }
 
   // ---------------------------------------------------------------- rows
@@ -87,27 +145,39 @@ export function useStagedChanges() {
     return id
   }
 
-  /** Discard a staged-new row entirely (Delete on a green row drops it rather than marking it). */
+  /** Discard a staged-new row entirely (marking a green row for deletion drops it rather than
+   *  colouring it red — there is nothing on the server yet to delete). */
   function dropRow(id: string) {
     delete stages[id]
     newRowIds.value = newRowIds.value.filter((rowId) => rowId !== id)
   }
 
-  /** Toggle the deletion mark on each id. Staged-new rows are dropped instead. */
-  function toggleDeleted(ids: string[]) {
+  /** Mark each id for deletion. Staged-new rows are dropped instead, since there is nothing to
+   *  delete server-side; use `undoRow` to unmark an existing row. */
+  function markDeleted(ids: string[]) {
     for (const id of ids) {
       if (isNewId(id)) {
         dropRow(id)
         continue
       }
-      const stage = stageFor(id)
-      stage.deleted = !stage.deleted
-      prune(id)
+      stageFor(id).deleted = true
     }
   }
 
-  function isNew(id: string) {
-    return !!stages[id]?.isNew
+  /**
+   * Undoes whatever is staged on a row: a staged-new row is dropped, an edited row's fields revert
+   * to clean, and a deletion mark is lifted. Any staged changes to the row's children are left
+   * alone — they carry their own individual undo.
+   */
+  function undoRow(id: string) {
+    const stage = stages[id]
+    if (!stage) return
+    if (stage.isNew) {
+      dropRow(id)
+      return
+    }
+    stage.deleted = false
+    stage.fields = {}
   }
 
   function isDeleted(id: string) {
@@ -119,27 +189,37 @@ export function useStagedChanges() {
     if (!stage) return 'clean'
     if (stage.deleted) return 'deleted'
     if (stage.isNew) return 'new'
-    return 'edited'
+    return hasRowChanges(stage) ? 'edited' : 'clean'
   }
 
-  /** The staged value for a field, falling back to the fetched record's value. */
-  function getValue(id: string, field: string, original?: any) {
+  /**
+   * Caches the fetched record behind an existing row, so `getValue`/`setValue` never need it
+   * passed in again. Called by DataTable for every row on every render of `data` — cheap, and it
+   * keeps the cache current across a refetch.
+   */
+  function registerRow(id: string, record: Record<string, any>) {
+    if (isNewId(id)) return
+    stageFor(id).original = record
+  }
+
+  /** The staged value for a field, falling back to the row's registered original. */
+  function getValue(id: string, field: string) {
     const stage = stages[id]
-    if (!stage) return original
+    if (!stage) return undefined
     if (stage.isNew) return stage.fields[field]
-    return field in stage.fields ? stage.fields[field] : original
+    return field in stage.fields ? stage.fields[field] : stage.original?.[field]
   }
 
-  /** Stage a field edit. Setting a value back to `original` clears the edit. */
-  function setValue(id: string, field: string, value: any, original?: any) {
+  /** Stage a field edit. Setting a value back to the registered original clears the edit. */
+  function setValue(id: string, field: string, value: any) {
     const stage = stageFor(id)
     if (stage.isNew) {
       stage.fields[field] = value
       return
     }
-    if (value === original || (value == null && original == null)) {
+    const original = stage.original?.[field]
+    if (isReverted(value, original)) {
       delete stage.fields[field]
-      prune(id)
     } else {
       stage.fields[field] = value
     }
@@ -181,41 +261,64 @@ export function useStagedChanges() {
     return id
   }
 
-  /** Mark an existing child deleted, or drop a staged-new one. Toggles. */
-  function toggleChildDeleted(rowId: string, collection: string, childId: string) {
+  /** Mark an existing child for deletion, or drop a staged-new one, since there is nothing to
+   *  delete server-side; use `undoChild` to unmark it. */
+  function markChildDeleted(rowId: string, collection: string, childId: string) {
     const bucket = childrenFor(rowId, collection)
     const existing = bucket[childId]
     if (existing?.isNew) {
       delete bucket[childId]
-      prune(rowId)
       return
     }
     if (existing) {
-      existing.deleted = !existing.deleted
-      if (!existing.deleted && !Object.keys(existing.fields).length) delete bucket[childId]
-      prune(rowId)
+      existing.deleted = true
       return
     }
     bucket[childId] = { id: childId, isNew: false, deleted: true, fields: {} }
   }
 
-  /** Drop a staged child change outright — the Undo button on a green or red card. */
-  function dropChild(rowId: string, collection: string, childId: string) {
-    delete childrenFor(rowId, collection)[childId]
-    prune(rowId)
+  /**
+   * Undoes whatever is staged on a minor record — the Undo button on a green, blue, or red card. A
+   * staged-new child is discarded entirely; an existing one reverts to clean, keeping its cached
+   * original.
+   */
+  function undoChild(rowId: string, collection: string, childId: string) {
+    const bucket = childrenFor(rowId, collection)
+    const existing = bucket[childId]
+    if (existing?.isNew) {
+      delete bucket[childId]
+    } else if (existing) {
+      existing.deleted = false
+      existing.fields = {}
+    }
   }
 
-  function getChildValue(
+  /**
+   * Caches the fetched records behind an existing row's children, so `getChildValue`/
+   * `setChildValue` never need one passed in again. Keyed the same way `mergeChildren` is; call it
+   * with every item in the collection whenever the owning tab's fetch changes.
+   */
+  function registerChildren<C extends Record<string, any>>(
     rowId: string,
     collection: string,
-    childId: string,
-    field: string,
-    original?: any
+    records: C[],
+    key: (record: C) => string
   ) {
+    if (isNewId(rowId)) return
+    const bucket = childrenFor(rowId, collection)
+    for (const record of records) {
+      const id = key(record)
+      const existing = bucket[id]
+      if (existing) existing.original = record
+      else bucket[id] = { id, isNew: false, deleted: false, fields: {}, original: record }
+    }
+  }
+
+  function getChildValue(rowId: string, collection: string, childId: string, field: string) {
     const stage = childStage(rowId, collection, childId)
-    if (!stage) return original
+    if (!stage) return undefined
     if (stage.isNew) return stage.fields[field]
-    return field in stage.fields ? stage.fields[field] : original
+    return field in stage.fields ? stage.fields[field] : stage.original?.[field]
   }
 
   /**
@@ -228,8 +331,7 @@ export function useStagedChanges() {
     collection: string,
     childId: string,
     field: string,
-    value: any,
-    original?: any
+    value: any
   ) {
     const bucket = childrenFor(rowId, collection)
     const stage = (bucket[childId] ??= {
@@ -242,10 +344,9 @@ export function useStagedChanges() {
       stage.fields[field] = value
       return
     }
-    if (value === original || (value == null && original == null)) {
+    const original = stage.original?.[field]
+    if (isReverted(value, original)) {
       delete stage.fields[field]
-      if (!stage.deleted && !Object.keys(stage.fields).length) delete bucket[childId]
-      prune(rowId)
     } else {
       stage.fields[field] = value
     }
@@ -301,7 +402,7 @@ export function useStagedChanges() {
 
   // -------------------------------------------------------------- global
 
-  const isDirty = computed(() => Object.keys(stages).length > 0)
+  const isDirty = computed(() => Object.values(stages).some(hasRowChanges))
 
   function reset() {
     for (const id of Object.keys(stages)) delete stages[id]
@@ -311,7 +412,7 @@ export function useStagedChanges() {
   function toRecord(id: string, stage: RowStage): StagedRecord {
     const children: Record<string, ChildStage[]> = {}
     for (const [collection, bucket] of Object.entries(stage.children)) {
-      const list = Object.values(bucket)
+      const list = Object.values(bucket).filter(isChildDirty)
       if (list.length) children[collection] = list
     }
     return { id, fields: { ...stage.fields }, children }
@@ -328,33 +429,31 @@ export function useStagedChanges() {
     for (const [id, stage] of Object.entries(stages)) {
       if (stage.isNew) continue
       if (stage.deleted) deleted.push(id)
-      else updated.push(toRecord(id, stage))
+      else if (hasRowChanges(stage)) updated.push(toRecord(id, stage))
     }
     return { created, updated, deleted }
   }
 
   return {
-    stages,
     newRowIds,
     addRow,
-    dropRow,
-    toggleDeleted,
-    isNew,
+    markDeleted,
+    undoRow,
     isDeleted,
     rowState,
+    registerRow,
     getValue,
     setValue,
     isFieldEdited,
     draftRow,
     mergeRow,
     addChild,
-    toggleChildDeleted,
-    dropChild,
+    markChildDeleted,
+    undoChild,
+    registerChildren,
     getChildValue,
     setChildValue,
     isChildFieldEdited,
-    childState,
-    childStage,
     mergeChildren,
     isDirty,
     reset,

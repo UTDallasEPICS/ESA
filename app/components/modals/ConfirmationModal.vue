@@ -1,5 +1,5 @@
 <script setup lang="ts">
-  import { ACTION_ICONS } from '~/utils/icons'
+  import ModalFooter from '~/components/modals/ModalFooter.vue'
   import type { ConfirmOptions } from '~/composables/useConfirm'
 
   const props = defineProps<ConfirmOptions>()
@@ -17,21 +17,12 @@
     </template>
 
     <template #footer>
-      <div class="flex w-full justify-end gap-2">
-        <UButton
-          label="Cancel"
-          :icon="ACTION_ICONS.cancel"
-          color="neutral"
-          variant="soft"
-          @click="emit('close', false)"
-        />
-        <UButton
-          :label="props.confirmLabel ?? 'Confirm'"
-          :icon="ACTION_ICONS.confirm"
-          color="error"
-          @click="emit('close', true)"
-        />
-      </div>
+      <ModalFooter
+        :confirm-label="props.confirmLabel"
+        confirm-color="error"
+        @cancel="emit('close', false)"
+        @confirm="emit('close', true)"
+      />
     </template>
   </UModal>
 </template>

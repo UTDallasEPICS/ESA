@@ -83,8 +83,12 @@ There is no role concept on `User` yet, so User Management is shown to everyone 
 
 ### 2.2 Semester Filter (`components/SemesterFilter.vue`)
 
-`v-model` is a `semesterId | undefined`. Backed by `useSemesters()` (`composables/useSemesters.ts`), which fetches
-`/api/semesters` under the shared key `semesters` so every mounted instance shares one cache and one refresh.
+`v-model` is a `semesterId | undefined`. The component is **fully controlled** — an explicit `modelValue` prop plus
+an `update:modelValue` emit, not `defineModel` — because `defineModel` keeps a local value, and a caller that
+declines a change (§2.3.2, §3) needs the dropdown to keep showing the semester the page actually adopted rather
+than snapping to whatever was picked before the decline. Backed by `useSemesters()` (`composables/useSemesters.ts`),
+which fetches `/api/semesters` under the shared key `semesters` so every mounted instance shares one cache and one
+refresh.
 
 | Sub-element          | Component                | Visible when          | Action / result                                                                 |
 | -------------------- | ------------------------ | --------------------- | ------------------------------------------------------------------------------- |
@@ -160,7 +164,9 @@ Rules:
 - Highlight precedence is deletion > edit > addition. Marking a staged **new** row for deletion simply drops it
   from the store rather than colouring it red.
 - A deletion-marked row is read-only: its inline inputs and expansion editors are disabled until it is unmarked.
-  Selecting it and pressing Delete again toggles the mark off; Cancel unmarks everything.
+  Delete only ever marks; unmarking a row (or reverting an edit, or dropping an addition) goes through Undo
+  instead — selecting it and pressing Delete again does nothing further. Cancel unmarks and reverts everything at
+  once.
 - Staged new rows are pinned to the top of the first page and are exempt from sorting and column filters, so a
   half-filled row can never be filtered out of view.
 - Expansion editors (teams, contacts, choices, semester info — §3) write into the **same** store, so a change made
@@ -183,12 +189,21 @@ The parent translates that single payload into its API calls (see each tab in §
 | Button  | Icon | Enabled when                             | Result                                                                                                                  |
 | ------- | ---- | ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
 | Add     | +    | Always                                   | Appends one blank draft row (from `newRow`), pre-expanded and focused on its first cell. Each click adds another. No request. |
-| Delete  | −    | ≥1 row selected                          | Marks every selected row for deletion and clears the selection. No request.                                              |
+| Delete  | −    | ≥1 row selected                          | Marks every selected row for deletion and clears the selection (a selected staged-new row is dropped instead). No request. |
+| Undo    | ↺    | ≥1 selected row is added, edited, or marked for deletion | Undoes each such selected row individually — drops an addition, restores an edited row to its original state, unmarks a deletion — and clears the selection. No request. |
 | Confirm | ✓    | **Only rendered while the store is non-empty** (a row is being added, edited, or marked for deletion) | Emits `save` with the payload above; on success the store is cleared and highlights vanish. Disabled while any staged row is invalid. |
 | Cancel  | ✗    | **Only rendered while the store is non-empty**       | Discards every staged addition, edit, and deletion at once; the table returns to its fetched state                       |
 
-Because Confirm and Cancel are the only write paths, navigating away or switching the semester filter with staged
-changes is a destructive act — the parent prompts through the Confirmation Modal before discarding them.
+Undo, unlike Confirm/Cancel, is always rendered — only its enabled state depends on the selection. Selecting a
+mix of clean and staged rows still enables it; it simply leaves the clean rows untouched.
+
+Because Confirm and Cancel are the only write paths, switching the semester filter or switching tabs with staged
+changes is a destructive act. Both are **gated**, not restored: `database.vue`'s `provideSemesterFilter()`
+(`composables/useSemesterFilter.ts`) asks through the Confirmation Modal first, via `request(next)` for the
+semester and `confirmDiscard(description)` for a tab switch, and only moves the semester id or the active tab once
+the user confirms — declining leaves both exactly where they were, with no intermediate state to flash or restore.
+Switching tabs matters here too: `UTabs` unmounts the inactive panel by default, which would otherwise destroy a
+tab's staged changes with no prompt at all.
 
 #### 2.3.3 Column headers
 
@@ -306,8 +321,9 @@ Out-of-order responses are discarded via a monotonic token, so a slow early quer
 
 ## 3. Database (`pages/database.vue`)
 
-A `UContainer` with a header row — "Database" plus one `SemesterFilter` — over a `UTabs` with three tabs. The
-semester id lives on the page and is passed to all three tabs, so switching tabs preserves the filter.
+A `UContainer` with a header row — "Database" plus one `SemesterFilter` — over a `UTabs` with three tabs. The page
+owns both the semester id and the active tab, through `provideSemesterFilter()` (§2.3.2, §3.4); a tab no longer
+holds either itself.
 
 | Tab      | Component          | Semester filter narrows the list to…                                  |
 | -------- | ------------------ | ---------------------------------------------------------------------- |
@@ -315,8 +331,9 @@ semester id lives on the page and is passed to all three tabs, so switching tabs
 | Students | `StudentsTab.vue`  | Students enrolled that semester **or** mentoring a team that semester   |
 | Partners | `PartnersTab.vue`  | Partners owning a project with a team that semester                     |
 
-Each tab fetches its own list with a reactive `semesterId` query param and re-fetches whenever the filter changes.
-No semester selected means no filtering.
+Each tab fetches its own list with a reactive `semesterId` query param — read from `useSemesterFilter()` — and
+re-fetches whenever the id moves. No semester selected means no filtering. Because the id only moves after the page
+has asked and the user has confirmed (§2.3.2), a tab never refetches out from under an open confirmation dialog.
 
 ### 3.1 Projects Tab
 
@@ -380,7 +397,7 @@ Every action here stages a change on the parent project row — no request is ma
 | Add Mentor / Student   | Opens the Member Creation Modal and appends the picked student to that list                                | Member row tinted green                   |
 | Move (per member)      | Opens the Move Student Modal; on confirm, stages that membership as deleted from this team and stages a new membership on the chosen destination team | Member row tinted red here; a new green row appears on the destination team's card |
 | Remove (per member)    | Marks that membership for deletion; the row stays in view                                                  | Member row tinted red                     |
-| Undo (on a staged row) | Available on any green/red item — drops the staged addition or unmarks the deletion                        | Returns to normal                          |
+| Undo (on a staged row) | Available on any green, blue, or red item — drops a staged addition, reverts an edit, or unmarks a deletion | Returns to normal                          |
 
 Any staged team or membership change — including a Move, which touches two team cards at once — turns the parent
 project row blue. Nothing is written until the table's Confirm.
@@ -554,8 +571,8 @@ action stages a change on the parent partner row and issues no request.
 | ------------ | ------------------------------- | --------------------------------------------------------------------------- |
 | Add Contact  | Header                          | Opens the Contact Creation Modal; the result is appended as a green card     |
 | Make Primary | Contact is not primary          | Stages `isPrimary: true` on that contact (and clears it on the previous primary) |
-| Delete       | Card is not already marked      | Marks the contact for deletion; the card stays in view                      |
-| Undo         | Card is staged green or red     | Drops the staged addition, or unmarks the deletion                          |
+| Delete       | Card is clean or edited         | Marks the contact for deletion; the card stays in view                      |
+| Undo         | Card is staged green, blue, or red | Drops a staged addition, reverts an edit, or unmarks a deletion          |
 
 **Projects** — a plain read-only list of the partner's project names, narrowed to projects with a team in the
 selected semester when a filter is set. Projects are created from the Projects tab, not here.
@@ -575,7 +592,11 @@ on a new partner) happens on the table's Confirm.
 
 The staged-changes model is **built**. `app/composables/useStagedChanges.ts` holds one store per table —
 row creations, row edits, deletions, and nested minor-record changes — and `DataTable` renders through it;
-each tab turns the single Confirm payload into its API calls. `RecordPanel.vue` is deleted. What remains:
+each tab turns the single Confirm payload into its API calls. `RecordPanel.vue` is deleted.
+
+Staged changes survive neither a tab switch nor a semester change without an explicit Discard: both are gated
+through `useSemesterFilter()` (§2.3.2, §3), so the user is asked before either happens, and a decline leaves the
+staged work and the current tab/semester untouched. What remains:
 
 | Limit                       | Behavior today                                                                                                  |
 | --------------------------- | ----------------------------------------------------------------------------------------------------------------- |
@@ -589,6 +610,34 @@ each tab turns the single Confirm payload into its API calls. `RecordPanel.vue` 
 
 Choice reordering deliberately stages a new rank on **only** the moved choice: `choiceService.updateChoice`
 already shifts siblings, so rewriting every rank would fight it.
+
+#### 3.4.1 Shared composables and utils
+
+Code that used to be duplicated across the three tabs now lives in one place:
+
+| Module                                    | Purpose                                                                                             |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| `composables/useSemesterFilter.ts`         | `provideSemesterFilter()` / `useSemesterFilter()` — the gated semester id and active tab (§2.3.2, §3)  |
+| `composables/useStagedSave.ts`             | `useStagedSave()` — the Confirm envelope shared by all three tabs: delete confirmation, `saving`, create→update→delete ordering, `staging.reset()`, refresh, one error toast |
+| `composables/useRecordModals.ts`           | `useRecordModals()` — awaited `useOverlay()` openers for the six minor-record modals, normalizing an ESC/outside-click dismissal to `null` |
+| `composables/useRowStaging.ts`             | `provideRowStaging()` / `useRowStaging()` — ambient `{staging, saving}` for components rendered inside a row's expansion |
+| `composables/useSemesterCards.ts`          | The Students tab's per-semester card derivation (§3.2.3): `cardsFor`, `membershipSlot`, `setTeam`, `choiceEntries`, `moveChoice`, `deleteCard`, `undoCard`, plus the `StudentRow`/`SemesterCard`/`ChoiceEntry` types |
+| `composables/useDirectory.ts`              | `useAllPartners()` / `useAllProjects()` / `useAllStudents()` — keyed fetches any component can call without issuing a new request |
+| `composables/useSemesters.ts`              | Gained `useSemesterLookup()` — `semesterLabel(id)`, `semesterSortKey(id)`, `semesterOptions`, `teamLabel(team)` |
+| `composables/useStagedChanges.ts`          | Gained `STAGE_TINTS` (the green/blue/red tint classes) and `groupChildren(children)`                  |
+| `utils/labels.ts`                          | Display formatting: `titleCase`, `plural`, `formatSemester`, `semesterOrder`, `studentLabel`, `projectLabel` |
+| `utils/options.ts`                         | Every enum option list (`MEETING_DAY_OPTIONS`, `GENDER_OPTIONS`, …), `ENROLLMENT_FIELDS`, `dayLabel`  |
+| `utils/columns.ts`                         | `textColumn()` / `enumColumn()` — builders for the two `DataTableColumn` shapes that repeat across tabs |
+| `utils/search.ts`                          | Client-side typeahead filters (`searchPartners`, `searchStudents`, `searchProjects`) for `RecordSearchInput` |
+| `utils/errors.ts`                          | `errorMessage()` — the message buried in a `$fetch` rejection                                          |
+| `utils/recordDrafts.ts`                    | The draft types each minor-record modal resolves with (`ContactDraft`, `TeamDraft`, `SemesterInfoDraft`) |
+
+New components backing the modals and row expansions: `ModalFooter.vue`, `ContactFormModal.vue`,
+`TeamFormModal.vue`, `MemberPickerModal.vue`, `MoveMemberModal.vue`, `ProjectPickerModal.vue`,
+`SemesterInfoModal.vue`, `PartnerContactList.vue`, `ProjectTeamCard.vue`, `ProjectRowExpansion.vue`,
+`StudentSemesterCard.vue`. The Projects tab in particular used to render its ~90-line team-card body twice — once
+for the semester-set view, once inside the semester-unset `UAccordion` — and now renders both through the single
+`ProjectTeamCard`, with only the wrapper differing.
 
 ---
 

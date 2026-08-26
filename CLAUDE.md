@@ -13,7 +13,7 @@ so template boilerplate and program-specific code coexist.
 
 ```bash
 pnpm install
-pnpm dev            # nuxt dev + prisma studio concurrently (app on :3000, studio on :5555)
+pnpm dev            # nuxt dev (app on :3000)
 pnpm build          # nuxt build -> .output
 pnpm prisma:reset   # migrate reset -f && migrate dev && generate && db seed
 npx prettier --write .
@@ -70,45 +70,62 @@ assuming the bug is elsewhere. `server/plugins/discordBot.ts` also auto-starts a
 what `discordBotService` does — be aware both paths exist before changing bot lifecycle. The bot's own command/event
 tree lives under `server/integrations/discordBot/src/`, loaded dynamically at runtime.
 
-**Frontend** (`app/`) implements the Database page from `docs/UIDesign.md` on top of `auth.vue` and `index.vue`
-(the latter is still template boilerplate, not yet replaced). `app/middleware/auth.global.ts` gates every route: no
-session redirects to `/auth`, a session on `/auth` redirects to `/`. Auth is Better Auth with email-OTP only — no
-passwords — so login requires an email that already exists in the `user` table (seeded: `email@example.com`), and
-the OTP arrives by Nodemailer or can be read from the `verification` table in Prisma Studio.
+**Frontend** (`app/`) implements the Database page from `docs/UIDesign-v1.1.md` on top of `auth.vue` and
+`index.vue` (the latter is still template boilerplate, not yet replaced). `app/middleware/auth.global.ts` gates
+every route: no session redirects to `/auth`, a session on `/auth` redirects to `/`. Auth is Better Auth with
+email-OTP only — no passwords — so login requires an email that already exists in the `user` table (seeded:
+`email@example.com`), and the OTP arrives by Nodemailer or can be read from the `verification` table in Prisma
+Studio.
 
 - `app/app.vue` — shell: logo, `Navbar.vue` (Database/Team Formation/Automation/User Management links + Logout),
   dark-mode toggle. `User` (Better Auth) has no admin/role field yet, so the "User Management (admin only)" link is
   shown unconditionally — add real gating once a role concept exists.
-- `app/pages/database.vue` — `UTabs` shell (Projects/Students/Partners) sharing one `SemesterFilter`.
-  `app/pages/team-formation.vue`, `automation.vue`, `users.vue` are unimplemented placeholders the navbar links to.
+- `app/pages/database.vue` — owns the semester filter and the active tab via `provideSemesterFilter()`
+  (`app/composables/useSemesterFilter.ts`), and gates both switches: a `UTabs` panel unmounts on hide, which would
+  silently destroy staged changes, so switching tabs or changing the semester asks first through
+  `confirmDiscard`/`request` rather than moving then restoring. `app/pages/team-formation.vue`, `automation.vue`,
+  `users.vue` are unimplemented placeholders the navbar links to.
 - `app/components/{Partners,Students,Projects}Tab.vue` — one per major record. Each fetches its list via
-  `useFetch` with a reactive `semesterId` query param, defines `DataTable` columns, and owns its own item/creation
-  panel state and minor-record modals. `Contact`, `Choice`, `Enrollment`, `Membership`, and `Team` have no list
-  endpoints (see service convention above) — their UI is always driven off data nested in the parent major record's
-  response, never a standalone fetch.
+  `useFetch` with a reactive `semesterId` query param and defines `DataTable` columns, but no longer owns modal
+  state or the save envelope itself: minor-record modals come from `useRecordModals()` and the Confirm/save flow
+  (delete confirmation, `saving`, create→update→delete ordering, reset, refresh, error toast) comes from
+  `useStagedSave()`, with only the `create`/`update`/`remove` closures supplied per tab. `Contact`, `Choice`,
+  `Enrollment`, `Membership`, and `Team` have no list endpoints (see service convention above) — their UI is always
+  driven off data nested in the parent major record's response, never a standalone fetch.
 - `app/components/DataTable.vue` — generic `UTable` composition used only for major-record tables (Partner/Project/
-  Student), matching `docs/UIDesign.md` §2.2: client-side tri-state sort (one column at a time), per-column search/
-  multiselect filters, row-selection checkboxes, and an Add/Delete/Confirm/Cancel toolbar. Editable columns render
-  as click-to-edit inline inputs; edits accumulate in a pending-edits map until Confirm, which emits one
-  `save-edits` payload for the parent to `PUT`. Column defs are passed in as a lightweight `DataTableColumn<T>[]`
-  prop (`accessorKey`, `sortable`, `filter`, `editable`, `clickable`) — the tab component supplies data, DataTable
-  owns all rendering.
-- `app/components/RecordPanel.vue` — shared `USlideover` shell for both Item Panel and Creation Panel (`mode:
-  'view' | 'create'` toggles whether Delete shows), per §2.3/§2.4.
+  Student), matching `docs/UIDesign-v1.1.md` §2.3: client-side tri-state sort (one column at a time), per-column
+  search/multiselect filters, row-selection checkboxes, and an Add/Delete/Confirm/Cancel toolbar over a per-table
+  staged-changes store (`app/composables/useStagedChanges.ts`). Editable columns render as click-to-edit inline
+  inputs; every creation, edit, and deletion accumulates in that store until Confirm, which emits one `save`
+  payload for the parent to turn into API calls. Column defs are passed in as a lightweight `DataTableColumn<T>[]`
+  prop (`accessorKey`, `sortable`, `filter`, `editable`) — the tab component supplies data, DataTable owns all
+  rendering. There is no `RecordPanel.vue` — that slideover shell is deleted; row expansion (`expandable` prop,
+  `#expanded` slot) replaced the Item/Creation Panel.
 - `app/components/RecordSearchInput.vue` — generic async-search `USelectMenu` (`ignoreFilter` +
-  `v-model:search-term`) for §2.6 Record Search Inputs; each tab passes its own `search`/`display-label` functions.
-- `app/components/SemesterFilter.vue` + `app/composables/useSemesters.ts` — semester dropdown/clear/add, shared
-  across all three tabs.
+  `v-model:search-term`) for §2.5 Record Search Inputs; each tab passes its own `search`/`display-label` functions.
+- `app/components/SemesterFilter.vue` + `app/composables/useSemesters.ts` — semester dropdown/clear/add. The
+  filter is fully controlled (`modelValue` prop + `update:modelValue` emit, not `defineModel`) so a declined change
+  never leaves it showing a semester the page never adopted; `database.vue` wires it through
+  `useSemesterFilter()`, and `team-formation.vue` still uses plain `v-model`.
 - `app/composables/useConfirm.ts` + `app/components/ConfirmationModal.vue` — `useOverlay().create()` wraps a single
   `ConfirmationModal` instance; call `await useConfirm()({title, affected})` from anywhere to get a boolean. Each
   tab computes its own `affected` cascade counts (e.g. a Partner's `Contacts.length`/`Projects.length`) before
   calling it — the modal itself has no domain knowledge of what cascades.
+- `app/composables/` and `app/utils/` — shared building blocks factored out of the three tabs:
+  `useSemesterFilter.ts` (gated semester/tab switching, above), `useStagedSave.ts` (the shared Confirm envelope),
+  `useRecordModals.ts` (awaited openers for the six minor-record modals), `useRowStaging.ts` (ambient
+  `{staging, saving}` access for row-expansion components), `useSemesterCards.ts` (the Students tab's per-semester
+  card derivation), `useDirectory.ts` (`useAllPartners`/`useAllProjects`/`useAllStudents`, keyed fetches any
+  component can share), and `useSemesters.ts`'s `useSemesterLookup()` (id-keyed label/sort/option helpers). Under
+  `app/utils/`: `options.ts` (enum option lists + `ENROLLMENT_FIELDS`), `labels.ts` (display formatting),
+  `columns.ts` (`textColumn`/`enumColumn` builders), `search.ts` (client-side typeahead filters), `errors.ts`
+  (`errorMessage`), and `recordDrafts.ts` (the minor-record modal draft types).
 
 ## Docs
 
-`docs/UIDesign.md` is the spec for the UI being built (shell, table/panel/modal patterns, per-page behavior) — read
-it before building frontend pages. `docs/better_auth.md` and `docs/file_upload_and_serve.md` are template docs
-carried over from the upstream starter.
+`docs/UIDesign-v1.1.md` is the spec for the UI as built (shell, table/staging/modal patterns, per-page behavior) —
+read it before building frontend pages; `docs/UIDesign-v1.0.md` is the superseded forward-looking spec it replaced.
+`docs/better_auth.md` and `docs/file_upload_and_serve.md` are template docs carried over from the upstream starter.
 
 ## Conventions
 
@@ -127,11 +144,11 @@ files is indented one level under the tag, as in `auth.vue`/`app.vue`.
   record-search pickers, minor-record creation modals) should go through `const overlay = useOverlay(); const
   instance = overlay.create(MyModal); const result = await instance.open(props).result`, with the child component
   emitting `close` with the result payload — see `useConfirm.ts`. Reserve inline `v-model:open` on `UModal`/
-  `USlideover` for dialogs that only ever live in one place in the tree (e.g. a tab's own item panel).
-- **Major vs. minor records** (`docs/UIDesign.md` §2.2): Partner/Project/Student get full `DataTable` treatment
-  (pagination, sort, filter, row-select, Item/Creation Panel). Everything else (Team, Contact, Choice, Enrollment,
-  Membership) is a plain list or `UAccordion` of expandable cards inside the parent's panel, created via a `UModal`
-  Creation Modal, not a Panel.
+  `USlideover` for dialogs that only ever live in one place in the tree.
+- **Major vs. minor records** (`docs/UIDesign-v1.1.md` §2.3): Partner/Project/Student get full `DataTable`
+  treatment (pagination, sort, filter, row-select, staged add/edit/delete). Everything else (Team, Contact, Choice,
+  Enrollment, Membership) is a plain list or `UAccordion` of expandable cards inside the parent row's expansion,
+  created via a `UModal` Creation Modal, not a panel — there is no Item/Creation Panel any more.
 - **Types come from the server, not re-declared.** Import `XRead`/`XCreate`/`XUpdate` as `import type {...} from
   '#server/services/xService'` in `app/` components rather than duplicating field lists — these are type-only
   imports so they erase at build time; see any `*Tab.vue` for the pattern.

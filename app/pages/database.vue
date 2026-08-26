@@ -1,16 +1,25 @@
 <script setup lang="ts">
-  const semesterId = ref<string | undefined>()
+  // The page owns the semester filter and the active tab, and gates both: a tab holding staged
+  // changes is asked before either moves. Switching tabs matters as much as switching semester —
+  // UTabs unmounts the inactive panel, which would take its staged work with it silently (§2.3.2).
+  import { provideSemesterFilter } from '~/composables/useSemesterFilter'
+
+  const { semesterId, request, confirmDiscard } = provideSemesterFilter()
 
   const items = [
-    { label: 'Projects', slot: 'projects' },
-    { label: 'Students', slot: 'students' },
-    { label: 'Partners', slot: 'partners' },
+    { label: 'Projects', value: 'projects', slot: 'projects' as const },
+    { label: 'Students', value: 'students', slot: 'students' as const },
+    { label: 'Partners', value: 'partners', slot: 'partners' as const },
   ]
 
-  // A tab that still holds staged changes when the filter moves asks the user first, and puts the
-  // previous semester back if they decline (§2.3.2).
-  function restoreSemester(previous: string | undefined) {
-    semesterId.value = previous
+  const activeTab = ref('projects')
+
+  async function setTab(next: any) {
+    const value = String(next)
+    if (value === activeTab.value) return
+    if (await confirmDiscard('Switching tabs will discard everything you have staged here.')) {
+      activeTab.value = value
+    }
   }
 </script>
 
@@ -18,19 +27,13 @@
   <UContainer class="space-y-6 py-8">
     <div class="flex items-center justify-between">
       <h1 class="text-2xl font-bold">Database</h1>
-      <SemesterFilter v-model="semesterId" />
+      <SemesterFilter :model-value="semesterId" @update:model-value="request" />
     </div>
 
-    <UTabs :items="items" class="w-full">
-      <template #projects>
-        <ProjectsTab :semester-id="semesterId" @restore-semester="restoreSemester" />
-      </template>
-      <template #students>
-        <StudentsTab :semester-id="semesterId" @restore-semester="restoreSemester" />
-      </template>
-      <template #partners>
-        <PartnersTab :semester-id="semesterId" @restore-semester="restoreSemester" />
-      </template>
+    <UTabs :items="items" :model-value="activeTab" class="w-full" @update:model-value="setTab">
+      <template #projects><ProjectsTab /></template>
+      <template #students><StudentsTab /></template>
+      <template #partners><PartnersTab /></template>
     </UTabs>
   </UContainer>
 </template>

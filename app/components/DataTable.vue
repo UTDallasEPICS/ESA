@@ -4,7 +4,12 @@
   import type { TableColumn } from '@nuxt/ui'
   import RecordSearchInput from '~/components/RecordSearchInput.vue'
   import { ACTION_ICONS } from '~/utils/icons'
-  import type { StagedChanges, StageState, StagedPayload } from '~/composables/useStagedChanges'
+  import {
+    STAGE_TINTS,
+    type StagedChanges,
+    type StageState,
+    type StagedPayload,
+  } from '~/composables/useStagedChanges'
 
   export interface DataTableFilter {
     type: 'search' | 'multiselect'
@@ -77,6 +82,17 @@
     cancel: []
   }>()
 
+  // Registers every row's fetched record with the staging store, so getValue/setValue never need
+  // one passed in — a watcher rather than a computed, since registering is a write and Vue computeds
+  // must stay pure.
+  watch(
+    () => props.data,
+    (rows) => {
+      for (const row of rows) props.staging.registerRow(props.rowKey(row), row)
+    },
+    { immediate: true }
+  )
+
   const sort = ref<{ id: string; desc: boolean } | null>(null)
   const filters = ref<Record<string, any>>({})
   const selected = ref<Set<string>>(new Set())
@@ -90,35 +106,20 @@
 
   /** The value a column shows for a row, reading through whichever stage owns it. */
   function valueFor(col: DataTableColumn<T>, row: DataTableRow<T>) {
-    const original = row.record[col.accessorKey]
     const target = col.editable?.child?.(row.record)
     if (target) {
-      return props.staging.getChildValue(
-        row.id,
-        target.collection,
-        target.id,
-        target.field,
-        original
-      )
+      return props.staging.getChildValue(row.id, target.collection, target.id, target.field)
     }
-    return props.staging.getValue(row.id, col.accessorKey, original)
+    return props.staging.getValue(row.id, col.accessorKey)
   }
 
   function setValueFor(col: DataTableColumn<T>, row: DataTableRow<T>, value: any) {
-    const original = row.record[col.accessorKey]
     const target = col.editable?.child?.(row.record)
     if (target) {
-      props.staging.setChildValue(
-        row.id,
-        target.collection,
-        target.id,
-        target.field,
-        value,
-        original
-      )
+      props.staging.setChildValue(row.id, target.collection, target.id, target.field, value)
       return
     }
-    props.staging.setValue(row.id, col.accessorKey, value, original)
+    props.staging.setValue(row.id, col.accessorKey, value)
   }
 
   function isEditedFor(col: DataTableColumn<T>, row: DataTableRow<T>) {
@@ -249,6 +250,12 @@
   const isDirty = computed(() => props.staging.isDirty.value)
   const hasInvalid = computed(() => invalidRowIds.value.size > 0)
 
+  // Undo is only enabled once the selection actually contains something to undo — a selected but
+  // untouched row contributes nothing.
+  const hasUndoableSelection = computed(() =>
+    [...selected.value].some((id) => props.staging.rowState(id) !== 'clean')
+  )
+
   function onAdd() {
     if (!props.newRow) return
     const id = props.staging.addRow(props.newRow())
@@ -257,7 +264,12 @@
   }
 
   function onDelete() {
-    props.staging.toggleDeleted([...selected.value])
+    props.staging.markDeleted([...selected.value])
+    selected.value = new Set()
+  }
+
+  function onUndo() {
+    for (const id of selected.value) props.staging.undoRow(id)
     selected.value = new Set()
   }
 
@@ -310,7 +322,9 @@
       )
     }
 
-    const children = [h('span', { class: 'flex flex-row justify-between gap-1'}, labelAndSortControl)]
+    const children = [
+      h('span', { class: 'flex flex-row justify-between gap-1' }, labelAndSortControl),
+    ]
 
     if (col.filter) {
       const value = filters.value[col.id]
@@ -481,15 +495,8 @@
     ),
   ])
 
-  const ROW_TINTS: Record<StageState, string> = {
-    new: 'bg-success-50 dark:bg-success-950/50',
-    edited: 'bg-info-50 dark:bg-info-950/50',
-    deleted: 'bg-error-50 dark:bg-error-950/50',
-    clean: '',
-  }
-
   const tableMeta = computed(() => ({
-    class: { tr: (row: Row<DataTableRow<T>>) => ROW_TINTS[row.original.state] },
+    class: { tr: (row: Row<DataTableRow<T>>) => STAGE_TINTS[row.original.state] },
   }))
 </script>
 
@@ -512,6 +519,14 @@
         variant="soft"
         :disabled="!selected.size || saving"
         @click="onDelete"
+      />
+      <UButton
+        :icon="ACTION_ICONS.undo"
+        label="Undo"
+        color="neutral"
+        variant="soft"
+        :disabled="!hasUndoableSelection || saving"
+        @click="onUndo"
       />
       <template v-if="isDirty">
         <UButton

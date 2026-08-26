@@ -1,4 +1,4 @@
-import ConfirmationModal from '~/components/ConfirmationModal.vue'
+import ConfirmationModal from '~/components/modals/ConfirmationModal.vue'
 
 export interface ConfirmOptions {
   title: string

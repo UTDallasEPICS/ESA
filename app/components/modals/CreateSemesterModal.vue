@@ -1,7 +1,7 @@
 <script setup lang="ts">
+  import ModalFooter from '~/components/modals/ModalFooter.vue'
   import { z } from 'zod'
   import type { FormSubmitEvent } from '@nuxt/ui'
-  import { ACTION_ICONS } from '~/utils/icons'
   import type { SemesterCreate } from '#server/services/semesterService'
 
   const emit = defineEmits<{ close: [semester: SemesterCreate | null] }>()
@@ -39,16 +39,7 @@
           <UInputNumber v-model="state.year" class="w-full" />
         </UFormField>
 
-        <div class="flex justify-end gap-2">
-          <UButton
-            label="Cancel"
-            :icon="ACTION_ICONS.cancel"
-            color="neutral"
-            variant="soft"
-            @click="emit('close', null)"
-          />
-          <UButton label="Confirm" :icon="ACTION_ICONS.confirm" type="submit" />
-        </div>
+        <ModalFooter submit @cancel="emit('close', null)" />
       </UForm>
     </template>
   </UModal>

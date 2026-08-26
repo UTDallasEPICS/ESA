@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import { parseCsv, validateBidRows, type BidRowError } from '~/utils/bidCsv'
   import { downloadCsv } from '~/utils/csvExport'
+  import { titleCase } from '~/utils/labels'
+  import { MEETING_DAY_OPTIONS } from '~/utils/options'
   import type { ProjectRead } from '#server/services/projectService'
   import type { StudentRead } from '#server/services/studentService'
 
@@ -31,7 +33,9 @@
 
   const teamsForDay = computed(() =>
     projectsForSemester.value.flatMap((project) =>
-      project.Teams.filter((t) => (t.semesterId === semesterId.value && t.meetingDay === meetingDay.value)).map((team) => ({
+      project.Teams.filter(
+        (t) => t.semesterId === semesterId.value && t.meetingDay === meetingDay.value
+      ).map((team) => ({
         id: team.id,
         projectName: project.name,
         partnerName: project.Partner.name,
@@ -56,10 +60,6 @@
   )
 
   const canExport = computed(() => !!semesterId.value && !!meetingDay.value)
-
-  function titleCase(value: string) {
-    return value[0] + value.slice(1).toLowerCase()
-  }
 
   function seasonCode(season: string) {
     if (season === 'SPRING') return 'S'
@@ -141,8 +141,6 @@
     studentsImported: number
     choicesCreated: number
     skippedStudents: string[]
-    unmatchedProjects: string[]
-    dayChangedStudents: string[]
   } | null>(null)
   const uploading = ref(false)
   const uploadError = ref<string | null>(null)
@@ -218,21 +216,10 @@
     teamAssignments: Record<string, { firstName: string; lastName: string; netID: string }[]>
     projects: { id: string; name: string }[]
     teamMeta: Record<string, { projectId: string; meetingDay: MeetingDay; projectName: string }>
-    notes: {
-      noChoiceStudentsReassigned: number
-    }
   }
   const generateResult = ref<GenerateResponse | null>(null)
 
   const canGenerate = computed(() => !!semesterId.value && teamsForDay.value.length > 0)
-
-  const generationNotes = computed(() => {
-    const n = generateResult.value?.notes
-    if (!n || n.noChoiceStudentsReassigned === 0) return null
-    return [
-      `${n.noChoiceStudentsReassigned} student(s) had no valid choices and were placed by best-effort logic.`,
-    ]
-  })
 
   async function generateTeams() {
     if (!canGenerate.value || !semesterId.value) return
@@ -271,14 +258,7 @@
       </UFormField>
 
       <UFormField label="Meeting Day">
-        <URadioGroup
-          v-model="meetingDay"
-          orientation="horizontal"
-          :items="[
-            { label: 'Wednesday', value: 'WEDNESDAY' },
-            { label: 'Thursday', value: 'THURSDAY' },
-          ]"
-        />
+        <URadioGroup v-model="meetingDay" orientation="horizontal" :items="MEETING_DAY_OPTIONS" />
       </UFormField>
 
       <UButton
@@ -386,21 +366,6 @@
           title="Skipped rows (missing SSO ID)"
           :description="uploadResult.skippedStudents.join(', ')"
         />
-        <UAlert
-          v-if="uploadResult.unmatchedProjects.length"
-          color="warning"
-          variant="subtle"
-          title="Unmatched project choices"
-          :description="uploadResult.unmatchedProjects.join(', ')"
-        />
-        <UAlert
-          v-if="uploadResult.dayChangedStudents.length"
-          icon="i-heroicons-exclamation-triangle"
-          color="warning"
-          variant="subtle"
-          title="Meeting day changed for existing students"
-          :description="`These students already had an enrollment for this semester on a different day, now moved to ${meetingDay === 'WEDNESDAY' ? 'Wednesday' : 'Thursday'}: ${uploadResult.dayChangedStudents.join(', ')}`"
-        />
       </div>
     </section>
 
@@ -450,20 +415,7 @@
       />
 
       <div v-if="generateResult" class="space-y-4">
-        <UAlert
-          v-if="generationNotes"
-          icon="i-heroicons-exclamation-triangle"
-          color="warning"
-          variant="subtle"
-          title="Teams generated — some students needed best-effort placement"
-        >
-          <template #description>
-            <ul class="list-inside list-disc space-y-1">
-              <li v-for="(note, i) in generationNotes" :key="i">{{ note }}</li>
-            </ul>
-          </template>
-        </UAlert>
-        <UAlert v-else color="success" variant="subtle" title="Teams generated successfully" />
+        <UAlert color="success" variant="subtle" title="Teams generated successfully" />
 
         <div class="space-y-2">
           <div
