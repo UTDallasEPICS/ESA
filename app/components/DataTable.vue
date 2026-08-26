@@ -373,7 +373,7 @@
       !!col.required &&
       (value === undefined || value === null || value === '') &&
       row.state !== 'clean'
-    const disabled = row.deleted || !!props.saving
+    const disabled = row.deleted || props.saving
     const onUpdate = (v: any) => setValueFor(col, row, v)
 
     // A staged new row is already tinted green, so only existing rows get the per-field outline.
@@ -383,7 +383,9 @@
     if (editable.type === 'switch') {
       return h(USwitch, {
         modelValue: !!value,
+        color: 'info',
         disabled,
+        ui: highlight ? { base: `ring-2 ring-${color}` } : undefined,
         'onUpdate:modelValue': onUpdate,
       })
     }
@@ -477,7 +479,7 @@
         h(UCheckbox, {
           modelValue: selected.value.has(row.original.id),
           'aria-label': 'Select row',
-          'onUpdate:modelValue': (v: boolean) => toggleRow(row.original.id, !!v),
+          'onUpdate:modelValue': (v: boolean) => toggleRow(row.original.id, v),
         }),
     },
     ...props.columns.map(
