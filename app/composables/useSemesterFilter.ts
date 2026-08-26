@@ -28,7 +28,9 @@ export interface SemesterFilterContext {
 export const SEMESTER_FILTER_KEY: InjectionKey<SemesterFilterContext> = Symbol('semester-filter')
 
 export function provideSemesterFilter(): SemesterFilterContext {
-  const semesterId = ref<string | undefined>()
+  const { semesters } = useSemesters()
+  const recentSemester = semesters.value[0]
+  const semesterId = ref<string | undefined>(recentSemester?.id)
   const guards = new Set<SemesterGuard>()
   const confirm = useConfirm()
 

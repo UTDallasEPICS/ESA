@@ -19,16 +19,9 @@ export interface SemesterUpdate {
 
 const getAllSemesters = async (): Promise<SemesterRead[]> => {
   const semesters = await prisma.semester.findMany({
-    orderBy: [{ year: 'desc' }, { season: 'desc' }],
+    orderBy: [{ year: 'desc' }, { season: 'asc' }],
   })
   return semesters
-}
-
-const getRecentSemester = async (): Promise<SemesterRead | null> => {
-  const semester = await prisma.semester.findFirst({
-    orderBy: [{ year: 'desc' }, { season: 'desc' }],
-  })
-  return semester
 }
 
 const getSemesterById = async (id: string): Promise<SemesterRead | null> => {
@@ -76,7 +69,6 @@ const deleteSemester = async (id: string): Promise<void> => {
 }
 
 const semesterService = {
-  getRecentSemester,
   getAllSemesters,
   getSemesterById,
   createSemester,

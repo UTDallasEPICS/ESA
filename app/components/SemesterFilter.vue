@@ -78,6 +78,13 @@
       @click="emit('update:modelValue', undefined)"
     />
     <UButton
+      :icon="ACTION_ICONS.add"
+      label="Add Semester"
+      color="neutral"
+      variant="soft"
+      @click="openCreateModal"
+    />
+    <UButton
       :icon="ACTION_ICONS.delete"
       label="Delete Semester"
       color="error"
@@ -85,13 +92,6 @@
       aria-label="Delete semester"
       :disabled="!props.modelValue"
       @click="onDeleteClick"
-    />
-    <UButton
-      :icon="ACTION_ICONS.add"
-      label="Add Semester"
-      color="neutral"
-      variant="soft"
-      @click="openCreateModal"
     />
   </div>
 </template>
