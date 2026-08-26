@@ -1,6 +1,9 @@
-import { prisma } from '../../utils/prisma'
+import { prisma } from '#server/utils/prisma'
+import { requireAdmin } from '#server/utils/authz'
 
 export default defineEventHandler(async (event) => {
+  await requireAdmin(event)
+
   const users = await prisma.user.findMany({
     select: {
       id: true,
@@ -8,6 +11,7 @@ export default defineEventHandler(async (event) => {
       name: true,
       emailVerified: true,
       image: true,
+      role: true,
     },
   })
 

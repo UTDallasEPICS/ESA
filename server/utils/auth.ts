@@ -19,6 +19,15 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'sqlite',
   }),
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        input: false, // clients can't set their own role via updateUser
+        defaultValue: 'USER',
+      },
+    },
+  },
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {

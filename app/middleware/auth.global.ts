@@ -7,6 +7,9 @@ export default defineNuxtRouteMiddleware(async (to) => {
     if (to.path === '/auth') {
       return navigateTo('/')
     }
+    if (to.path === '/users' && session.value.user.role !== 'ADMIN') {
+      return createError({ statusCode: 403, statusMessage: 'Admins only' })
+    }
   } else {
     if (to.path !== '/auth') {
       return navigateTo('/auth')
