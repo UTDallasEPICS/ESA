@@ -528,27 +528,25 @@
         :disabled="!hasUndoableSelection || saving"
         @click="onUndo"
       />
-      <template v-if="isDirty">
-        <UButton
-          :icon="ACTION_ICONS.confirm"
-          label="Confirm"
-          color="primary"
-          :loading="saving"
-          :disabled="hasInvalid || saving"
-          @click="onConfirm"
-        />
-        <UButton
-          :icon="ACTION_ICONS.cancel"
-          label="Cancel"
-          color="neutral"
-          variant="soft"
-          :disabled="saving"
-          @click="onCancel"
-        />
-        <span v-if="hasInvalid" class="text-error-500 text-xs">
-          Fill in every required field to confirm.
-        </span>
-      </template>
+      <UButton
+        :icon="ACTION_ICONS.confirm"
+        label="Confirm"
+        color="primary"
+        :loading="saving"
+        :disabled="!isDirty || hasInvalid || saving"
+        @click="onConfirm"
+      />
+      <UButton
+        :icon="ACTION_ICONS.cancel"
+        label="Cancel"
+        color="neutral"
+        variant="soft"
+        :disabled="!isDirty || saving"
+        @click="onCancel"
+      />
+      <span v-if="isDirty && hasInvalid" class="text-error-500 text-xs">
+        Fill in every required field to confirm.
+      </span>
     </div>
 
     <div class="max-h-[70vh] overflow-y-auto">

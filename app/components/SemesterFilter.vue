@@ -84,6 +84,7 @@
       color="error"
       variant="soft"
       aria-label="Delete semester"
+      :disabled="!props.modelValue"
       @click="onDeleteClick"
     />
     <UButton

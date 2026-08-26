@@ -26,6 +26,11 @@ export const auth = betterAuth({
         input: false, // clients can't set their own role via updateUser
         defaultValue: 'USER',
       },
+      active: {
+        type: 'boolean',
+        input: false, // clients can't activate themselves via updateUser
+        defaultValue: false,
+      },
     },
   },
   plugins: [

@@ -39,18 +39,23 @@ Container width is widened globally to `--ui-container: 95%` (`app/assets/css/ma
 | `/database`       | `pages/database.vue`        | Implemented (§3)                                                                                              |
 | `/team-formation` | `pages/team-formation.vue`  | Implemented (§4)                                                                                              |
 | `/automation`     | `pages/automation.vue`      | Placeholder — a single neutral `UAlert` reading "This page is not yet implemented."                            |
-| `/users`          | `pages/users.vue`           | Placeholder — same alert pattern (§5)                                                                          |
+| `/users`          | `pages/users.vue`           | Implemented, admin-only (§5)                                                                                    |
+| `/inactive`       | `pages/inactive.vue`        | Implemented (§1.4) — shown in place of any route while `session.user.active` is false                          |
 
 ### 1.3 Authentication
 
 `app/middleware/auth.global.ts` runs on every navigation:
 
-| Session | Target route | Result                     |
-| ------- | ------------ | -------------------------- |
-| Present | `/auth`      | Redirect to `/`            |
-| Present | anything else| Allowed                    |
-| Absent  | `/auth`      | Allowed                    |
-| Absent  | anything else| Redirect to `/auth`        |
+| Session | `user.active` | Target route              | Result                      |
+| ------- | -------------- | -------------------------- | ---------------------------- |
+| Present | —              | `/auth`                     | Redirect to `/`              |
+| Present | `false`        | anything but `/inactive`    | Redirect to `/inactive`      |
+| Present | `false`        | `/inactive`                  | Allowed                      |
+| Present | `true`         | `/inactive`                  | Redirect to `/`              |
+| Present | `true`         | `/users`, not `ADMIN`        | 403 "Admins only"            |
+| Present | `true`         | anything else                | Allowed                      |
+| Absent  | —              | `/auth`                     | Allowed                      |
+| Absent  | —              | anything else                | Redirect to `/auth`          |
 
 **Login page** (`pages/auth.vue`) — a centered `UCard` titled "Login" containing a two-step `UForm` with a Zod
 schema that widens once the OTP has been sent. Email-OTP only; there is no password field.
@@ -62,6 +67,21 @@ schema that widens once the OTP has been sent. Email-OTP only; there is no passw
 
 Logging in requires an email that already exists in the `user` table. The OTP arrives by Nodemailer, or can be read
 from the `verification` table in Prisma Studio.
+
+### 1.4 Account Activation
+
+A new `user` row starts with `active = false` (`prisma/schema.prisma` default) until an admin activates it from
+`/users` (§5). `role` and `active` are both registered as Better Auth `user.additionalFields`
+(`server/utils/auth.ts`) with `input: false`, so they ride along on `session.user` but a signed-in user can never
+set either on themselves through `updateUser`.
+
+| Layer    | Enforcement                                                                                                    |
+| -------- | --------------------------------------------------------------------------------------------------------------- |
+| Frontend | `auth.global.ts` (above) redirects any inactive session to `pages/inactive.vue` — a centered card explaining the account needs admin approval, with a Log Out button — and bounces an active session away from `/inactive`. |
+| Server   | `server/middleware/active-user.ts` runs on every request; for a session where `user.active === false` it 403s any `/api/**` route other than `/api/auth/**`, so sign-in/sign-out/session calls keep working while every other endpoint (including the ones a page's SSR fetch would hit) is blocked regardless of what the frontend redirect does. |
+
+Because the Nitro middleware checks the session directly, an inactive user cannot reach any data endpoint by
+calling it directly, even if a client-side redirect were bypassed.
 
 ---
 
@@ -79,7 +99,8 @@ A `UNavigationMenu` plus a trailing Logout button.
 | User Management | shield-check          | `/users`          |
 | Logout          | arrow-right-on-rect.  | Calls `authClient.signOut()`, then navigates to `/auth` with a full reload |
 
-There is no role concept on `User` yet, so User Management is shown to everyone — see §5.
+User Management is only shown when `session.value.user.role === 'ADMIN'`; the route itself is also gated
+(§1.3) so a non-admin who navigates there directly gets a 403 rather than an empty page — see §5.
 
 ### 2.2 Semester Filter (`components/SemesterFilter.vue`)
 
@@ -734,16 +755,48 @@ Results render as one bordered card per team: the project name over the list of 
 
 ## 5. User Management (`pages/users.vue`)
 
-Not implemented. The route renders a single neutral `UAlert` (wrench icon) titled "User Management" with the
-description "This page is not yet implemented."
+Admin-only (§1.3, §2.1). Fetches the full user list from `GET /api/users` (`server/services/userService.ts`) and
+splits it client-side into two `UCard` sections by `active` — there is no separate endpoint per group. Each row
+shows the avatar (via `getImageLink`, same pattern as the old template list), name, email, and role/verification
+badges, with action buttons on the right. There is no staged-changes envelope here (§2.3.1) — every button issues
+its `PUT`/`DELETE /api/users/:id` immediately and then `refresh()`s the list; `busyId` disables/loading-spins only
+the row currently in flight.
 
-The Navbar links to it unconditionally: Better Auth's `User` has no admin/role field, so the "admin only" gating
-from v1.0 cannot be expressed yet. Building this page needs, in order:
+### 5.1 Active Users card
 
-1. A role concept on `User` (server-side), and route/middleware gating that reads it.
-2. Conditional rendering of the Navbar entry.
-3. The page itself — at minimum a list of users, invite-by-email (which is what makes login possible, since OTP
-   sign-in requires a pre-existing `user` row), role assignment, and removal.
+| Column / element | Shown                                                                 |
+| ----------------- | ---------------------------------------------------------------------- |
+| Badges             | "Admin" (`role === 'ADMIN'`); "You" (`user.id === session id`)         |
+| Promote to Admin   | Shown when `role === 'USER'`. `PUT { role: 'ADMIN' }`, no confirmation |
+| Demote to User     | Shown when `role === 'ADMIN'`. Requires confirmation (§2.4) — "`Demote {name}?`" / "will lose admin access". Disabled (with a tooltip) for a self-row when this user is the only admin, so the round-trip to the server's identical check (§5.3) is avoided rather than surfaced as an error. `PUT { role: 'USER' }` |
+| Deactivate         | Always shown for an active user. Disabled (with a tooltip) on the signed-in admin's own row. `PUT { active: false }` |
+
+### 5.2 Inactive Users card
+
+| Column / element | Shown                                                          |
+| ----------------- | ------------------------------------------------------------------ |
+| Badge              | "Verified" / "Pending" (`emailVerified`), same as the old placeholder list |
+| Activate           | `PUT { active: true }`                                             |
+| Delete             | `DELETE /api/users/:id` — no confirmation modal (not required by spec; the action only ever targets an already-inactive account) |
+
+### 5.3 Business rules (`server/services/userService.ts`)
+
+The table above shows what the UI disables proactively; the service enforces the same rules independent of the
+client, returning a plain `Error` that each handler maps to a `400`/`404` `createError` (the pattern every other
+service in `server/services/` follows — see `semesterService.deleteSemester` for the reference shape):
+
+| Rule                                                                                     | Enforced in           |
+| ------------------------------------------------------------------------------------------ | ----------------------- |
+| An admin cannot deactivate their own account                                              | `updateUser`            |
+| A role change is rejected unless the target is (or is being made, in the same call) active | `updateUser`            |
+| An admin cannot demote themselves unless at least one other `ADMIN` row exists             | `updateUser`            |
+| Only an inactive user can be deleted                                                       | `deleteUser`             |
+
+Endpoints: `GET /api/users` (list, admin-only), `PUT /api/users/:id` (partial `{ active?, role? }`, admin-only),
+`DELETE /api/users/:id` (admin-only). All three call `requireAdmin` (`server/utils/authz.ts`) first. Activation and
+role are also the account-activation flow described in §1.4 — deactivating a user here is what puts their next
+request behind `pages/inactive.vue` and the `active-user` Nitro middleware.
 
 Note that `pages/index.vue` still contains the upstream template's user list and profile-picture upload; it is
-boilerplate rather than a design element, but it is the closest existing reference for user-facing account UI.
+boilerplate rather than a design element, and `pages/users.vue`'s avatar/badge rendering is the one part of it
+that was reused here.
