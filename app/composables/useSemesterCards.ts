@@ -81,16 +81,36 @@ export function useSemesterCards(input: {
   }
 
   /**
-   * The one team assignment for a semester and role, as a fetched membership, a staged-new one, or
-   * both — the two halves of a team change have to read as a single field on the card.
+   * The one team assignment for a semester+role slot, as a fetched membership, a staged-new one, or
+   * both — the two halves of a team change have to read as a single field on the card. A Student
+   * slot is unambiguous (one Enrollment, one team) so `anchorId` can be omitted and the first match
+   * taken; a Mentor can hold several simultaneous team memberships in one semester, so their slot is
+   * pinned to a specific membership by id — either the fetched one being edited, or a staged-new one
+   * tagged `replacesId` when it's retargeting that fetched membership to a different team.
    */
-  function membershipSlot(row: StudentRow, rowId: string, semesterId: string, isMentor: boolean) {
+  function membershipSlot(
+    row: StudentRow,
+    rowId: string,
+    semesterId: string,
+    isMentor: boolean,
+    anchorId?: string
+  ) {
     const merged = staging.children.merge(rowId, 'Memberships')
     let existing: MergedChild<any> | undefined
     let added: MergedChild<any> | undefined
     for (const membership of merged) {
       if (!!membership.record.isMentor !== isMentor) continue
       if (membershipSemester(membership) !== semesterId) continue
+      if (anchorId) {
+        if (membership.isNew) {
+          if (membership.id === anchorId || membership.record.replacesId === anchorId) {
+            added ??= membership
+          }
+        } else if (membership.id === anchorId) {
+          existing = membership
+        }
+        continue
+      }
       if (membership.isNew) added ??= membership
       else existing ??= membership
     }
@@ -129,20 +149,25 @@ export function useSemesterCards(input: {
       })
     }
 
+    // A mentor can hold several simultaneous team memberships in one semester (leading more than one
+    // project), so each mentor Membership is its own card — anchored to the fetched membership it
+    // came from, or to itself when it's a staged-new one with no fetched counterpart to replace.
     const memberships = staging.children.merge(rowId, 'Memberships')
-    const mentorSemesters = new Set<string>()
+    const mentorAnchors = new Map<string, string>()
     for (const membership of memberships) {
       if (!membership.record.isMentor) continue
       const semesterId = membershipSemester(membership)
-      if (semesterId) mentorSemesters.add(semesterId)
+      if (!semesterId) continue
+      if (membership.isNew && membership.record.replacesId) continue
+      mentorAnchors.set(membership.id, semesterId)
     }
-    for (const semesterId of mentorSemesters) {
-      const slot = membershipSlot(row, rowId, semesterId, true)
+    for (const [anchorId, semesterId] of mentorAnchors) {
+      const slot = membershipSlot(row, rowId, semesterId, true, anchorId)
       const anchor = slot.existing ?? slot.added
       if (!anchor) continue
       const deleted = !!slot.existing?.deleted && !slot.added
       cards.push({
-        key: `mentor:${anchor.id}`,
+        key: `mentor:${anchorId}`,
         role: 'Mentor',
         semesterId,
         label: `${semesterLabel(semesterId)} — Mentor`,
@@ -162,7 +187,10 @@ export function useSemesterCards(input: {
   function setTeam(row: StudentRow, rowId: string, card: SemesterCard, project?: ProjectRead) {
     const isMentor = card.role === 'Mentor'
     const teamId = project ? teamIn(project, card.semesterId)?.id : undefined
-    const slot = membershipSlot(row, rowId, card.semesterId, isMentor)
+    // Pinned to this card's own membership so a change on one mentor slot can't be picked up by
+    // `membershipSlot`'s search and misattributed to a sibling mentor slot in the same semester.
+    const anchorId = card.membershipId ?? card.addedMembershipId
+    const slot = membershipSlot(row, rowId, card.semesterId, isMentor, anchorId)
 
     // A staged-new membership with no fetched counterpart is simply retargeted in place; on a
     // Mentor card it is the card itself, so it survives being cleared.
@@ -188,7 +216,16 @@ export function useSemesterCards(input: {
       else staging.children.undo(rowId, 'Memberships', slot.existing.id)
     }
     if (teamId && shouldDelete) {
-      staging.children.add(rowId, 'Memberships', { semesterId: card.semesterId, teamId, isMentor })
+      // `replacesId` links this staged-new membership back to the fetched one it's retargeting, so
+      // `membershipSlot` can re-pair them into a single card even when a mentor has other, untouched
+      // mentor memberships in the same semester. It's a client-only field — see `baseRank` above —
+      // and never reaches the server.
+      staging.children.add(rowId, 'Memberships', {
+        semesterId: card.semesterId,
+        teamId,
+        isMentor,
+        replacesId: slot.existing.id,
+      })
     }
   }
 

@@ -16,7 +16,11 @@
     /** Whether this student can hold a Mentor card at all; gates the Role radio. */
     isMentor: boolean
     semesters: SelectOption[]
-    /** Semesters that already carry a card of each role — a student may hold one of each. */
+    /**
+     * Semesters that already carry a Student card — a student may hold only one Student card per
+     * semester (one Enrollment). Mentor cards have no such limit: a mentor can lead more than one
+     * project in the same semester, so `MENTOR` is not used to disable the semester picker.
+     */
     taken: { STUDENT: string[]; MENTOR: string[] }
     /** Every project; narrowed to the chosen semester as the user picks one. */
     projects: ProjectRead[]
@@ -34,7 +38,7 @@
     gender: 'OTHER',
   })
 
-  const takenForRole = computed(() => new Set(props.taken[draft.role]))
+  const takenForRole = computed(() => new Set(draft.role === 'MENTOR' ? [] : props.taken.STUDENT))
 
   const semesterItems = computed(() =>
     props.semesters.map((semester) => ({
