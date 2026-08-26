@@ -123,18 +123,21 @@ const seedAdmins = async () => {
         email: 'sxt230118@utdallas.edu',
         name: 'Snigdha Tadi',
         emailVerified: true,
+        role: 'ADMIN',
       },
       {
         id: 'admin-002',
         email: 'trp210003@utdallas.edu',
         name: 'Teerth Patel',
         emailVerified: true,
+        role: 'ADMIN',
       },
       {
         id: 'admin-003',
         email: 'bxt230017@utdallas.edu',
         name: 'Bhuvi Thiriveedhi',
         emailVerified: true,
+        role: 'ADMIN',
       },
     ],
   })
