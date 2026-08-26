@@ -1,4 +1,4 @@
-import type {TeamUpdate} from "#server/services/teamService";
+import { teamUpdateSchema, parseBody } from "#server/utils/schemas";
 import teamService from "#server/services/teamService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<TeamUpdate>(event);
+  const data = await parseBody(event, teamUpdateSchema);
   return await teamService.updateTeam(id, data);
 });

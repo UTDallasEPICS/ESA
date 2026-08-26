@@ -29,10 +29,25 @@ export const SEMESTER_FILTER_KEY: InjectionKey<SemesterFilterContext> = Symbol('
 
 export function provideSemesterFilter(): SemesterFilterContext {
   const { semesters } = useSemesters()
-  const recentSemester = semesters.value[0]
-  const semesterId = ref<string | undefined>(recentSemester?.id)
+  const semesterId = ref<string | undefined>(semesters.value[0]?.id)
   const guards = new Set<SemesterGuard>()
   const confirm = useConfirm()
+
+  // "All semesters" is `undefined`, and so is "no default applied yet" — the two are
+  // indistinguishable by looking at `semesterId` alone. So whether the user has made their own
+  // choice is tracked separately here, rather than inferred from `semesterId.value === undefined`,
+  // otherwise a deliberate "All semesters" selection would get overwritten the next time this
+  // watcher runs (e.g. after a `semesters` refetch elsewhere).
+  let userHasChosen = false
+
+  // `useFetch('/api/semesters', ...)` above isn't awaited, so on a client-side navigation
+  // `semesters.value` above can still be the empty `default` when this runs. Once the fetch
+  // resolves, fill in the default then — but only if nothing has claimed `semesterId` since.
+  watch(semesters, (list) => {
+    if (!userHasChosen && semesterId.value === undefined && list.length) {
+      semesterId.value = list[0]!.id
+    }
+  })
 
   function guard(entry: SemesterGuard) {
     guards.add(entry)
@@ -59,6 +74,7 @@ export function provideSemesterFilter(): SemesterFilterContext {
       'Changing the semester filter will discard everything you have staged.'
     )
     if (!ok) return false
+    userHasChosen = true
     semesterId.value = next
     return true
   }

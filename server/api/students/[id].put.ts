@@ -1,4 +1,4 @@
-import type {StudentUpdate} from "#server/services/studentService";
+import { studentUpdateSchema, parseBody } from "#server/utils/schemas";
 import studentService from "#server/services/studentService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<StudentUpdate>(event);
+  const data = await parseBody(event, studentUpdateSchema);
   return await studentService.updateStudent(id, data);
 });

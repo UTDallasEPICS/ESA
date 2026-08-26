@@ -1,4 +1,4 @@
-import type {ContactUpdate} from "#server/services/contactService";
+import { contactUpdateSchema, parseBody } from "#server/utils/schemas";
 import contactService from "#server/services/contactService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<ContactUpdate>(event);
+  const data = await parseBody(event, contactUpdateSchema);
   return await contactService.updateContact(id, data);
 });

@@ -385,7 +385,7 @@
         modelValue: !!value,
         color: 'info',
         disabled,
-        ui: highlight ? { base: `ring-2 ring-${color}` } : undefined,
+        ui: highlight ? { base: invalid ? 'ring-2 ring-error' : 'ring-2 ring-warning' } : undefined,
         'onUpdate:modelValue': onUpdate,
       })
     }

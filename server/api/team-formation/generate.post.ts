@@ -44,7 +44,7 @@ const mapGender = (gender: Gender): CPSATGender => {
 export default defineEventHandler(async (event) => {
   const {semesterId, day, config} = await readBody<{
     semesterId: string;
-    day?: MeetingDay;
+    day: MeetingDay;
     config?: CPSATConfig
   }>(event)
 
@@ -52,8 +52,8 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, message: 'semesterId is required.'})
   }
 
-  if (day && day !== 'WEDNESDAY' && day !== 'THURSDAY') {
-    throw createError({statusCode: 400, message: 'day must be WEDNESDAY or THURSDAY when provided.'})
+  if (day !== 'WEDNESDAY' && day !== 'THURSDAY') {
+    throw createError({statusCode: 400, message: 'day is required and must be WEDNESDAY or THURSDAY.'})
   }
 
   interface StudentWithChoices {
@@ -240,7 +240,7 @@ export default defineEventHandler(async (event) => {
     meetingDay: MeetingDay;
     projectName: string
   }> = Object.fromEntries(
-      teamsForRun.map((team) => [team.id, {projectId: team.projectId, meetingDay: day!, projectName: team.Project.name}])
+      teamsForRun.map((team) => [team.id, {projectId: team.projectId, meetingDay: day, projectName: team.Project.name}])
   )
 
   return {teamAssignments, projects, teamMeta}

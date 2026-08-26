@@ -1,4 +1,4 @@
-import type {ProjectUpdate} from "#server/services/projectService";
+import { projectUpdateSchema, parseBody } from "#server/utils/schemas";
 import projectService from "#server/services/projectService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<ProjectUpdate>(event);
+  const data = await parseBody(event, projectUpdateSchema);
   return await projectService.updateProject(id, data);
 });

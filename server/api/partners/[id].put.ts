@@ -1,4 +1,4 @@
-import type {PartnerUpdate} from "#server/services/partnerService";
+import { partnerUpdateSchema, parseBody } from "#server/utils/schemas";
 import partnerService from "#server/services/partnerService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<PartnerUpdate>(event);
+  const data = await parseBody(event, partnerUpdateSchema);
   return await partnerService.updatePartner(id, data);
 });
