@@ -115,7 +115,3 @@ student's choices:
 | "Both"-type project bonus         | +80   | Project's `type == 'Both'` — applies to every student, regardless of major.  |
 | SW-project major-fit bonus        | +60   | Project's `type == 'SW'` and student's major is `CS`, `SE`, or `DS`.         |
 | HW-project major-fit bonus        | +60   | Project's `type == 'HW'` and student's major is `EE`, `ME`, `BME`, or `CE`.  |
-
-Non-binary students are represented in the gender-isolation bookkeeping (`gender_vars` tracks `Non-binary` as a
-bucket) but no isolation penalty term is currently added for that bucket — only `Male` and `Female` counts feed the
-penalty.
