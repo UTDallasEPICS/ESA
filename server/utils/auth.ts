@@ -33,6 +33,18 @@ export const auth = betterAuth({
       },
     },
   },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          if (user.email === 'turcatti@utdallas.edu') {
+            return { data: { ...user, role: 'ADMIN', active: true } }
+          }
+          return { data: user }
+        },
+      },
+    },
+  },
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
