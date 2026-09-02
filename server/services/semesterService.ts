@@ -5,9 +5,6 @@ export interface SemesterRead {
   id: string
   year: number
   season: Season
-  teamCount: number
-  enrollmentCount: number
-  choiceCount: number
 }
 
 export interface SemesterCreate {
@@ -20,69 +17,39 @@ export interface SemesterUpdate {
   season?: Season
 }
 
-const SEMESTER_COUNT_INCLUDE = {
-  _count: { select: { Teams: true, Enrollments: true, Choices: true } },
-} as const
-
-const withCounts = (semester: {
-  id: string
-  year: number
-  season: Season
-  _count: { Teams: number; Enrollments: number; Choices: number }
-}): SemesterRead => {
-  const { _count, ...rest } = semester
-  return {
-    ...rest,
-    teamCount: _count.Teams,
-    enrollmentCount: _count.Enrollments,
-    choiceCount: _count.Choices,
-  }
-}
-
 const getAllSemesters = async (): Promise<SemesterRead[]> => {
   const semesters = await prisma.semester.findMany({
-    orderBy: [{ year: 'desc' }, { season: 'desc' }],
-    include: SEMESTER_COUNT_INCLUDE,
+    orderBy: [{ year: 'desc' }, { season: 'asc' }],
   })
-  return semesters.map(withCounts)
-}
-
-const getRecentSemester = async (): Promise<SemesterRead | null> => {
-  const semester = await prisma.semester.findFirst({
-    orderBy: [{ year: 'desc' }, { season: 'desc' }],
-    include: SEMESTER_COUNT_INCLUDE,
-  })
-  return semester ? withCounts(semester) : null
+  return semesters
 }
 
 const getSemesterById = async (id: string): Promise<SemesterRead | null> => {
   const semester = await prisma.semester.findUnique({
     where: { id: id },
-    include: SEMESTER_COUNT_INCLUDE,
   })
-  return semester ? withCounts(semester) : null
+  return semester
 }
 
 const createSemester = async (data: SemesterCreate): Promise<SemesterRead> => {
   const semester = await prisma.semester.create({
     data,
   })
-  return { ...semester, teamCount: 0, enrollmentCount: 0, choiceCount: 0 }
+  return semester
 }
 
 const updateSemester = async (id: string, data: SemesterUpdate): Promise<SemesterRead> => {
   const semester = await prisma.semester.update({
     where: { id },
     data,
-    include: SEMESTER_COUNT_INCLUDE,
   })
-  return withCounts(semester)
+  return semester
 }
 
 const deleteSemester = async (id: string): Promise<void> => {
   const semester = await prisma.semester.findUnique({
     where: { id },
-    include: SEMESTER_COUNT_INCLUDE,
+    include: { _count: { select: { Teams: true, Enrollments: true, Choices: true}}},
   })
   if (!semester) {
     throw new Error('Semester not found.')
@@ -102,7 +69,6 @@ const deleteSemester = async (id: string): Promise<void> => {
 }
 
 const semesterService = {
-  getRecentSemester,
   getAllSemesters,
   getSemesterById,
   createSemester,

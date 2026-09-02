@@ -1,12 +1,11 @@
 import { PrismaClient } from './generated/client'
-import { PrismaBetterSqlite3 } from "@prisma/adapter-better-sqlite3";
-import "dotenv/config";
+import { PrismaBetterSqlite3 } from '@prisma/adapter-better-sqlite3'
+import 'dotenv/config'
 
-const connectionString = `${process.env.DATABASE_URL}`;
+const connectionString = `${process.env.DATABASE_URL}`
 
-const adapter = new PrismaBetterSqlite3({ url: connectionString });
-const prisma = new PrismaClient({ adapter });
-
+const adapter = new PrismaBetterSqlite3({ url: connectionString })
+const prisma = new PrismaClient({ adapter })
 
 const SEED_YEARS = [2024, 2025, 2026]
 const SEED_SEASONS = ['SPRING', 'SUMMER', 'FALL']
@@ -39,6 +38,8 @@ const seedStudents = async () => {
     year,
     class: studentClass,
     meetingDay,
+    skills,
+    comments,
     ...rest
   } of studentsData) {
     await prisma.student.create({
@@ -47,7 +48,16 @@ const seedStudents = async () => {
         // @ts-ignore
         Enrollments: {
           create: [
-            { semesterId: spring2026.id, gender, major, year, class: studentClass, meetingDay },
+            {
+              semesterId: spring2026.id,
+              gender,
+              major,
+              year,
+              class: studentClass,
+              meetingDay,
+              skills,
+              comments,
+            },
           ],
         },
         Choices: {
@@ -85,7 +95,8 @@ const seedTeams = async () => {
     // Only projects that were actually bid on get a team — the meeting day
     // is whichever day most of its bidders are enrolled on.
     if (meetingDayCounts.WEDNESDAY === 0 && meetingDayCounts.THURSDAY === 0) continue
-    const meetingDay = meetingDayCounts.THURSDAY >= meetingDayCounts.WEDNESDAY ? 'THURSDAY' : 'WEDNESDAY'
+    const meetingDay =
+      meetingDayCounts.THURSDAY >= meetingDayCounts.WEDNESDAY ? 'THURSDAY' : 'WEDNESDAY'
 
     await prisma.team.create({
       data: {
@@ -98,17 +109,19 @@ const seedTeams = async () => {
 }
 
 const seedPartners = async () => {
-  await Promise.all(partnersData.map((p) => {
-    const { Contacts, ...rest } = p
-    return prisma.partner.create({
-      data: {
-        ...rest,
-        Contacts: Contacts?.length
-          ? { create: Contacts.map((contact, index) => ({ ...contact, isPrimary: index === 0 })) }
-          : undefined,
-      },
+  await Promise.all(
+    partnersData.map((p) => {
+      const { Contacts, ...rest } = p
+      return prisma.partner.create({
+        data: {
+          ...rest,
+          Contacts: Contacts?.length
+            ? { create: Contacts.map((contact, index) => ({ ...contact, isPrimary: index === 0 })) }
+            : undefined,
+        },
+      })
     })
-  }))
+  )
 }
 
 const seedProjects = async () => {
@@ -123,18 +136,22 @@ const seedAdmins = async () => {
         email: 'sxt230118@utdallas.edu',
         name: 'Snigdha Tadi',
         emailVerified: true,
+        role: 'USER',
       },
       {
         id: 'admin-002',
         email: 'trp210003@utdallas.edu',
         name: 'Teerth Patel',
         emailVerified: true,
+        role: 'ADMIN',
+        active: true,
       },
       {
         id: 'admin-003',
         email: 'bxt230017@utdallas.edu',
         name: 'Bhuvi Thiriveedhi',
         emailVerified: true,
+        role: 'USER',
       },
     ],
   })
@@ -152,7 +169,7 @@ const seedTeambuilder = async () => {
 async function main() {
   console.log('Start seeding...')
 
-  await seedTeambuilder();
+  await seedTeambuilder()
 
   console.log('Seeding finished.')
 }

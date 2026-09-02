@@ -149,7 +149,7 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     if config.get('balance_gender', True):
         for p_name in project_names:
             # Count students of each gender on this team
-            gender_vars = {'Male': [], 'Female': [], 'Non-binary': [], 'Prefer not to say': []}
+            gender_vars = {'Male': [], 'Female': [], 'Prefer not to say': []}
 
             for s_id in student_ids:
                 student = students[s_id]

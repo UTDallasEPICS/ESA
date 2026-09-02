@@ -14,11 +14,11 @@
  *   row["Choice 1"] … row["Choice 6"] – "S26 - OrgName: ProjectTitle" (blank if none)
  */
 
-import {Year, Class, Gender, ProjectMeetingDay} from '@@/prisma/generated/client';
-import {prisma} from '#server/utils/prisma';
-import projectService from "#server/services/projectService";
-import partnerService from "#server/services/partnerService";
-import teamService from "#server/services/teamService";
+import { Year, Class, Gender, ProjectMeetingDay } from '@@/prisma/generated/client'
+import { prisma } from '#server/utils/prisma'
+import projectService from '#server/services/projectService'
+import partnerService from '#server/services/partnerService'
+import teamService from '#server/services/teamService'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ const YEAR_MAP: Record<string, Year> = {
   sophomore: 'SOPHOMORE',
   junior: 'JUNIOR',
   senior: 'SENIOR',
-};
+}
 
 const MAJOR_MAP: Record<string, string> = {
   'computer science': 'CS',
@@ -38,18 +38,18 @@ const MAJOR_MAP: Record<string, string> = {
   'data science': 'DS',
   'computer engineering': 'CE',
   'systems engineering': 'Systems',
-};
+}
 
 function extractMajor(schoolAndMajor: string): string {
-  const parts = schoolAndMajor.split('::::');
-  const raw = (parts[1] ?? parts[0] ?? '').trim().toLowerCase();
-  return MAJOR_MAP[raw] ?? (parts[1]?.trim() ?? 'Other');
+  const parts = schoolAndMajor.split('::::')
+  const raw = (parts[1] ?? parts[0] ?? '').trim().toLowerCase()
+  return MAJOR_MAP[raw] ?? parts[1]?.trim() ?? 'Other'
 }
 
 function extractClass(enrollment: string): 'EPCS_2200' | 'EPCS_3200' {
-  const match = enrollment.match(/\d{4}/);
-  const n = match?.[0];
-  return n === '3200' ? 'EPCS_3200' : 'EPCS_2200';
+  const match = enrollment.match(/\d{4}/)
+  const n = match?.[0]
+  return n === '3200' ? 'EPCS_3200' : 'EPCS_2200'
 }
 
 function extractGender(gender: string): Gender {
@@ -65,23 +65,23 @@ function extractGender(gender: string): Gender {
 
 function parseStudentName(row: Record<string, any>): { firstName: string; lastName: string } {
   const rawName = String(
-      row['Student Name'] ??
+    row['Student Name'] ??
       row['Name'] ??
       row['Full Name'] ??
       row['Student'] ??
       row['student name'] ??
       row['name'] ??
       ''
-  ).trim();
-  const rawLastNameColumn = String(row[''] ?? '').trim();
+  ).trim()
+  const rawLastNameColumn = String(row[''] ?? '').trim()
 
   // New layout: full name is in a single column as "Last, First".
   if (rawName.includes(',')) {
-    const [lastName = '', firstName = ''] = rawName.split(',').map((part) => part.trim());
+    const [lastName = '', firstName = ''] = rawName.split(',').map((part) => part.trim())
     return {
       firstName,
       lastName,
-    };
+    }
   }
 
   // Legacy layout: first name in the main name column and last name in empty-header column.
@@ -89,83 +89,81 @@ function parseStudentName(row: Record<string, any>): { firstName: string; lastNa
     return {
       firstName: rawName,
       lastName: rawLastNameColumn,
-    };
+    }
   }
 
   // Fallback: if no comma, treat final token as last name.
-  const parts = rawName.split(/\s+/).filter(Boolean);
+  const parts = rawName.split(/\s+/).filter(Boolean)
   if (parts.length <= 1) {
     return {
       firstName: rawName,
       lastName: '',
-    };
+    }
   }
 
   return {
     firstName: parts.slice(0, -1).join(' '),
-    lastName: parts[parts.length - 1],
-  };
+    lastName: parts[parts.length - 1]!,
+  }
 }
 
 /** Strip semester prefixes like "S26 - ", "F25 - ", "SP24 TH - " then trim */
 function stripSemesterPrefix(choice: string): string {
-  return choice.replace(/^[SF]\d{2,4}(\s+\S+)?\s*-\s*/, '').trim();
+  return choice.replace(/^[SF]\d{2,4}(\s+\S+)?\s*-\s*/, '').trim()
 }
 
 function normalizeProjectText(input: string): string {
   return input
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
 }
 
 function normalizeProjectKey(input: string): string {
-  return normalizeProjectText(input).replace(/\s+/g, '');
+  return normalizeProjectText(input).replace(/\s+/g, '')
 }
 
 function readFirstValue(row: Record<string, any>, keys: string[]): string {
   for (const key of keys) {
-    const value = row[key];
-    if (value == null) continue;
+    const value = row[key]
+    if (value == null) continue
 
-    const text = String(value).trim();
-    if (text) return text;
+    const text = String(value).trim()
+    if (text) return text
   }
 
-  return '';
+  return ''
 }
 
-function readSkills(row): string[] {
-  const skills = []
-  Object.entries(row).forEach(([key, value]) => {
-    if (key.includes('skill')) {
-      skills.push(value);
-    }
-  })
-  return skills;
+function readSkills(row: Record<string, string>): string[] {
+  const skills = Object.entries(row)
+    .filter(([key, _]) => key.toLowerCase().includes('skill'))
+    .map(([_, value]) => value.toLowerCase())
+  return skills
 }
 
-const SKILL_ORDINALS = ['First', 'Second', 'Third'] as const;
-
-const COMMENTS_KEYS = ['Comments', 'comments', 'Comment', 'comment'];
+const COMMENTS_KEYS = ['Comments', 'comments', 'Comment', 'comment']
 
 interface BidRecord {
-  firstName: string,
-  lastName: string,
-  email?: string,
-  netID: string,
-  year: Year,
-  class: Class,
-  gender: Gender,
-  major: string,
-  choices: string[],
-  skills: string[],
-  comments: string,
+  firstName: string
+  lastName: string
+  email?: string
+  netID: string
+  year: Year
+  class: Class
+  gender: Gender
+  major: string
+  choices: string[]
+  skills: string[]
+  comments: string
 }
 
-/** Returns true if this record changed an existing enrollment's meetingDay for this student/semester. */
-async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDay, record: BidRecord): Promise<boolean> {
+async function processBidRecord(
+  semesterId: string,
+  meetingDay: ProjectMeetingDay,
+  record: BidRecord
+): Promise<void> {
   // create student record
   const studentInfo = {
     firstName: record.firstName,
@@ -173,15 +171,10 @@ async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDa
     email: record.email,
   }
   const student = await prisma.student.upsert({
-    where: {netID: record.netID},
+    where: { netID: record.netID },
     update: studentInfo,
-    create: {...studentInfo, netID: record.netID},
+    create: { ...studentInfo, netID: record.netID },
   })
-  const existingEnrollment = await prisma.enrollment.findUnique({
-    where: {studentId_semesterId: {studentId: student.id, semesterId}},
-    select: {meetingDay: true},
-  })
-  const dayChanged = existingEnrollment != null && existingEnrollment.meetingDay !== meetingDay
   // create enrollment record
   const enrollmentInfo = {
     meetingDay,
@@ -193,58 +186,56 @@ async function processBidRecord(semesterId: string, meetingDay: ProjectMeetingDa
     comments: record.comments,
   }
   await prisma.enrollment.upsert({
-    where: {studentId_semesterId: {studentId: student.id, semesterId}},
+    where: { studentId_semesterId: { studentId: student.id, semesterId } },
     update: enrollmentInfo,
-    create: {...enrollmentInfo, studentId: student.id, semesterId},
-  });
+    create: { ...enrollmentInfo, studentId: student.id, semesterId },
+  })
   // replace choices for student for that semester
   await prisma.choice.deleteMany({
     where: {
       studentId: student.id,
       semesterId,
-    }
-  });
+    },
+  })
   await prisma.choice.createMany({
     data: record.choices.map((choice, i) => ({
       studentId: student.id,
       semesterId,
       projectId: choice,
       rank: i + 1,
-    }))
+    })),
   })
-  return dayChanged
 }
 
-
 export default defineEventHandler(async (event) => {
-  const rows: any[] = await readBody(event);
-  const semesterId = getQuery(event).semesterId as string;
-  const rawMeetingDay = getQuery(event).meetingDay;
+  const rows: any[] = await readBody(event)
+  const semesterId = getQuery(event).semesterId as string
+  const rawMeetingDay = getQuery(event).meetingDay
   const meetingDay =
-      typeof rawMeetingDay === 'string' && rawMeetingDay.toUpperCase() === 'WEDNESDAY'
-          ? 'WEDNESDAY'
-          : typeof rawMeetingDay === 'string' && rawMeetingDay.toUpperCase() === 'THURSDAY'
-              ? 'THURSDAY'
-              : null;
+    typeof rawMeetingDay === 'string' && rawMeetingDay.toUpperCase() === 'WEDNESDAY'
+      ? 'WEDNESDAY'
+      : typeof rawMeetingDay === 'string' && rawMeetingDay.toUpperCase() === 'THURSDAY'
+        ? 'THURSDAY'
+        : null
   if (!meetingDay) {
-    throw createError({statusCode: 400, message: 'Expected a meeting day (Wednesday/Thursday)'});
+    throw createError({ statusCode: 400, message: 'Expected a meeting day (Wednesday/Thursday)' })
   }
 
   if (!Array.isArray(rows) || rows.length === 0) {
-    throw createError({statusCode: 400, message: 'Expected a non-empty array of bid rows.'});
+    throw createError({ statusCode: 400, message: 'Expected a non-empty array of bid rows.' })
   }
 
   // Fetch all projects and partners once so we can match by name
-  let allProjects = await projectService.getAllProjects();
-  let allPartners = await partnerService.getAllPartners();
+  const allProjects = await projectService.getAllProjects()
+  const allPartners = await partnerService.getAllPartners()
 
   // Build normalized name → id lookups for fast matching
-  let projectLookup = new Map<string, string>(
-      allProjects.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
-  );
-  let partnerLookup = new Map<string, string>(
-      allPartners.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
-  );
+  const projectLookup = new Map<string, string>(
+    allProjects.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
+  )
+  const partnerLookup = new Map<string, string>(
+    allPartners.map((p: { id: string; name: string }) => [normalizeProjectKey(p.name), p.id])
+  )
 
   const aliasLookup = new Map<string, string>([
     ['mlk', 'friends of mlk'],
@@ -254,78 +245,82 @@ export default defineEventHandler(async (event) => {
     ['the lab ms desiccant reuse', 'thelab ms'],
     ['mckinney library', 'mckinney public library'],
     ['tejiendo alianzas xuchil', 'tejiendo alianzas'],
-  ]);
+  ])
 
-  let partnersCreated = 0;
-  let projectsCreated = 0;
-  let teamsCreated = 0;
+  let partnersCreated = 0
+  let projectsCreated = 0
+  let teamsCreated = 0
 
   // Fuzzy match, falling back to auto-creating the Partner
   const getOrCreatePartnerId = async (orgNameRaw: string): Promise<string> => {
-    const orgTextRaw = normalizeProjectText(orgNameRaw);
-    const aliased = aliasLookup.get(orgTextRaw) ?? orgTextRaw;
-    const candidates = [orgTextRaw, aliased].map(normalizeProjectKey).filter(Boolean);
+    const orgTextRaw = normalizeProjectText(orgNameRaw)
+    const aliased = aliasLookup.get(orgTextRaw) ?? orgTextRaw
+    const candidates = [orgTextRaw, aliased].map(normalizeProjectKey).filter(Boolean)
 
     for (const candidate of candidates) {
-      if (partnerLookup.has(candidate)) return partnerLookup.get(candidate)!;
+      if (partnerLookup.has(candidate)) return partnerLookup.get(candidate)!
     }
     for (const [name, id] of partnerLookup) {
       for (const candidate of candidates) {
-        if (name.includes(candidate) || candidate.includes(name)) return id;
+        if (name.includes(candidate) || candidate.includes(name)) return id
       }
     }
 
-    const partner = await partnerService.createPartner({name: orgNameRaw.trim() || 'Unknown Partner'});
-    partnerLookup.set(normalizeProjectKey(orgNameRaw), partner.id);
-    partnersCreated++;
-    return partner.id;
-  };
+    const partner = await partnerService.createPartner({
+      name: orgNameRaw.trim() || 'Unknown Partner',
+    })
+    partnerLookup.set(normalizeProjectKey(orgNameRaw), partner.id)
+    partnersCreated++
+    return partner.id
+  }
 
   // Ensure a Team exists for a resolved project in this semester/day, once per project per request
-  const ensuredTeamProjectIds = new Set<string>();
+  const ensuredTeamProjectIds = new Set<string>()
   const ensureTeamForProject = async (projectId: string): Promise<void> => {
-    if (ensuredTeamProjectIds.has(projectId)) return;
-    ensuredTeamProjectIds.add(projectId);
+    if (ensuredTeamProjectIds.has(projectId)) return
+    ensuredTeamProjectIds.add(projectId)
     const existing = await prisma.team.findUnique({
-      where: {projectId_semesterId: {projectId, semesterId}},
-    });
+      where: { projectId_semesterId: { projectId, semesterId } },
+    })
     if (!existing) {
-      await teamService.createTeam({projectId, semesterId, meetingDay});
-      teamsCreated++;
+      await teamService.createTeam({ projectId, semesterId, meetingDay })
+      teamsCreated++
     }
-  };
+  }
 
   // Fuzzy fallback: find or create the first project whose name matches
   const findOrCreateProjectId = async (choiceRaw: string): Promise<string | null> => {
-    if (!choiceRaw?.trim()) return null;
-    const stripped = stripSemesterPrefix(choiceRaw);
-    const [orgPartSource = stripped, projectPartSource = ''] = stripped.split(':').map(p => p.trim());
-    const normalizedFull = normalizeProjectText(stripped);
-    if (!normalizedFull) return null;
+    if (!choiceRaw?.trim()) return null
+    const stripped = stripSemesterPrefix(choiceRaw)
+    const [orgPartSource = stripped, projectPartSource = ''] = stripped
+      .split(':')
+      .map((p) => p.trim())
+    const normalizedFull = normalizeProjectText(stripped)
+    if (!normalizedFull) return null
 
-    const orgPartRaw = normalizeProjectText(orgPartSource);
-    const projectPartRaw = normalizeProjectText(projectPartSource);
-    const orgPart = aliasLookup.get(orgPartRaw) ?? orgPartRaw;
-    const projectPart = aliasLookup.get(projectPartRaw) ?? projectPartRaw;
+    const orgPartRaw = normalizeProjectText(orgPartSource)
+    const projectPartRaw = normalizeProjectText(projectPartSource)
+    const orgPart = aliasLookup.get(orgPartRaw) ?? orgPartRaw
+    const projectPart = aliasLookup.get(projectPartRaw) ?? projectPartRaw
 
     const candidates = [normalizedFull, orgPart, projectPart]
-        .map(c => normalizeProjectKey(c))
-        .filter(Boolean);
+      .map((c) => normalizeProjectKey(c))
+      .filter(Boolean)
 
     // Check existing projects first
     for (const candidate of candidates) {
-      if (projectLookup.has(candidate)) return projectLookup.get(candidate)!;
+      if (projectLookup.has(candidate)) return projectLookup.get(candidate)!
     }
 
     for (const [name, id] of projectLookup) {
       for (const candidate of candidates) {
-        if (name.includes(candidate) || candidate.includes(name)) return id;
+        if (name.includes(candidate) || candidate.includes(name)) return id
       }
     }
 
     // Not found — auto-create the partner and project.
-    const partnerId = await getOrCreatePartnerId(projectPartSource ? orgPartSource : stripped);
-    const projectName = projectPartSource || stripped;
+    const partnerId = await getOrCreatePartnerId(projectPartSource ? orgPartSource : stripped)
+    const projectName = projectPartSource || stripped
 
     const project = await projectService.createProject({
       name: projectName,
@@ -334,55 +329,66 @@ export default defineEventHandler(async (event) => {
       status: 'NEW',
       repoURL: '',
       partnerId,
-    });
-    projectLookup.set(normalizeProjectKey(projectName), project.id);
-    projectsCreated++;
-    return project.id;
-  };
+    })
+    projectLookup.set(normalizeProjectKey(projectName), project.id)
+    projectsCreated++
+    return project.id
+  }
 
-  let studentsImported = 0;
-  let choicesCreated = 0;
-  const skippedStudents: string[] = [];
-  const unmatchedProjects: string[] = [];
-  const dayChangedStudents: string[] = [];
+  let studentsImported = 0
+  let choicesCreated = 0
+  const skippedStudents: string[] = []
 
   for (const row of rows) {
-    const netID = readFirstValue(row, ['SSO ID', 'ssoid', 'netID', 'netid', 'id']);
+    const netID = readFirstValue(row, ['SSO ID', 'ssoid', 'netID', 'netid', 'id'])
     if (!netID) {
-      skippedStudents.push(readFirstValue(row, ['Student Name', 'student name', 'name', 'fullName']) || '(no name)');
-      continue;
+      skippedStudents.push(
+        readFirstValue(row, ['Student Name', 'student name', 'name', 'fullName']) || '(no name)'
+      )
+      continue
     }
 
     // ── Build student record ─────────────────────────────────────────────────
-    const {firstName, lastName} = parseStudentName(row);
-    const email = readFirstValue(row, ['Student Email', 'student email', 'studentemail']) || null;
-    const yearRaw = readFirstValue(row, ['Classification', 'classification']).toLowerCase();
-    const year: Year = YEAR_MAP[yearRaw] ?? 'FRESHMAN';
-    const cls = extractClass(readFirstValue(row, ['Enrollment', 'enrollment']));
-    const major = extractMajor(readFirstValue(row, ['School and Major', 'school and major', 'major']));
-    const gender = extractGender(readFirstValue(row, ['Gender', 'gender']));
-    const skills = readSkills(row);
-    const comments = readFirstValue(row, COMMENTS_KEYS);
+    const { firstName, lastName } = parseStudentName(row)
+    const email = readFirstValue(row, ['Student Email', 'student email', 'studentemail']) || null
+    const yearRaw = readFirstValue(row, ['Classification', 'classification']).toLowerCase()
+    const year: Year = YEAR_MAP[yearRaw] ?? 'FRESHMAN'
+    const cls = extractClass(readFirstValue(row, ['Enrollment', 'enrollment']))
+    const major = extractMajor(
+      readFirstValue(row, ['School and Major', 'school and major', 'major'])
+    )
+    const gender = extractGender(readFirstValue(row, ['Gender', 'gender']))
+    const skills = readSkills(row)
+    const comments = readFirstValue(row, COMMENTS_KEYS)
 
     // ── Process choices ──────────────────────────────────────────────────────
 
     const chosenProjectIds: string[] = []
 
-    const choiceKeys = ['Choice 1', 'Choice 2', 'Choice 3', 'Choice 4', 'Choice 5', 'Choice 6', 'choice1', 'choice2', 'choice3', 'choice4', 'choice5', 'choice6'];
+    const choiceKeys = [
+      'Choice 1',
+      'Choice 2',
+      'Choice 3',
+      'Choice 4',
+      'Choice 5',
+      'Choice 6',
+      'choice1',
+      'choice2',
+      'choice3',
+      'choice4',
+      'choice5',
+      'choice6',
+    ]
     for (let i = 0; i < choiceKeys.length; i++) {
-      const raw = readFirstValue(row, [choiceKeys[i]]);
-      if (!raw) continue;
+      const raw = readFirstValue(row, [choiceKeys[i]!])
+      if (!raw) continue
 
-      const projectId = await findOrCreateProjectId(raw);
-      if (!projectId) {
-        const stripped = stripSemesterPrefix(raw);
-        if (!unmatchedProjects.includes(stripped)) unmatchedProjects.push(stripped);
-        continue;
-      }
-      await ensureTeamForProject(projectId);
+      const projectId = await findOrCreateProjectId(raw)
+      if (!projectId) continue
+      await ensureTeamForProject(projectId)
 
-      if (chosenProjectIds.includes(projectId)) continue;
-      chosenProjectIds.push(projectId);
+      if (chosenProjectIds.includes(projectId)) continue
+      chosenProjectIds.push(projectId)
     }
 
     const record = {
@@ -398,11 +404,17 @@ export default defineEventHandler(async (event) => {
       skills,
       comments,
     }
-    const dayChanged = await processBidRecord(semesterId, meetingDay, record);
-    if (dayChanged) dayChangedStudents.push(netID);
-    studentsImported++;
-    choicesCreated += chosenProjectIds.length;
+    await processBidRecord(semesterId, meetingDay, record)
+    studentsImported++
+    choicesCreated += chosenProjectIds.length
   }
 
-  return {studentsImported, choicesCreated, partnersCreated, projectsCreated, teamsCreated, skippedStudents, unmatchedProjects, dayChangedStudents};
-});
+  return {
+    studentsImported,
+    choicesCreated,
+    partnersCreated,
+    projectsCreated,
+    teamsCreated,
+    skippedStudents,
+  }
+})

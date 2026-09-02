@@ -1,38 +1,27 @@
 <script setup lang="ts">
-  import CreateSemesterModal from '~/components/CreateSemesterModal.vue'
+  import CreateSemesterModal from '~/components/modals/CreateSemesterModal.vue'
   import { ACTION_ICONS } from '~/utils/icons'
-  import type { SemesterRead } from '#server/services/semesterService'
+  import { errorMessage } from '~/utils/errors'
+  import { formatSemester } from '~/utils/labels'
 
-  const modelValue = defineModel<string | undefined>()
+  // Fully controlled rather than `defineModel`: the Database page may refuse a change when a tab
+  // holds staged work, and a local model value would leave the dropdown showing a semester the page
+  // never adopted. Every change leaves through the emit and comes back as a prop, or not at all.
+  const props = defineProps<{ modelValue?: string }>()
+  const emit = defineEmits<{ 'update:modelValue': [value: string | undefined] }>()
 
   const { semesters, createSemester, deleteSemester } = useSemesters()
-
-  const options = computed(() =>
-    semesters.value.map((semester) => ({
-      label: semesterLabel(semester),
-      value: semester.id,
-    }))
-  )
-
-  function semesterLabel(semester: SemesterRead) {
-    const season = semester.season[0] + semester.season.slice(1).toLowerCase()
-    return `${season} ${semester.year}`
-  }
+  const { semesterOptions } = useSemesterLookup()
 
   // If the selected semester gets deleted elsewhere (e.g. another mounted
   // SemesterFilter instance), drop the now-dangling selection here too.
   watch(semesters, (list) => {
-    if (modelValue.value && !list.some((s) => s.id === modelValue.value)) {
-      modelValue.value = undefined
+    if (props.modelValue && !list.some((s) => s.id === props.modelValue)) {
+      emit('update:modelValue', undefined)
     }
   })
 
-  const selectedSemester = computed(() => semesters.value.find((s) => s.id === modelValue.value))
-
-  const selectedSemesterHasRecords = computed(() => {
-    const s = selectedSemester.value
-    return !!s && (s.teamCount > 0 || s.enrollmentCount > 0 || s.choiceCount > 0)
-  })
+  const selectedSemester = computed(() => semesters.value.find((s) => s.id === props.modelValue))
 
   const overlay = useOverlay()
   const createModal = overlay.create(CreateSemesterModal)
@@ -52,18 +41,18 @@
     if (!semester) return
 
     const ok = await confirm({
-      title: `Delete ${semesterLabel(semester)}?`,
+      title: `Delete ${formatSemester(semester)}?`,
       description: 'This cannot be undone.',
     })
     if (!ok) return
 
     try {
       await deleteSemester(semester.id)
-      modelValue.value = undefined
+      emit('update:modelValue', undefined)
     } catch (e: any) {
       toast.add({
         title: 'Could not delete semester',
-        description: e?.data?.message ?? e?.message ?? 'Unknown error.',
+        description: errorMessage(e, 'Unknown error.'),
         color: 'error',
       })
     }
@@ -73,44 +62,36 @@
 <template>
   <div class="flex items-center gap-2">
     <USelectMenu
-      v-model="modelValue"
-      :items="options"
+      :model-value="props.modelValue"
+      :items="semesterOptions"
       value-key="value"
       placeholder="All Semesters"
       class="w-48"
+      @update:model-value="(value: any) => emit('update:modelValue', value)"
     />
     <UButton
-      v-if="modelValue"
+      v-if="props.modelValue"
       :icon="ACTION_ICONS.cancel"
       color="neutral"
       variant="ghost"
       aria-label="Clear semester filter"
-      @click="modelValue = undefined"
+      @click="emit('update:modelValue', undefined)"
     />
-    <UTooltip
-      v-if="modelValue"
-      :text="
-        selectedSemesterHasRecords
-          ? 'This semester has teams, enrollments, or choices — remove those first.'
-          : 'Delete this semester'
-      "
-    >
-      <UButton
-        :icon="ACTION_ICONS.delete"
-        label="Delete Semester"
-        color="error"
-        variant="soft"
-        :disabled="selectedSemesterHasRecords"
-        aria-label="Delete semester"
-        @click="onDeleteClick"
-      />
-    </UTooltip>
     <UButton
       :icon="ACTION_ICONS.add"
       label="Add Semester"
       color="neutral"
       variant="soft"
       @click="openCreateModal"
+    />
+    <UButton
+      :icon="ACTION_ICONS.delete"
+      label="Delete Semester"
+      color="error"
+      variant="soft"
+      aria-label="Delete semester"
+      :disabled="!props.modelValue"
+      @click="onDeleteClick"
     />
   </div>
 </template>

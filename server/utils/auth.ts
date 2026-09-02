@@ -19,10 +19,39 @@ export const auth = betterAuth({
   database: prismaAdapter(prisma, {
     provider: 'sqlite',
   }),
+  user: {
+    additionalFields: {
+      role: {
+        type: 'string',
+        input: false, // clients can't set their own role via updateUser
+        defaultValue: 'USER',
+      },
+      active: {
+        type: 'boolean',
+        input: false, // clients can't activate themselves via updateUser
+        defaultValue: false,
+      },
+    },
+  },
+  databaseHooks: {
+    user: {
+      create: {
+        before: async (user) => {
+          if (user.email === 'turcatti@utdallas.edu') {
+            return { data: { ...user, role: 'ADMIN', active: true } }
+          }
+          return { data: user }
+        },
+      },
+    },
+  },
   plugins: [
     emailOTP({
       async sendVerificationOTP({ email, otp, type }) {
-        console.log("OTP:" + otp);
+        // Dev-only: OTPs are sign-in credentials (this app has no password auth), so never log them in production.
+        if (import.meta.dev) {
+          console.log(`OTP for ${email} (${type}): ${otp}`);
+        }
         await transporter.sendMail({
           from: process.env.EMAIL_FROM,
           to: email,

@@ -2,12 +2,16 @@
   import type { NavigationMenuItem } from '@nuxt/ui'
   import { authClient } from '../utils/auth-client'
 
-  const items: NavigationMenuItem[] = [
+  const { data: session } = await authClient.useSession(useFetch)
+
+  const items = computed<NavigationMenuItem[]>(() => [
     { label: 'Database', icon: 'i-heroicons-circle-stack', to: '/database' },
     { label: 'Team Formation', icon: 'i-heroicons-user-group', to: '/team-formation' },
     { label: 'Automation', icon: 'i-heroicons-bolt', to: '/automation' },
-    { label: 'User Management', icon: 'i-heroicons-shield-check', to: '/users' },
-  ]
+    ...(session.value?.user.role === 'ADMIN'
+      ? [{ label: 'User Management', icon: 'i-heroicons-shield-check', to: '/users' }]
+      : []),
+  ])
 
   async function logout() {
     await authClient.signOut()

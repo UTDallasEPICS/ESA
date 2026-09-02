@@ -1,6 +1,6 @@
 // Test file for OR-Tools CP-SAT team generation algorithm
-import { generateTeamsORTools } from './ortools';
-import type { Student, Project } from './ortools';
+import { generateTeamsORTools } from './ortools.ts';
+import type { Student, Project } from './ortools.ts';
 
 // ===================== DATA GENERATORS =====================
 

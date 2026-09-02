@@ -13,14 +13,14 @@ export interface ContactCreate {
   partnerId: string;
   name: string;
   email: string;
-  phone?: string;
+  phone?: string | null;
   isPrimary?: boolean;
 }
 
 export interface ContactUpdate {
   name?: string;
   email?: string;
-  phone?: string;
+  phone?: string | null;
   isPrimary?: boolean;
 }
 

@@ -1,4 +1,4 @@
-import type {EnrollmentUpdate} from "#server/services/enrollmentService";
+import { enrollmentUpdateSchema, parseBody } from "#server/utils/schemas";
 import enrollmentService from "#server/services/enrollmentService";
 
 export default defineEventHandler(async (event) => {
@@ -7,6 +7,6 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, statusMessage: 'Missing id parameter'});
   }
 
-  const data = await readBody<EnrollmentUpdate>(event);
+  const data = await parseBody(event, enrollmentUpdateSchema);
   return await enrollmentService.updateEnrollment(id, data);
 });

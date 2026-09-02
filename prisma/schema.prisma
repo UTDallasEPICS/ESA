@@ -13,6 +13,8 @@ model User {
   email         String
   emailVerified Boolean   @default(false)
   image         String?
+  role          Role      @default(USER)
+  active        Boolean   @default(false)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
   sessions      Session[]
@@ -171,7 +173,7 @@ model Enrollment {
   year       Year
   class      Class
   meetingDay ProjectMeetingDay
-  skills     String            @default("")
+  skills     String            @default("") // comma separated list of skills, e.g. "Python, C++, Java"
   comments   String            @default("")
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
@@ -257,4 +259,10 @@ enum ProjectStatus {
 enum ProjectMeetingDay {
   WEDNESDAY
   THURSDAY
+}
+
+// Access level for a logged-in User (Better Auth), independent of the Student/Enrollment model.
+enum Role {
+  USER
+  ADMIN
 }

@@ -1,600 +1,426 @@
 <script setup lang="ts">
-  import { z } from 'zod'
-  import type { FormSubmitEvent } from '@nuxt/ui'
   import type { DataTableColumn } from '~/components/DataTable.vue'
   import { ACTION_ICONS } from '~/utils/icons'
+  import { textColumn } from '~/utils/columns'
+  import { ENROLLMENT_FIELDS, MENTOR_FILTER_OPTIONS } from '~/utils/options'
   import type { StudentRead } from '#server/services/studentService'
-  import type { ProjectRead } from '#server/services/projectService'
-  import type { ChoiceRead } from '#server/services/choiceService'
 
-  const props = defineProps<{ semesterId?: string }>()
+  const { semesterId, guard } = useSemesterFilter()
+  const { openSemesterInfoModal } = useRecordModals()
 
-  interface StudentRow extends StudentRead {
-    semesterRole?: string
-    meetingDay?: string
-  }
+  const staging = useStagedChanges()
+  guard(staging)
 
   const {
     data: students,
     refresh,
     status,
   } = useFetch<StudentRead[]>('/api/students', {
-    query: computed(() => ({ semesterId: props.semesterId })),
+    key: 'students',
+    query: computed(() => ({ semesterId: semesterId.value })),
     default: () => [],
   })
 
-  const { data: allProjects } = useFetch<ProjectRead[]>('/api/projects', {
-    key: 'projects-all',
-    default: () => [],
+  // Registers every student's enrollments, memberships, and choices, so StudentSemesterCard and
+  // useSemesterCards never have to look up the fetched original themselves.
+  watch(
+    students,
+    (list) => {
+      for (const student of list) {
+        staging.children.register(student.id, 'Enrollments', student.Enrollments ?? [], (e) => e.id)
+        staging.children.register(student.id, 'Memberships', student.Memberships ?? [], (m) => m.id)
+        staging.children.register(student.id, 'Choices', student.Choices ?? [], (c) => c.id)
+      }
+    },
+    { immediate: true }
+  )
+
+  // Every semester's projects, so a card can offer the teams of whichever semester it belongs to.
+  const { data: allProjects } = useAllProjects()
+
+  const { semesters, semesterLabel, semesterSortKey, semesterOptions } = useSemesterLookup()
+  const { cardsFor, choiceEntries, teamIn } = useSemesterCards({
+    staging,
+    projects: allProjects,
+    semesterLabel,
+    semesterSortKey,
   })
 
-  const { semesters } = useSemesters()
-
-  function semesterLabel(id: string) {
-    const s = semesters.value.find((s) => s.id === id)
-    if (!s) return 'Unknown Semester'
-    return `${s.season[0]}${s.season.slice(1).toLowerCase()} ${s.year}`
-  }
-
-  function semesterSortKey(id: string) {
-    const s = semesters.value.find((s) => s.id === id)
-    if (!s) return 0
-    const order = { SPRING: 0, SUMMER: 1, FALL: 2 } as const
-    return s.year * 10 + order[s.season]
-  }
-
-  function studentSemesterInfo(student: StudentRead, semesterId: string) {
-    const enrollment = student.Enrollments.find((e) => e.semesterId === semesterId)
-    const mentorMembership = student.Memberships.find(
-      (m) => m.isMentor && m.Team.semesterId === semesterId
-    )
-    if (mentorMembership) return { role: 'Mentor', meetingDay: mentorMembership.Team.meetingDay }
-    if (enrollment) return { role: 'Student', meetingDay: enrollment.meetingDay }
-    return undefined
-  }
+  // ------------------------------------------------------------------- table
 
   const rows = computed<StudentRow[]>(() =>
     students.value.map((student) => {
-      const info = props.semesterId ? studentSemesterInfo(student, props.semesterId) : undefined
+      const enrollment = semesterId.value
+        ? student.Enrollments.find((e) => e.semesterId === semesterId.value)
+        : undefined
       return {
         ...student,
-        semesterRole: info?.role,
-        meetingDay: info?.meetingDay,
+        meetingDay: enrollment?.meetingDay ?? null,
+        gender: enrollment?.gender ?? null,
+        major: enrollment?.major ?? null,
+        year: enrollment?.year ?? null,
+        class: enrollment?.class ?? null,
       }
     })
   )
 
+  /**
+   * Points a semester column at the selected semester's enrollment. Returning undefined — a student
+   * who only mentors that semester — leaves the cell read-only; no enrollment is invented (§3.2.1).
+   */
+  function enrollmentTarget(field: string) {
+    return (row: StudentRow) => {
+      const enrollment = row.Enrollments?.find((e) => e.semesterId === semesterId.value)
+      return enrollment ? { collection: 'Enrollments', id: enrollment.id, field } : undefined
+    }
+  }
+
   const columns = computed<DataTableColumn<StudentRow>[]>(() => {
     const base: DataTableColumn<StudentRow>[] = [
-      {
-        id: 'netID',
-        header: 'NetID',
-        accessorKey: 'netID',
-        sortable: true,
-        filter: { type: 'search' },
-        editable: { type: 'text' },
-      },
-      {
-        id: 'firstName',
-        header: 'First Name',
-        accessorKey: 'firstName',
-        sortable: true,
-        filter: { type: 'search' },
-        editable: { type: 'text' },
-      },
-      {
-        id: 'lastName',
-        header: 'Last Name',
-        accessorKey: 'lastName',
-        sortable: true,
-        filter: { type: 'search' },
-        editable: { type: 'text' },
-      },
-      {
-        id: 'email',
-        header: 'Email',
-        accessorKey: 'email',
-        sortable: true,
-        filter: { type: 'search' },
-        editable: { type: 'text' },
-      },
-      {
-        id: 'discord',
-        header: 'Discord',
-        accessorKey: 'discord',
-        sortable: true,
-        filter: { type: 'search' },
-        editable: { type: 'text' },
-      },
+      textColumn<StudentRow>('netID', 'NetID', { required: true }),
+      textColumn<StudentRow>('firstName', 'First Name', { required: true }),
+      textColumn<StudentRow>('lastName', 'Last Name', { required: true }),
+      textColumn<StudentRow>('email', 'Email'),
+      textColumn<StudentRow>('discord', 'Discord'),
       {
         id: 'isMentor',
         header: 'Is Mentor?',
         accessorKey: 'isMentor',
         sortable: true,
-        filter: {
-          type: 'multiselect',
-          options: [
-            { label: 'Mentor', value: 'true' },
-            { label: 'Student', value: 'false' },
-          ],
-        },
+        filter: { type: 'multiselect', options: MENTOR_FILTER_OPTIONS },
         editable: { type: 'switch' },
       },
     ]
-    if (props.semesterId) {
-      base.push(
-        { id: 'semesterRole', header: 'Role', accessorKey: 'semesterRole', sortable: true },
-        { id: 'meetingDay', header: 'Meeting Day', accessorKey: 'meetingDay', sortable: true }
-      )
+    if (!semesterId.value) return base
+    for (const { field, label, options } of ENROLLMENT_FIELDS) {
+      base.push({
+        id: field,
+        header: label,
+        accessorKey: field,
+        sortable: true,
+        editable: options
+          ? { type: 'select', options: [...options], child: enrollmentTarget(field) }
+          : { type: 'text', child: enrollmentTarget(field) },
+      })
     }
     return base
   })
 
-  const confirm = useConfirm()
-
-  async function onDeleteRequest(ids: string[]) {
-    const selected = rows.value.filter((s) => ids.includes(s.id))
-    const ok = await confirm({
-      title: `Delete ${ids.length} student${ids.length === 1 ? '' : 's'}?`,
-      description: 'This will also delete all associated enrollments, choices, and memberships.',
-      affected: [
-        { label: 'Enrollment', count: selected.reduce((n, s) => n + s.Enrollments.length, 0) },
-        { label: 'Choice', count: selected.reduce((n, s) => n + s.Choices.length, 0) },
-        { label: 'Membership', count: selected.reduce((n, s) => n + s.Memberships.length, 0) },
-      ],
-    })
-    if (!ok) return
-    await Promise.all(ids.map((id) => $fetch(`/api/students/${id}`, { method: 'DELETE' })))
-    await refresh()
-  }
-
-  async function onSaveEdits(edits: Record<string, Record<string, any>>) {
-    await Promise.all(
-      Object.entries(edits).map(([id, changes]) =>
-        $fetch(`/api/students/${id}`, { method: 'PUT', body: changes })
-      )
-    )
-    await refresh()
-  }
-
-  // Creation panel
-  const panelOpen = ref(false)
-
-  const createSchema = z.object({
-    netID: z.string().min(1),
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    email: z.string().email().optional().or(z.literal('')),
-    discord: z.string().optional(),
-    isMentor: z.boolean(),
-  })
-  const draft = reactive({
-    netID: '',
-    firstName: '',
-    lastName: '',
-    email: '',
-    discord: '',
-    isMentor: false,
-  })
-
-  function openCreatePanel() {
-    Object.assign(draft, {
+  function newStudentRow() {
+    return {
+      id: '',
       netID: '',
       firstName: '',
       lastName: '',
       email: '',
       discord: '',
       isMentor: false,
-    })
-    panelOpen.value = true
-  }
-
-  async function onPanelConfirm() {
-    const body = {
-      netID: draft.netID,
-      firstName: draft.firstName,
-      lastName: draft.lastName,
-      email: draft.email || undefined,
-      discord: draft.discord || undefined,
-      isMentor: draft.isMentor,
+      Enrollments: [],
+      Memberships: [],
+      Choices: [],
     }
-    await $fetch('/api/students', { method: 'POST', body })
-    panelOpen.value = false
-    await refresh()
   }
 
-  // Semester info cards
-  interface SemesterCard {
-    semesterId: string
-    label: string
-    role: 'Mentor' | 'Student'
-    meetingDay: string
-    projectId: string
-    choices: ChoiceRead[]
+  // --------------------------------------------------------------- expansion
+
+  function accordionItems(row: StudentRow, rowId: string) {
+    return cardsFor(row, rowId)
+      .filter((card) => !semesterId.value || card.semesterId === semesterId.value)
+      .map((card) => ({
+        label: card.label,
+        value: card.key,
+        class: STAGE_TINTS[card.state],
+        card,
+        choices: card.role === 'Student' ? choiceEntries(row, rowId, card.semesterId) : [],
+      }))
   }
 
-  function semesterCardsFor(student: StudentRow): SemesterCard[] {
-    const byKey = new Map<string, SemesterCard>()
-    for (const e of student.Enrollments) {
-      // get project id & name
-      const projteam = student.Memberships.filter((t) => t.Team.semesterId === e.semesterId)
-      let pid: string = ''
-      if (projteam[0]) {
-        pid = projteam[0].Team.projectId
-      }
-      byKey.set(`${e.semesterId}:Student`, {
-        semesterId: e.semesterId,
-        label: semesterLabel(e.semesterId),
-        role: 'Student',
-        meetingDay: e.meetingDay,
-        projectId: pid,
-        choices: student.Choices.filter((c) => c.semesterId === e.semesterId).sort(
-          (a, b) => a.rank - b.rank
-        ),
+  async function addSemesterInfo(row: StudentRow, rowId: string) {
+    const taken = { STUDENT: [] as string[], MENTOR: [] as string[] }
+    for (const card of cardsFor(row, rowId)) {
+      taken[card.role === 'Mentor' ? 'MENTOR' : 'STUDENT'].push(card.semesterId)
+    }
+
+    const draft = await openSemesterInfoModal({
+      isMentor: !!row.isMentor,
+      semesters: semesterOptions.value,
+      taken,
+      projects: allProjects.value,
+    })
+    if (!draft) return
+
+    const isMentor = !!row.isMentor && draft.role === 'MENTOR'
+    const teamId = draft.project ? teamIn(draft.project, draft.semesterId)?.id : undefined
+
+    if (isMentor) {
+      // Left unassigned the card still stages, and its membership is only sent once a team is set.
+      staging.children.add(rowId, 'Memberships', {
+        semesterId: draft.semesterId,
+        teamId,
+        isMentor: true,
+      })
+      return
+    }
+    staging.children.add(rowId, 'Enrollments', {
+      semesterId: draft.semesterId,
+      meetingDay: draft.meetingDay,
+      major: draft.major,
+      year: draft.year,
+      class: draft.class,
+      gender: draft.gender,
+    })
+    if (teamId) {
+      staging.children.add(rowId, 'Memberships', {
+        semesterId: draft.semesterId,
+        teamId,
+        isMentor: false,
       })
     }
-    for (const m of student.Memberships.filter((m) => m.isMentor)) {
-      byKey.set(`${m.Team.semesterId}:Mentor`, {
-        semesterId: m.Team.semesterId,
-        label: semesterLabel(m.Team.semesterId),
-        role: 'Mentor',
-        meetingDay: m.Team.meetingDay,
-        projectId: m.Team.projectId,
-        choices: [],
+  }
+
+  // ---------------------------------------------------------------- saving
+
+  function pickEnrollment(fields: Record<string, any>) {
+    return {
+      semesterId: fields.semesterId,
+      meetingDay: fields.meetingDay,
+      major: fields.major,
+      year: fields.year,
+      class: fields.class,
+      gender: fields.gender,
+      skills: fields.skills,
+      comments: fields.comments,
+    }
+  }
+
+  /** New choices are renumbered 1..n per semester so the rank uniqueness constraint holds. */
+  function nestedChoices(children: ChildStage[]) {
+    const bySemester = new Map<string, ChildStage[]>()
+    for (const child of children) {
+      if (child.deleted) continue
+      const list = bySemester.get(child.fields.semesterId) ?? []
+      list.push(child)
+      bySemester.set(child.fields.semesterId, list)
+    }
+    const choices: { semesterId: string; projectId: string; rank: number }[] = []
+    for (const [semesterId, list] of bySemester) {
+      list.sort((a, b) => a.fields.rank - b.fields.rank || b.fields.baseRank - a.fields.baseRank)
+      list.forEach((child, index) => {
+        choices.push({ semesterId, projectId: child.fields.projectId, rank: index + 1 })
       })
     }
-    return [...byKey.values()]
-      .filter((c) => !props.semesterId || c.semesterId === props.semesterId)
-      .sort((a, b) => semesterSortKey(b.semesterId) - semesterSortKey(a.semesterId))
+    return choices
   }
 
-  function accordionItemsFor(student: StudentRow) {
-    return semesterCardsFor(student).map((card) => ({
-      label: `${card.label} — ${card.role}`,
-      value: `${card.semesterId}:${card.role}`,
-      card,
-    }))
-  }
+  async function createStudent(record: StagedRecord) {
+    const fields = record.fields
+    const enrollments = (record.children.Enrollments ?? [])
+      .filter((child) => !child.deleted)
+      .map((child) => pickEnrollment(child.fields))
+    const memberships = (record.children.Memberships ?? [])
+      .filter((child) => !child.deleted && child.fields.teamId)
+      .map((child) => ({ teamId: child.fields.teamId, isMentor: !!child.fields.isMentor }))
+    const choices = nestedChoices(record.children.Choices ?? [])
 
-  function projectName(projectId: string) {
-    return allProjects.value.find((p) => p.id === projectId)?.name ?? 'Unknown Project'
-  }
-
-  async function moveChoice(choice: ChoiceRead, direction: -1 | 1) {
-    await $fetch(`/api/choices/${choice.id}`, {
-      method: 'PUT',
-      body: { rank: choice.rank + direction },
-    })
-    await refresh()
-  }
-
-  async function deleteChoice(choiceId: string) {
-    await $fetch(`/api/choices/${choiceId}`, { method: 'DELETE' })
-    await refresh()
-  }
-
-  // Team preference (choice) creation modal
-  const choiceModalOpen = ref(false)
-  const choiceModalStudentId = ref<string | null>(null)
-  const choiceModalCard = ref<SemesterCard | null>(null)
-  const choiceDraft = ref<ProjectRead | undefined>()
-
-  function openChoiceModal(student: StudentRow, card: SemesterCard) {
-    choiceModalStudentId.value = student.id
-    choiceModalCard.value = card
-    choiceDraft.value = undefined
-    choiceModalOpen.value = true
-  }
-
-  async function searchTeamsForCard(query: string) {
-    if (!choiceModalCard.value || !choiceModalStudentId.value) return []
-    const student = students.value.find((s) => s.id === choiceModalStudentId.value)
-    if (!student) return []
-    const semesterId = choiceModalCard.value.semesterId
-    const existing = new Set(
-      student.Choices.filter((c) => c.semesterId === semesterId).map((c) => c.projectId)
-    )
-    const q = query.toLowerCase()
-    return allProjects.value
-      .filter((p) => p.Teams.some((t) => t.semesterId === semesterId))
-      .filter((p) => !existing.has(p.id))
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.Partner.name.toLowerCase().includes(q))
-      .slice(0, 10)
-  }
-
-  async function submitChoice() {
-    if (!choiceModalCard.value || !choiceModalStudentId.value || !choiceDraft.value) return
-    const student = students.value.find((s) => s.id === choiceModalStudentId.value)
-    if (!student) return
-    const rank =
-      Math.max(
-        0,
-        ...student.Choices.filter((c) => c.semesterId === choiceModalCard.value!.semesterId).map(
-          (c) => c.rank
-        )
-      ) + 1
-    await $fetch('/api/choices', {
+    await $fetch('/api/students', {
       method: 'POST',
       body: {
-        studentId: student.id,
-        projectId: choiceDraft.value.id,
-        semesterId: choiceModalCard.value.semesterId,
-        rank,
+        netID: fields.netID,
+        firstName: fields.firstName,
+        lastName: fields.lastName,
+        email: fields.email || undefined,
+        discord: fields.discord || undefined,
+        isMentor: !!fields.isMentor,
+        Enrollments: enrollments.length ? enrollments : undefined,
+        Memberships: memberships.length ? memberships : undefined,
+        Choices: choices.length ? choices : undefined,
       },
     })
-    choiceModalOpen.value = false
-    await refresh()
   }
 
-  // Semester Info creation modal
-  const infoModalOpen = ref(false)
-  const infoModalStudent = ref<StudentRow | null>(null)
-  const infoSchema = z.object({
-    semesterId: z.string().min(1),
-    meetingDay: z.enum(['WEDNESDAY', 'THURSDAY']),
-    role: z.enum(['STUDENT', 'MENTOR']),
-    major: z.string().min(1).optional(),
-    year: z.enum(['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR']).optional(),
-    class: z.enum(['EPCS_2200', 'EPCS_3200']).optional(),
-    gender: z.enum(['MALE', 'FEMALE', 'OTHER']).optional(),
-  })
-  const infoDraft = reactive({
-    semesterId: '',
-    meetingDay: 'WEDNESDAY' as 'WEDNESDAY' | 'THURSDAY',
-    role: 'STUDENT' as 'STUDENT' | 'MENTOR',
-    major: '',
-    year: 'FRESHMAN' as 'FRESHMAN' | 'SOPHOMORE' | 'JUNIOR' | 'SENIOR',
-    class: 'EPCS_2200' as 'EPCS_2200' | 'EPCS_3200',
-    gender: 'OTHER' as 'MALE' | 'FEMALE' | 'OTHER',
-  })
-  const infoTeamDraft = ref<ProjectRead | undefined>()
+  async function updateStudent(record: StagedRecord) {
+    const id = record.id
+    const fields = record.fields
 
-  function openInfoModal(student: StudentRow) {
-    infoModalStudent.value = student
-    Object.assign(infoDraft, {
-      semesterId: '',
-      meetingDay: 'WEDNESDAY',
-      role: 'STUDENT',
-      major: '',
-      year: 'FRESHMAN',
-      class: 'EPCS_2200',
-      gender: 'OTHER',
-    })
-    infoTeamDraft.value = undefined
-    infoModalOpen.value = true
-  }
+    const body: Record<string, any> = {}
+    for (const key of ['netID', 'firstName', 'lastName', 'isMentor'] as const) {
+      if (key in fields) body[key] = fields[key]
+    }
+    for (const key of ['email', 'discord'] as const) {
+      if (key in fields) body[key] = fields[key] === '' ? null : fields[key]
+    }
+    if (Object.keys(body).length) {
+      await $fetch(`/api/students/${id}`, { method: 'PUT', body })
+    }
 
-  async function searchTeamsForSemester(query: string) {
-    if (!infoDraft.semesterId) return []
-    const q = query.toLowerCase()
-    return allProjects.value
-      .filter((p) => p.Teams.some((t) => t.semesterId === infoDraft.semesterId))
-      .filter((p) => !q || p.name.toLowerCase().includes(q) || p.Partner.name.toLowerCase().includes(q))
-      .slice(0, 10)
-  }
+    // Deletions run before creations for both enrollments and memberships: a semester's enrollment
+    // and a team's membership are unique per student, so re-adding one has to wait for the old row.
+    const enrollments = record.children.Enrollments ?? []
+    for (const child of enrollments) {
+      if (child.deleted) await $fetch(`/api/enrollments/${child.id}`, { method: 'DELETE' })
+    }
+    for (const child of enrollments) {
+      if (child.deleted) continue
+      if (child.isNew) {
+        await $fetch('/api/enrollments', {
+          method: 'POST',
+          body: { studentId: id, ...pickEnrollment(child.fields) },
+        })
+      } else if (Object.keys(child.fields).length) {
+        await $fetch(`/api/enrollments/${child.id}`, { method: 'PUT', body: child.fields })
+      }
+    }
 
-  async function submitInfo(event: FormSubmitEvent<z.infer<typeof infoSchema>>) {
-    if (!infoModalStudent.value) return
-    if (event.data.role === 'STUDENT') {
-      await $fetch('/api/enrollments', {
-        method: 'POST',
-        body: {
-          studentId: infoModalStudent.value.id,
-          semesterId: event.data.semesterId,
-          meetingDay: event.data.meetingDay,
-          major: infoDraft.major,
-          year: infoDraft.year,
-          class: infoDraft.class,
-          gender: infoDraft.gender,
-        },
-      })
-    } else {
-      const team = infoTeamDraft.value?.Teams.find((t) => t.semesterId === infoDraft.semesterId)
-      if (!team) return
+    const memberships = record.children.Memberships ?? []
+    for (const child of memberships) {
+      if (child.deleted) await $fetch(`/api/memberships/${child.id}`, { method: 'DELETE' })
+    }
+    for (const child of memberships) {
+      if (child.deleted || !child.isNew || !child.fields.teamId) continue
       await $fetch('/api/memberships', {
         method: 'POST',
-        body: { teamId: team.id, studentId: infoModalStudent.value.id, isMentor: true },
+        body: {
+          studentId: id,
+          teamId: child.fields.teamId,
+          isMentor: !!child.fields.isMentor,
+        },
       })
     }
-    infoModalOpen.value = false
-    await refresh()
+
+    // Choices are created at the end of their semester's list and then moved, because only the
+    // update endpoint shifts the siblings out of the way of a rank.
+    const choices = record.children.Choices ?? []
+    const fetched = students.value.find((student) => student.id === id)
+    const lastRank = new Map<string, number>()
+    for (const choice of fetched?.Choices ?? []) {
+      lastRank.set(choice.semesterId, Math.max(lastRank.get(choice.semesterId) ?? 0, choice.rank))
+    }
+    const added = choices
+      .filter((child) => child.isNew && !child.deleted)
+      .sort((a, b) => a.fields.rank - b.fields.rank || b.fields.baseRank - a.fields.baseRank)
+    for (const child of added) {
+      const childSemesterId = child.fields.semesterId
+      const appended = (lastRank.get(childSemesterId) ?? 0) + 1
+      lastRank.set(childSemesterId, appended)
+      const created = await $fetch<{ id: string }>('/api/choices', {
+        method: 'POST',
+        body: {
+          studentId: id,
+          semesterId: childSemesterId,
+          projectId: child.fields.projectId,
+          rank: appended,
+        },
+      })
+      const target = child.fields.rank
+      if (typeof target === 'number' && target >= 1 && target !== appended) {
+        await $fetch(`/api/choices/${created.id}`, { method: 'PUT', body: { rank: target } })
+      }
+    }
+    for (const child of choices) {
+      if (child.isNew || child.deleted) continue
+      if (typeof child.fields.rank === 'number') {
+        await $fetch(`/api/choices/${child.id}`, {
+          method: 'PUT',
+          body: { rank: child.fields.rank },
+        })
+      }
+    }
+    for (const child of choices) {
+      if (child.deleted) await $fetch(`/api/choices/${child.id}`, { method: 'DELETE' })
+    }
   }
+
+  async function deleteStudent(id: string) {
+    await $fetch(`/api/students/${id}`, { method: 'DELETE' })
+  }
+
+  const { saving, onSave } = useStagedSave({
+    staging,
+    entity: 'student',
+    cascade: 'This will also delete all associated enrollments, choices, and memberships.',
+    affected: (ids) => {
+      const selected = students.value.filter((student) => ids.includes(student.id))
+      return [
+        {
+          label: 'Enrollment',
+          count: selected.reduce((n, student) => n + student.Enrollments.length, 0),
+        },
+        { label: 'Choice', count: selected.reduce((n, student) => n + student.Choices.length, 0) },
+        {
+          label: 'Membership',
+          count: selected.reduce((n, student) => n + student.Memberships.length, 0),
+        },
+      ]
+    },
+    refresh,
+    create: createStudent,
+    update: updateStudent,
+    delete: deleteStudent,
+  })
+
+  provideRowStaging({ staging, saving })
 </script>
 
 <template>
-  <div>
-    <DataTable
-      :data="rows"
-      :columns="columns"
-      :row-key="(row) => row.id"
-      :loading="status === 'pending'"
-      expandable
-      @add="openCreatePanel"
-      @delete-request="onDeleteRequest"
-      @save-edits="onSaveEdits"
-    >
-      <template #expanded="{ row }">
-        <div class="space-y-4 p-3">
-          <div class="space-y-2">
-            <div class="flex items-center justify-between">
-              <h3 class="font-semibold">Semester Info</h3>
-              <UButton
-                label="Add Semester Info"
-                :icon="ACTION_ICONS.add"
-                size="xs"
-                variant="soft"
-                @click="openInfoModal(row)"
-              />
-            </div>
-
-            <UAccordion :items="accordionItemsFor(row)" type="multiple">
-              <template #body="{ item }">
-                <span class="text-xs text-gray-500 p-2">Team Assigned: {{ projectName(item.card.projectId) }}</span>
-                <div v-if="item.card.role === 'Student'" class="space-y-2 p-2">
-                  <div class="flex items-center justify-between">
-                    <span class="text-xs text-gray-500">Team Preferences</span>
-                    <UButton
-                      label="Add Preference"
-                      :icon="ACTION_ICONS.add"
-                      size="xs"
-                      variant="ghost"
-                      @click="openChoiceModal(row, item.card)"
-                    />
-                  </div>
-                  <ul class="space-y-1">
-                    <li
-                      v-for="choice in item.card.choices"
-                      :key="choice.id"
-                      class="flex items-center justify-between rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-                    >
-                      <span>#{{ choice.rank }} {{ projectName(choice.projectId) }}</span>
-                      <div class="flex gap-1">
-                        <UButton
-                          icon="i-heroicons-arrow-up"
-                          size="xs"
-                          variant="ghost"
-                          @click="moveChoice(choice, -1)"
-                        />
-                        <UButton
-                          icon="i-heroicons-arrow-down"
-                          size="xs"
-                          variant="ghost"
-                          @click="moveChoice(choice, 1)"
-                        />
-                        <UButton
-                          label="Remove"
-                          :icon="ACTION_ICONS.delete"
-                          size="xs"
-                          color="error"
-                          variant="ghost"
-                          @click="deleteChoice(choice.id)"
-                        />
-                      </div>
-                    </li>
-                  </ul>
-                </div>
-              </template>
-            </UAccordion>
-          </div>
-        </div>
-      </template>
-    </DataTable>
-
-    <RecordPanel v-model:open="panelOpen" title="New Student" @confirm="onPanelConfirm">
-      <div class="grid grid-cols-2 gap-4">
-        <UFormField label="NetID"><UInput v-model="draft.netID" class="w-full" /></UFormField>
-        <UFormField label="First Name">
-          <UInput v-model="draft.firstName" class="w-full" />
-        </UFormField>
-        <UFormField label="Last Name"><UInput v-model="draft.lastName" class="w-full" /></UFormField>
-        <UFormField label="Email"><UInput v-model="draft.email" class="w-full" /></UFormField>
-        <UFormField label="Discord"><UInput v-model="draft.discord" class="w-full" /></UFormField>
-        <UFormField label="Is Mentor?">
-          <USwitch v-model="draft.isMentor" label="Is Mentor?" />
-        </UFormField>
-      </div>
-    </RecordPanel>
-
-    <UModal v-model:open="choiceModalOpen" title="Add Team Preference">
-      <template #body>
-        <div class="space-y-4">
-          <RecordSearchInput
-            v-model="choiceDraft"
-            :search="searchTeamsForCard"
-            :display-label="(p) => `${p.name} (${p.Partner.name})`"
-            placeholder="Search by project or partner name…"
+  <DataTable
+    :data="rows"
+    :columns="columns"
+    :row-key="(row) => row.id"
+    :staging="staging"
+    :loading="status === 'pending'"
+    :saving="saving"
+    expandable
+    :new-row="newStudentRow"
+    @save="onSave"
+  >
+    <template #expanded="{ row, rowId, deleted }">
+      <div class="space-y-3 p-3">
+        <div class="flex items-center justify-between">
+          <h3 class="font-semibold">Semester Info</h3>
+          <UButton
+            label="Add Semester Info"
+            :icon="ACTION_ICONS.add"
+            size="xs"
+            variant="soft"
+            :disabled="deleted || saving"
+            @click="addSemesterInfo(row, rowId)"
           />
-          <div class="flex justify-end gap-2">
-            <UButton
-              label="Cancel"
-              :icon="ACTION_ICONS.cancel"
-              color="neutral"
-              variant="soft"
-              @click="choiceModalOpen = false"
-            />
-            <UButton
-              label="Confirm"
-              :icon="ACTION_ICONS.confirm"
-              :disabled="!choiceDraft"
-              @click="submitChoice"
-            />
-          </div>
         </div>
-      </template>
-    </UModal>
 
-    <UModal v-model:open="infoModalOpen" title="Add Semester Info">
-      <template #body>
-        <UForm :schema="infoSchema" :state="infoDraft" class="space-y-4" @submit="submitInfo">
-          <UFormField label="Semester" name="semesterId">
-            <USelectMenu
-              v-model="infoDraft.semesterId"
-              :items="semesters.map((s) => ({ label: `${s.season} ${s.year}`, value: s.id }))"
-              value-key="value"
-              class="w-full"
+        <!-- Semester set: every matching card open and non-collapsible. -->
+        <template v-if="semesterId">
+          <div
+            v-for="item in accordionItems(row, rowId)"
+            :key="item.value"
+            class="rounded border border-gray-200 dark:border-gray-800"
+            :class="item.class"
+          >
+            <div class="border-b border-gray-200 px-3 py-2 font-medium dark:border-gray-800">
+              {{ item.label }}
+            </div>
+            <StudentSemesterCard
+              :row-id="rowId"
+              :row="row"
+              :card="item.card"
+              :choices="item.choices"
+              :disabled="deleted"
             />
-          </UFormField>
-          <UFormField label="Meeting Day" name="meetingDay">
-            <USelectMenu
-              v-model="infoDraft.meetingDay"
-              :items="[
-                { label: 'Wednesday', value: 'WEDNESDAY' },
-                { label: 'Thursday', value: 'THURSDAY' },
-              ]"
-              value-key="value"
-              class="w-full"
-            />
-          </UFormField>
-          <UFormField v-if="infoModalStudent?.isMentor" label="Role" name="role">
-            <URadioGroup
-              v-model="infoDraft.role"
-              orientation="horizontal"
-              :items="[
-                { label: 'Student', value: 'STUDENT' },
-                { label: 'Mentor', value: 'MENTOR' },
-              ]"
-            />
-          </UFormField>
-
-          <template v-if="infoDraft.role === 'STUDENT'">
-            <UFormField label="Major" name="major">
-              <UInput v-model="infoDraft.major" class="w-full" />
-            </UFormField>
-            <UFormField label="Year" name="year">
-              <USelectMenu
-                v-model="infoDraft.year"
-                :items="['FRESHMAN', 'SOPHOMORE', 'JUNIOR', 'SENIOR']"
-                class="w-full"
-              />
-            </UFormField>
-            <UFormField label="Class" name="class">
-              <USelectMenu v-model="infoDraft.class" :items="['EPCS_2200', 'EPCS_3200']" class="w-full" />
-            </UFormField>
-            <UFormField label="Gender" name="gender">
-              <USelectMenu v-model="infoDraft.gender" :items="['MALE', 'FEMALE', 'OTHER']" class="w-full" />
-            </UFormField>
-          </template>
-          <UFormField v-else label="Team">
-            <RecordSearchInput
-              v-model="infoTeamDraft"
-              :search="searchTeamsForSemester"
-              :display-label="(p) => `${p.name} (${p.Partner.name})`"
-              placeholder="Search by project or partner name…"
-            />
-          </UFormField>
-
-          <div class="flex justify-end gap-2">
-            <UButton
-              label="Cancel"
-              :icon="ACTION_ICONS.cancel"
-              color="neutral"
-              variant="soft"
-              @click="infoModalOpen = false"
-            />
-            <UButton label="Confirm" :icon="ACTION_ICONS.confirm" type="submit" />
           </div>
-        </UForm>
-      </template>
-    </UModal>
-  </div>
+        </template>
+
+        <!-- Semester unset: every semester, collapsible, multi-open. -->
+        <UAccordion v-else :items="accordionItems(row, rowId)" type="multiple">
+          <template #body="{ item }">
+            <StudentSemesterCard
+              :row-id="rowId"
+              :row="row"
+              :card="item.card"
+              :choices="item.choices"
+              :disabled="deleted"
+            />
+          </template>
+        </UAccordion>
+      </div>
+    </template>
+  </DataTable>
 </template>

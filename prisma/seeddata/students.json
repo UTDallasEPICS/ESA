@@ -9,6 +9,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -28,6 +30,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Web Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "2af271a7-7c85-453a-b3bb-6e91ce554db4",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -47,6 +51,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "278ff369-0658-47f0-93c3-9ab0a3461d53",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -66,6 +72,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, UI/UX Design, Mobile Development",
+    "comments": "I would like to be on the same team as Deethya Janjanam.",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
@@ -85,6 +93,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "2af271a7-7c85-453a-b3bb-6e91ce554db4",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -104,6 +114,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Data Visualization, Data Analytics",
+    "comments": "",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
@@ -123,6 +135,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "UI/UX Design, Web Development, Electronics & Circuits",
+    "comments": "",
     "choiceProjectIds": [
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -142,6 +156,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, Data Visualization, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "5af27476-9a20-433f-b787-df930cf4e2d7",
@@ -161,6 +177,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, UI/UX Design, Ergonomics",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -180,6 +198,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Web Development, Desktop Development",
+    "comments": "https://cbyington1.github.io/Portfolio/",
     "choiceProjectIds": [
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
       "5af27476-9a20-433f-b787-df930cf4e2d7",
@@ -199,6 +219,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Security, Web Development, IT Solutions",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -218,6 +240,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "MATLAB, Electronics & Circuits, Data Analytics",
+    "comments": "",
     "choiceProjectIds": [
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
@@ -237,6 +261,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, Data Visualization, Web Development",
+    "comments": "I want to learn more about data analytics since I finish my Data Science degree here at UTD.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -256,6 +282,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Databases, Server Back-End",
+    "comments": ":-)",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "5af27476-9a20-433f-b787-df930cf4e2d7",
@@ -275,6 +303,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, MATLAB, Databases",
+    "comments": "I am selecting the GuidePoint project as my top preference because it provides the perfect opportunity to apply my Computer Science and Mathematics double major to complex AI model training and deployment. I am uniquely qualified to handle the mathematical rigor required for this project, utilizing TensorFlow and TensorFlow Lite to develop and optimize high-accuracy models for indoor navigation. Furthermore, I am eager to apply my coding skills, specifically in Python, to implement the Natural Language Processing (NLP) and Text to Speech (TTS) features that are essential for the system's accessibility. I have selected data analytics and matlab as my top skills to reflect my ability to manage the dataset expansion and the algorithmic optimization necessary to make this project a success.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -294,6 +324,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, IT Solutions, Embedded Development",
+    "comments": "Working on setting up a home network over the break with a pi acting as a router for a bunch of other devices has been the most fun I've had with CS in a while so I would love the IoT project if possible :)",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
@@ -313,6 +345,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Robotics, Electronics & Circuits, Woodworking",
+    "comments": "",
     "choiceProjectIds": [
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -332,6 +366,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "IT Solutions, Web Development, Data Security",
+    "comments": "I have two years of experience as an IT Intern, and I have earned my Comptia A+ and Network+ certifications. I have also completed several Web Development projects, including recent participation in ACM Projects and winning third place at nationals in SkillsUSA's Web Design Team competition last summer. I am currently studying for my Comptia Security+ certification.",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -351,6 +387,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "MATLAB, CAD, Woodworking",
+    "comments": "Looking for hands on",
     "choiceProjectIds": [
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -370,6 +408,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Woodworking, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -389,6 +429,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Ergonomics, Electronics & Circuits",
+    "comments": "",
     "choiceProjectIds": [
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -408,6 +450,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Desktop Development, Databases",
+    "comments": "The top 3 skills listed are not a true representation of the skill level I possess, but rather the skills I would like to obtain during the EPICS course.",
     "choiceProjectIds": [
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
       "278ff369-0658-47f0-93c3-9ab0a3461d53",
@@ -427,6 +471,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Graphic Design, CAD, Data Visualization",
+    "comments": "Proficient in Microsoft Applications like Excel, PowerPoint, and Word with credit in a technical writing course. I bring significant leadership skills and though may not have much technical experience, learn very quickly.",
     "choiceProjectIds": [
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -446,6 +492,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Mobile Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "55963b46-b94c-4539-ae8e-c6415948c40c",
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
@@ -465,6 +513,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Desktop Development, Data Visualization, Data Analytics",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -484,6 +534,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Mobile Development, Data Analytics, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -503,6 +555,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, UI/UX Design, Mobile Development",
+    "comments": "I want to be on the same team as Ritikha Ashok, and we would like to get our first pick.",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
@@ -522,6 +576,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Data Analytics, Ergonomics",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -541,6 +597,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Embedded Development, Electronics & Circuits, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -560,6 +618,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Desktop Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "2af271a7-7c85-453a-b3bb-6e91ce554db4",
@@ -579,6 +639,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "6c6d7e97-188e-407d-97a4-abd267eec658",
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
@@ -598,6 +660,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Databases, Data Security, Data Analytics",
+    "comments": "",
     "choiceProjectIds": [
       "e6248c5a-7ab1-47ed-b88c-49fb546620be",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -617,6 +681,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Woodworking, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
@@ -636,6 +702,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Electronics & Circuits, Ergonomics, Graphic Design",
+    "comments": "In addition to the skills I selected in this submission, I am also experienced in project management, creating/editing documentation according to management needs, sketching rough mock-ups, and 3D printing. I am very excited to continue developing my skills in these areas and beyond! Thank you for the opportunity to engage in such impactful projects!",
     "choiceProjectIds": [
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
@@ -655,6 +723,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Desktop Development, UI/UX Design, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "55963b46-b94c-4539-ae8e-c6415948c40c",
       "e6248c5a-7ab1-47ed-b88c-49fb546620be",
@@ -674,6 +744,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Robotics, Ergonomics",
+    "comments": "",
     "choiceProjectIds": [
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -693,6 +765,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, IT Solutions, Data Analytics",
+    "comments": "I am an aspiring AI/ML developer. I have some experience in AI/ML in my free time as well as multiple projects. Any chance I can get to work on more AI/ML especially with mentorship, I will definitely appreciate and maximize.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -712,6 +786,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Embedded Development, Electronics & Circuits, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
@@ -731,6 +807,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "UI/UX Design, Databases, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -750,6 +828,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "UI/UX Design, Web Development, Mobile Development",
+    "comments": "I\u2019ve had experience working on UI for various Hackathon projects and clubs before, and I\u2019ve also volunteered extensively at public libraries and local food banks, providing me with a good sense of the desired systems and tools needed in such organizations. I have also been more interested in graphic design for frontend components and databases for backend, so I\u2019d love to work on a project seeking those skills.",
     "choiceProjectIds": [
       "55963b46-b94c-4539-ae8e-c6415948c40c",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -769,6 +849,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -788,6 +870,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Databases, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -807,6 +891,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "5af27476-9a20-433f-b787-df930cf4e2d7",
@@ -826,6 +912,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Electronics & Circuits, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -845,6 +933,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, IT Solutions, Databases",
+    "comments": "I am highly interested in the GuidePoint project and am specifically excited about working on the AI-based indoor navigation and room classification components. I have hands-on experience with Python and TensorFlow-based ML pipelines, including training, evaluating, and iterating on models, and I am very interested in deploying lightweight models for real-world use cases. I am also comfortable working with algorithmic components such as pathfinding (e.g., A*) and integrating ML outputs into end-to-end systems. I am committed to contributing consistently throughout the semester and would like to take ownership of model development, evaluation, and integration for this project.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -864,6 +954,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "5af27476-9a20-433f-b787-df930cf4e2d7",
@@ -883,6 +975,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, Mobile Development",
+    "comments": "",
     "choiceProjectIds": [
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -902,6 +996,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Mobile Development, Graphic Design",
+    "comments": "",
     "choiceProjectIds": [
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
@@ -921,6 +1017,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "UI/UX Design, Databases, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "502243f0-2fc3-4ecb-9d9d-de09e1133580",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -940,6 +1038,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, MATLAB, Woodworking",
+    "comments": "",
     "choiceProjectIds": [
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -959,6 +1059,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, UI/UX Design, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
       "55963b46-b94c-4539-ae8e-c6415948c40c",
@@ -978,6 +1080,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Databases, Data Analytics, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "55963b46-b94c-4539-ae8e-c6415948c40c",
@@ -997,6 +1101,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Databases, UI/UX Design",
+    "comments": "I am very interested in working on the new project - Hope. Cope. Heal  (Electronic Health Record System)",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "2af271a7-7c85-453a-b3bb-6e91ce554db4",
@@ -1016,6 +1122,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, IT Solutions, Data Analytics",
+    "comments": "Working with AI/ML is a passion of mine. I have a solid foundation in this area and am excited for the opportunity to both contribute and grow my skill set.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
@@ -1035,6 +1143,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Databases, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "2af271a7-7c85-453a-b3bb-6e91ce554db4",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -1054,6 +1164,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Web Development, UI/UX Design",
+    "comments": "I am pretty new to a lot of these things. I just am better at these than the other things.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -1073,6 +1185,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Security, Databases, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -1092,6 +1206,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Databases, UI/UX Design, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "e6248c5a-7ab1-47ed-b88c-49fb546620be",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -1111,6 +1227,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Desktop Development, Mobile Development",
+    "comments": "",
     "choiceProjectIds": [
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
       "55963b46-b94c-4539-ae8e-c6415948c40c",
@@ -1130,6 +1248,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Electronics & Circuits, CAD, Data Visualization",
+    "comments": "Last semester, I was enrolled in EPICS 2200 and worked on the Sci-Tech Discovery Center Interactive Signage project. I would love the opportunity to continue working on this project and build on the progress made last semester.",
     "choiceProjectIds": [
       "b1d436fa-b1be-4602-ac6c-82933514cec7",
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
@@ -1149,6 +1269,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -1168,6 +1290,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "Desktop Development, Databases, UI/UX Design",
+    "comments": "I've worked with both Nuxt and Prisma before. While there may be a bit of a learning curve with performance optimization, I am confident in my ability to pick up on and apply relevant skills.",
     "choiceProjectIds": [
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
       "55963b46-b94c-4539-ae8e-c6415948c40c",
@@ -1187,6 +1311,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Graphic Design, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
       "40d2ceae-a0f9-40b5-91cc-08a37c0580ef",
@@ -1206,6 +1332,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, UI/UX Design, Desktop Development",
+    "comments": "",
     "choiceProjectIds": [
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
@@ -1225,6 +1353,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "THURSDAY",
+    "skills": "",
+    "comments": "I am more comfortable with python. I am looking forward to work with AI related projects. And I want to deepen my hand-on experiance on NLP.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "c167f811-a4d6-4f5d-b408-09ce71a9b14b",
@@ -1244,6 +1374,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Data Analytics, Databases, Data Visualization",
+    "comments": "",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "3771d073-7ed8-4311-b0b5-3f96b7087575",
@@ -1263,6 +1395,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Web Development, Databases, Data Analytics",
+    "comments": "I have experience in working with Dev development however, I would like to have more experience in working with AI training.",
     "choiceProjectIds": [
       "0a182bb2-cc60-4d32-9703-0e977f2494fd",
       "acff0174-6616-4466-8e46-7c1249d1b781",
@@ -1282,6 +1416,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "CAD, Robotics, Woodworking",
+    "comments": "",
     "choiceProjectIds": [
       "1a632f6d-66d8-4f8a-8b2f-314da9f0bdec",
       "3d4c7189-c54a-42f3-a26a-e1b172a4ffb2",
@@ -1301,6 +1437,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Desktop Development, Web Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -1320,6 +1458,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "THURSDAY",
+    "skills": "Server Back-End, Databases, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "acff0174-6616-4466-8e46-7c1249d1b781",
       "f301f3ca-fc59-46bd-b4e5-0f705eba959f",
@@ -1339,6 +1479,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Woodworking, Data Visualization, Graphic Design",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -1358,6 +1500,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Robotics, Woodworking",
+    "comments": "Still new to all of my engineering skills. I am taking this class to hone my abilities and get projects under my belt.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
@@ -1377,6 +1521,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -1396,6 +1542,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -1415,6 +1563,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Robotics, Graphic Design",
+    "comments": "",
     "choiceProjectIds": [
       "93efa8a5-f196-4d37-8192-e25989bcf986",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -1434,6 +1584,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Server Back-End, Web Development, CAD",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -1453,6 +1605,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Mobile Development, Web Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
       "95907706-451c-45bc-96e2-121d3d63b6d1",
@@ -1472,6 +1626,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, Robotics, CAD",
+    "comments": "",
     "choiceProjectIds": [
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
@@ -1491,6 +1647,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Ergonomics, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -1510,6 +1668,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "UI/UX Design, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "0ceec172-e794-4d27-bbe2-66edea5544c6",
@@ -1529,6 +1689,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Graphic Design, CAD, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -1548,6 +1710,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, Data Analytics, Woodworking",
+    "comments": "",
     "choiceProjectIds": [
       "93efa8a5-f196-4d37-8192-e25989bcf986",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -1567,6 +1731,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Woodworking, UI/UX Design, Graphic Design",
+    "comments": "I want to learn as much as possible and am willing to put in the work to learn the skills I have no experience in yet. Can't wait for this opportunity! Really hoping for the chance to be a part of the caregiver compassion bot team.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -1586,6 +1752,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "MATLAB, CAD",
+    "comments": "",
     "choiceProjectIds": [
       "93efa8a5-f196-4d37-8192-e25989bcf986",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -1605,6 +1773,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, Data Analytics, Embedded Development",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -1624,6 +1794,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Server Back-End, Web Development, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "95907706-451c-45bc-96e2-121d3d63b6d1",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -1643,6 +1815,8 @@
     "year": "SENIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Mobile Development, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -1662,6 +1836,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Ergonomics, CAD, MATLAB",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
@@ -1681,6 +1857,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Graphic Design, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -1700,6 +1878,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, IT Solutions, Web Development",
+    "comments": "I am most interested in the Grant and Funding Application Manager project because it closely matches the type of software engineer I am trying to become. I want to build intelligent, data-driven systems that turn large amounts of information into something useful for real people and organizations. This project combines full-stack development, web scraping, and AI, which are exactly the skills I want to deepen through EPICS.\n\nMore broadly, I am looking for a project that allows me to build the core technical skills that are most important in the modern software industry. I am especially focused on strengthening my abilities in software engineering, artificial intelligence and machine learning, data analytics, and cloud computing. I want hands-on experience designing real systems, working with databases and APIs, and building applications that process and analyze large amounts of data.\n\nI also want to gain experience working on projects that resemble how technology is built and deployed in industry. This includes collaborating on a real codebase, designing scalable architectures, and learning how data and AI models are integrated into full-stack applications. EPICS gives me the opportunity to do this in a real-world setting, and I am excited to contribute to a project that will both challenge me technically and help me grow into a stronger software engineer.",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -1719,6 +1899,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Security, Web Development, IT Solutions",
+    "comments": "Previous member of the brain charge team",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -1738,9 +1920,9 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
-    "choiceProjectIds": [
-      "8064958c-a9cc-433a-b7b1-6f7955332ff2"
-    ]
+    "skills": "Databases, Server Back-End, UI/UX Design",
+    "comments": "",
+    "choiceProjectIds": ["8064958c-a9cc-433a-b7b1-6f7955332ff2"]
   },
   {
     "netID": "hxh230036",
@@ -1752,6 +1934,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -1771,6 +1955,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Robotics, Web Development, UI/UX Design",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -1790,6 +1976,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Woodworking, Ergonomics",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -1809,6 +1997,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -1828,6 +2018,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Woodworking, Graphic Design",
+    "comments": "I have very little knowledge in these skills but am willing to learn.",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -1847,6 +2039,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -1866,6 +2060,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Graphic Design, IT Solutions, Web Development",
+    "comments": "Although I wouldn't call software development my absolute strongest skill just yet, I still have valuable experience in the area through my extracurriculars:\n\n- I'm a part of UTD's multidisciplinary SWE Match program. My group's project is called PAIGE, a small handheld personal AI assistant that helps you maintain productivity, reduce screen time, and manage stress almost entirely through voice commands. I'm part of my group's software track and am actively learning Python libraries like PyAudio and AWS services like Amazon S3. In the near future, I'll be learning Boto3 to call AWS APIs with Python for speech-to-text transcription so that PAIGE can parse your commands. Working with my teammates in hardware and research has also helped introduce me to other fields such as computer engineering and biomedical engineering, which have made my skillset more versatile. BrainCharge's Caregiver Compassion Bot reminded me of PAIGE, especially since both are multidisciplinary and involve machine learning; Thus, I'm confident I'd be a great fit for the Caregiver Compassion Bot!\n\n- At HackUTD 2025, my group's project, UpGuardian, won 3rd place for State Farm's track and honorable mention for Nvidia through its utilization of Nvidia's Nemotron. Working on UpGuardian helped introduce me to agentic AI and how it could be implemented into software. Agentic AI builds on machine learning, so I plunged straight into learning foundational machine learning concepts by helping implement Nemotron. Machine learning is a fundamental part of the Caregiver Compassion Bot, and I'm ready to apply my experiences from UpGuardian to the Caregiver Compassion Bot. \n\nWherever I'm placed, I'm excited to uplift others with my current strengths while learning new skills from my classmates in EPICS! Thank you for reading, and I'll see you soon!",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "29725901-c417-48f4-8b08-d33adb35e290",
@@ -1885,6 +2081,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Graphic Design, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -1904,6 +2102,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Server Back-End, Desktop Development, Data Analytics",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "29725901-c417-48f4-8b08-d33adb35e290",
@@ -1923,6 +2123,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, Web Development, Databases",
+    "comments": "My strengths lie in applied machine learning and backend development. I've created machine learning pipelines with NLP and classification tasks, as well as worked with Python, REST APIs, and database systems. I'm comfortable working across the stack, debugging complex systems, and quickly learning new frameworks.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -1942,6 +2144,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Server Back-End, Databases, Web Development",
+    "comments": "None",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -1961,6 +2165,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, MATLAB, CAD",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -1980,6 +2186,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Server Back-End, Desktop Development, Embedded Development",
+    "comments": "Resume available at: andrewklundt.com/resume.pdf",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -1999,6 +2207,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Mobile Development, MATLAB, Electronics & Circuits",
+    "comments": "",
     "choiceProjectIds": [
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
       "95907706-451c-45bc-96e2-121d3d63b6d1",
@@ -2018,6 +2228,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "IT Solutions, Data Analytics, Mobile Development",
+    "comments": "",
     "choiceProjectIds": [
       "0ceec172-e794-4d27-bbe2-66edea5544c6",
       "8064958c-a9cc-433a-b7b1-6f7955332ff2",
@@ -2037,6 +2249,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, IT Solutions",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -2056,6 +2270,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Robotics, Graphic Design",
+    "comments": "",
     "choiceProjectIds": [
       "95907706-451c-45bc-96e2-121d3d63b6d1",
       "0ceec172-e794-4d27-bbe2-66edea5544c6",
@@ -2075,6 +2291,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Databases",
+    "comments": "n/a",
     "choiceProjectIds": [
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -2094,6 +2312,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Mobile Development, UI/UX Design",
+    "comments": "I'm interested in machine learning, AI, and data analysis. I have a strong foundation in both Python and SQL, and am continuing to learn and apply these skills.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "95907706-451c-45bc-96e2-121d3d63b6d1",
@@ -2113,6 +2333,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Woodworking, Graphic Design, UI/UX Design",
+    "comments": "I am relatively new to the field of mechanical engineering. I have not attempted woodworking before, but I have shown expertise in carving clay and creating hands-on sculptures. Being a great enjoyer of mathematics as well, I believe I would thoroughly enjoy woodworking. Either way, I hope to learn lots from whichever project I will be put into!",
     "choiceProjectIds": [
       "93efa8a5-f196-4d37-8192-e25989bcf986",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -2132,6 +2354,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "UI/UX Design, Server Back-End, Data Analytics",
+    "comments": "I love to delve into the backend and frontend of projects.",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -2151,6 +2375,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, MATLAB, CAD",
+    "comments": "I'm a first-year student, but a senior by credit (92 credits, with 77 from AP tests). I'm particularly interested in the water quality measurement project because I used to work as a head lifeguard, where every opening shift I had to go through the tedious process of testing water pH, chlorine, temperature, ORP, TPS, and more. Automating these crucial measurements has been a dream of mine for years now. I like coding in Java, Python, and MATLAB, but I'm not a software engineer. However, I'll be volunteering with the Comet Cupboard a lot next semester and hope that their checkout system gets updated, so I ranked Comet Cupboard as my 3rd choice. Currently, a volunteer must log every item checked out, which gives customers little privacy. I hope one day EPICS will help Comet Cupboard use AI to scan a customer's goods and automatically track the items. If the software has a record of every item in stock, AI should have no issue identifying the customer's items. I don't have experience with AI, but I'd be eager to learn for a project like this.",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -2170,6 +2396,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -2189,6 +2417,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Desktop Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "29725901-c417-48f4-8b08-d33adb35e290",
       "0ceec172-e794-4d27-bbe2-66edea5544c6",
@@ -2208,6 +2438,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Woodworking",
+    "comments": "I am a freshman and currently my skills are subpar, and I know the early stages of these skills but I have taken tech theatre for 4 years so I have some woodworking skills from there",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -2227,6 +2459,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Electronics & Circuits, CAD, Woodworking",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -2246,6 +2480,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Mobile Development, Server Back-End",
+    "comments": "I extremely resonate with Samaritan Inn's mission for a comprehensive housing program, and with my full-stack software engineering skills, I'm confident that I can greatly contribute to its Class Scheduling App",
     "choiceProjectIds": [
       "29725901-c417-48f4-8b08-d33adb35e290",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -2265,6 +2501,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "29725901-c417-48f4-8b08-d33adb35e290",
@@ -2284,6 +2522,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, Server Back-End, Databases",
+    "comments": "Interested in building data-driven and AI-based systems. I\u2019m developing skills in data analytics, backend APIs, and database-backed applications, and I want to work on projects that solve real problems using data and intelligent systems.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -2303,6 +2543,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Graphic Design, Embedded Development, Electronics & Circuits",
+    "comments": "",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -2322,6 +2564,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, Server Back-End, Databases",
+    "comments": "I am a Data Science student with specialized, production-level experience in Machine Learning and Backend Development. Although I am a freshman, I have already demonstrated senior-level technical execution:\n\nHackathon Winner: I built \"Lock In Labs,\" a multi-modal AI agent using YOLOv11 and OpenCV for real-time distraction monitoring (45 FPS). It features a full-stack architecture using FastAPI WebSockets and Firebase to manage gamified, AI-generated skill trees.\n\n(Link: https://devpost.com/software/lock-in-labs)\n\nNLP & Scraping: I actively develop \"Instagranime\" and \"RateMyCareer.\" I engineered custom Scrapy pipelines to harvest 10,000+ unstructured records and built recommendation engines using TF-IDF/Random Forest with O(1) online learning and Transformers for sentiment analysis.\n\n(Instagranime: https://tinyurl.com/instagranime )\n(RateMyCareer: https://tinyurl.com/RateMyCareer)\n\nPredictive Modeling: For Toyota Gazoo Racing, I engineered an \"Overtake Probability Engine\" using Logistic Regression (87% accuracy on 50k events) and a \"Dynamic Grip Module\" to quantify track evolution and tire friction in real-time.\n\n(Link: https://devpost.com/software/circuit-os)\n\nReinforcement Learning: I engineered an autonomous agent for Slither.io using PPO and Imitation Learning (Stable Baselines3), optimizing feature engineering to achieve a 20:1 Kill/Death ratio in a multi-agent environment.\n\n(Link: https://tinyurl.com/slitherbotauto)\n\nI am ranking BrainCharge and TLT as my top choices because I can immediately architect the required ML pipelines and deploy them via Python APIs.\n\nPortfolio: https://ohamjdung.github.io/PW/\nLinkedIn: https://www.linkedin.com/in/datatompham/",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -2341,6 +2585,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "95907706-451c-45bc-96e2-121d3d63b6d1",
@@ -2360,6 +2606,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, Data Visualization, Web Development",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -2379,6 +2627,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Databases, UI/UX Design, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "29725901-c417-48f4-8b08-d33adb35e290",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -2398,6 +2648,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "UI/UX Design, Web Development, IT Solutions",
+    "comments": "Trying to repeat BrainCharge!!!",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -2417,6 +2669,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Woodworking, Electronics & Circuits, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "211d36f4-e219-433c-b647-d1771ecba499",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -2436,6 +2690,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "b6507a0c-134e-49c6-ab47-a790de1d4b2f",
@@ -2455,6 +2711,8 @@
     "year": "SENIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Server Back-End, Databases",
+    "comments": "",
     "choiceProjectIds": [
       "29725901-c417-48f4-8b08-d33adb35e290",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -2474,6 +2732,8 @@
     "year": "JUNIOR",
     "class": "EPCS_3200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, UI/UX Design, Graphic Design",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "73fdac02-c7db-407d-9f56-a2d35a98988b",
@@ -2493,6 +2753,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Databases, Server Back-End, Data Visualization",
+    "comments": "I am good with AI/ML and anything backend (Servers, Hosting, Api). I struggle with anything involving front end.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -2512,6 +2774,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "MATLAB, Graphic Design",
+    "comments": "I am a Freshman. I do not have much experience in the projects that I am very much interested in but I am willing to learn new skills. Thank you and I am excited to be a part of EPICS!!!",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -2531,6 +2795,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Desktop Development, Embedded Development, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "211d36f4-e219-433c-b647-d1771ecba499",
@@ -2550,6 +2816,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Desktop Development, Mobile Development",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "9abd9a26-df24-4194-bad0-c2b91b990518",
@@ -2569,6 +2837,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Woodworking, MATLAB",
+    "comments": "I am still learning MATLAB, but I'm willing to learn more about it",
     "choiceProjectIds": [
       "2710f95e-e1b6-4587-b2ae-196eca4bf24f",
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
@@ -2588,6 +2858,8 @@
     "year": "FRESHMAN",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Web Development, Server Back-End, Mobile Development",
+    "comments": "I've built and deployed multiple full stack web apps, and I've also developed a full stack mobile app that's been approved on the iOS App Store. I'm also experienced with machine learning, having done extensive biomedical + ML research with UTD and I would prefer a role with ML if possible.",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "95907706-451c-45bc-96e2-121d3d63b6d1",
@@ -2607,6 +2879,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "UI/UX Design, Databases, Server Back-End",
+    "comments": "",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",
@@ -2626,6 +2900,8 @@
     "year": "SOPHOMORE",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "CAD, Electronics & Circuits, Robotics",
+    "comments": "",
     "choiceProjectIds": [
       "b8bf6e5a-9821-458d-a920-539f0c960ed5",
       "93efa8a5-f196-4d37-8192-e25989bcf986",
@@ -2645,6 +2921,8 @@
     "year": "JUNIOR",
     "class": "EPCS_2200",
     "meetingDay": "WEDNESDAY",
+    "skills": "Data Analytics, IT Solutions, Web Development",
+    "comments": "I\u2019m mainly looking to work on a project where I can focus heavily on database design and data management\u2014schema design, normalization, SQL queries, and connecting the database to a backend/API. I\u2019m especially interested in building clean, reliable data models that support real product features and reporting.",
     "choiceProjectIds": [
       "9abd9a26-df24-4194-bad0-c2b91b990518",
       "1455ec9e-06d7-42b1-b4d1-66da060c491d",

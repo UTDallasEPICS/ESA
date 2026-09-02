@@ -33,9 +33,9 @@ export interface StudentRead {
 }
 
 export interface StudentCreate {
-  github?: string;
-  discord?: string;
-  email?: string;
+  github?: string | null;
+  discord?: string | null;
+  email?: string | null;
   netID: string;
   firstName: string;
   lastName: string;
@@ -46,9 +46,9 @@ export interface StudentCreate {
 }
 
 export interface StudentUpdate {
-  github?: string;
-  discord?: string;
-  email?: string;
+  github?: string | null;
+  discord?: string | null;
+  email?: string | null;
   netID?: string;
   firstName?: string;
   lastName?: string;
