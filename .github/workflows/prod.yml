@@ -1,15 +1,11 @@
-name: Build and Publish Docker Image (Prod)
+name: Deploy (Prod)
 
+# Shell workflow — deployment for this project is custom and not the standard
+# pipeline. Fill in the real steps in deploy.yml.
 on:
   push:
     branches:
       - prod
-
-# id-token must also be granted here: a called workflow can never elevate
-# GITHUB_TOKEN permissions beyond what the calling workflow allows.
-permissions:
-  contents: read
-  id-token: write
 
 jobs:
   deploy:
