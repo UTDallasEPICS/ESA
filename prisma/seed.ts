@@ -128,42 +128,12 @@ const seedProjects = async () => {
   await prisma.project.createMany({ data: projectsData })
 }
 
-const seedAdmins = async () => {
-  await prisma.user.createMany({
-    data: [
-      {
-        id: 'admin-001',
-        email: 'sxt230118@utdallas.edu',
-        name: 'Snigdha Tadi',
-        emailVerified: true,
-        role: 'USER',
-      },
-      {
-        id: 'admin-002',
-        email: 'trp210003@utdallas.edu',
-        name: 'Teerth Patel',
-        emailVerified: true,
-        role: 'ADMIN',
-        active: true,
-      },
-      {
-        id: 'admin-003',
-        email: 'bxt230017@utdallas.edu',
-        name: 'Bhuvi Thiriveedhi',
-        emailVerified: true,
-        role: 'USER',
-      },
-    ],
-  })
-}
-
 const seedTeambuilder = async () => {
   await seedPartners()
   await seedProjects()
   await seedSemesters()
   await seedStudents()
   await seedTeams()
-  await seedAdmins()
 }
 
 async function main() {

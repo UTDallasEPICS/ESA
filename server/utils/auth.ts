@@ -37,7 +37,10 @@ export const auth = betterAuth({
     user: {
       create: {
         before: async (user) => {
-          if (user.email === 'turcatti@utdallas.edu') {
+          // The first user to sign in bootstraps the app as an active admin;
+          // everyone after them defaults to an inactive USER an admin must approve.
+          const existingUsers = await prisma.user.count()
+          if (existingUsers === 0) {
             return { data: { ...user, role: 'ADMIN', active: true } }
           }
           return { data: user }
