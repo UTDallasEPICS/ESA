@@ -18,11 +18,12 @@ the project lifecycle.
 
 | ID        | Description                                                                             | Category | Status      | Verification  | Target Semester | Mapping (issue / doc)          |
 | --------- | --------------------------------------------------------------------------------------- | -------- | ----------- | ------------- | --------------- | ------------------------------ |
-| REQ-F-01  | The device powers on and reaches a ready state within 5 seconds of the main switch.     | REQ-F    | Backlog     | Test          | 2026F           | #1                             |
-| REQ-F-02  | An operator can start and stop a cycle from the front-panel controls without tools.     | REQ-F    | Backlog     | Demonstration | 2026F           | #2                             |
-| REQ-NF-01 | The enclosure fits within a 300 × 300 × 200 mm envelope.                                 | REQ-NF   | Backlog     | Inspection    | 2026F           | `docs/adr/002_enclosure.md`    |
-| REQ-NF-02 | The system runs from standard 120 V / 15 A wall power and draws under 1.5 A steady-state.| REQ-NF   | Backlog     | Test          | 2026F           | #3                             |
-| REQ-NF-03 | All user-accessible surfaces stay below 48 °C during normal operation (burn safety).    | REQ-NF   | Backlog     | Test          | 2026F           | #4                             |
+| REQ-F-01  | Teambuilder algorithm converts inputted skills into numerical weights     | REQ-F    | Backlog     | Test          | 2026F           | #1                             |
+| REQ-F-02 | Algorithm enforces minimum 3200 student threshold                                 | REQ-F   | Backlog     | Inspection    | 2026F           | #2   |
+| REQ-F-03 | An operator is able to lock students and teams and run algorithm on remaining "unlocked students" | REQ-F   | Backlog     | Test          | 2026F           | #3                             |
+| REQ-NF-01  | Allow teambuilder to be iterative process rather than one-shot     | REQ-F    | Backlog     | Demonstration | 2026F           | #4                            |
+| REQ-NF-02 | Teambuilder UI/UX/workflow is intuitive and easy for project director to navigate    | REQ-NF   | Backlog     | Test          | 2026F           | #5                             |
+| REQ-NF-03 | Total bill of materials cost stays under the project budget of $500.                    | REQ-NF   | Backlog     | Analysis      | 2026F           | `docs/bom.md`                  |
 | REQ-NF-04 | Total bill of materials cost stays under the project budget of $500.                    | REQ-NF   | Backlog     | Analysis      | 2026F           | `docs/bom.md`                  |
 
 ## 2. Change Log
