@@ -25,6 +25,17 @@ the project lifecycle.
 | REQ-NF-02 | Teambuilder UI/UX/workflow is intuitive and easy for project director to navigate    | REQ-NF   | Backlog     | Test          | 2026F           | #5                             |
 | REQ-NF-03 | Total bill of materials cost stays under the project budget of $500.                    | REQ-NF   | Backlog     | Analysis      | 2026F           | `docs/bom.md`                  |
 | REQ-NF-04 | Total bill of materials cost stays under the project budget of $500.                    | REQ-NF   | Backlog     | Analysis      | 2026F           | `docs/bom.md`                  |
+| REQ-F-04  | Users are able to edit student and project information directly on the page and save changes to the database | REQ-F  | Backlog | Test          | 2026F | #6  |
+| REQ-F-05  | Dashboard displays project progress, student enrollment across semesters, historical comparisons, and pinned section with desired information | REQ-F  | Backlog | Demonstration | 2026F | #7  |
+| REQ-F-06  | AI Assistant answers questions about program data using charts and visuals when applicable | REQ-F  | Backlog | Demonstration | 2026F | #8  |
+| REQ-F-07  | Master student list displays major, class standing, meeting day, semesters enrolled, and role with search and filters | REQ-F  | Backlog | Test          | 2026F | #9  |
+| REQ-F-08  | Project pages display editable project history, student roster, partner contacts, required skills, and filters for semester, status, and partner | REQ-F  | Backlog | Test          | 2026F | #10 |
+| REQ-F-09  | Insights page displays student demographics such as year, gender, major, race, and ethnicity with timeline filters and exact numbers shown on charts | REQ-F  | Backlog | Test          | 2026F | #11 |
+| REQ-NF-05 | Application is simple and easy for users to navigate between pages | REQ-NF | Backlog | Demonstration | 2026F | #12 |
+| REQ-NF-06 | Database information is displayed using clean layouts, tables, and charts that are easy to understand | REQ-NF | Backlog | Inspection    | 2026F | #13 |
+| REQ-NF-07 | Screens and filters update smoothly without requiring the user to wait or refresh the page | REQ-NF | Backlog | Test          | 2026F | #14 |
+| REQ-NF-08 | Dashboard, student tables, and Insights graphs open within about 3 seconds | REQ-NF | Backlog | Test          | 2026F | #15 |
+| REQ-NF-09 | Buttons, text formatting, and color themes stay consistent across every page | REQ-NF | Backlog | Inspection    | 2026F | #16 |
 
 ## 2. Change Log
 
