@@ -27,20 +27,20 @@ class Minimum3200Tests(unittest.TestCase):
     def test_custom_minimum(self):
         for student in self.students[:4]:
             student['class'] = '3200'
-        result = generate_teams(self.students, self.projects, {**self.config, 'min_3200_per_team': 2})
+        result = generate_teams(self.students, self.projects, {**self.config, 'min_upperclass_per_project': 2})
         self.assertTrue(result['success'])
         for team in result['teams'].values():
             self.assertGreaterEqual(sum(s in ('0', '1', '2', '3') for s in team), 2)
 
     def test_insufficient_3200_students(self):
-        result = generate_teams(self.students, self.projects, {**self.config, 'min_3200_per_team': 2})
+        result = generate_teams(self.students, self.projects, {**self.config, 'min_upperclass_per_project': 2})
         self.assertFalse(result['success'])
-        self.assertIn('requires at least 4', result['error'])
+        self.assertIn('4 are needed', result['error'])
 
     def test_zero_disables_minimum(self):
         for student in self.students:
             student['class'] = '2200'
-        result = generate_teams(self.students, self.projects, {**self.config, 'min_3200_per_team': 0})
+        result = generate_teams(self.students, self.projects, {**self.config, 'min_upperclass_per_project': 0})
         self.assertTrue(result['success'])
 
     def test_meeting_day_shortage(self):
@@ -49,12 +49,12 @@ class Minimum3200Tests(unittest.TestCase):
             student['day'] = 'Thursday'
         result = generate_teams(self.students, self.projects, self.config)
         self.assertFalse(result['success'])
-        self.assertIn('meeting day', result['error'])
+        self.assertIn('meeting-day', result['error'])
 
     def test_invalid_minimum(self):
         for minimum in (-1, 1.5, True, '1', None, 7):
             with self.subTest(minimum=minimum), self.assertRaises(ValueError):
-                generate_teams(self.students, self.projects, {**self.config, 'min_3200_per_team': minimum})
+                generate_teams(self.students, self.projects, {**self.config, 'min_upperclass_per_project': minimum})
 
 
 if __name__ == '__main__':

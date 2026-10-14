@@ -27,17 +27,18 @@ ProjectDict = TypedDict('ProjectDict', {
     'name': str,
     'type': str,
     'day': Optional[str],
+    'locked_count': int,
+    'locked_upperclass_count': int,
 }, total=False)
 
 ConfigDict = TypedDict('ConfigDict', {
     'min_team_size': int,
     'max_team_size': int,
-    'min_3200_per_team': int,
-    'locked_student_assignments': dict[str, str],
-    'locked_teams': dict[str, list[str]],
     'prioritize_returning_students': bool,
     'prioritize_3200_first_choice': bool,
     'balance_gender': bool,
+    'max_upperclass_per_project': int,
+    'min_upperclass_per_project': int,
 }, total=False)
 
 
@@ -59,17 +60,17 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
         config = {
             'min_team_size': 4,
             'max_team_size': 6,
-            'min_3200_per_team': 1,
             'prioritize_returning_students': True,
             'prioritize_3200_first_choice': True,
             'balance_gender': True,
         }
 
-    min_3200 = config.get('min_3200_per_team', 1)
-    if isinstance(min_3200, bool) or not isinstance(min_3200, int) or min_3200 < 0:
+    minimum = config.get('min_upperclass_per_project', 1)
+    if isinstance(minimum, bool) or not isinstance(minimum, int) or minimum < 0:
         raise ValueError('Minimum 3200 students per team must be a non-negative integer.')
-    if min_3200 > config['max_team_size']:
+    if minimum > config['max_team_size']:
         raise ValueError('Minimum 3200 students per team cannot exceed maximum team size.')
+    config = {**config, 'min_upperclass_per_project': minimum}
 
     model = cp_model.CpModel()
 
@@ -78,49 +79,6 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     projects = {p['name']: p for p in projects_data}
     student_ids = list(students.keys())
     project_names = list(projects.keys())
-
-    locked_students = config.get('locked_student_assignments', {})
-    locked_teams = config.get('locked_teams', {})
-    if not isinstance(locked_students, dict) or not isinstance(locked_teams, dict):
-        raise ValueError('Student and team locks must be objects.')
-    fixed_assignments = {}
-
-    def lock_student(student_id, project_name):
-        if not isinstance(student_id, str) or student_id not in students:
-            raise ValueError(f'Unknown locked student: {student_id}')
-        if not isinstance(project_name, str) or project_name not in projects:
-            raise ValueError(f'Unknown locked project: {project_name}')
-        if student_id in fixed_assignments and fixed_assignments[student_id] != project_name:
-            raise ValueError(f'Conflicting locks for student {student_id}')
-        fixed_assignments[student_id] = project_name
-
-    for student_id, project_name in locked_students.items():
-        lock_student(student_id, project_name)
-    for project_name, roster in locked_teams.items():
-        if project_name not in projects:
-            raise ValueError(f'Unknown locked project: {project_name}')
-        if not isinstance(roster, list) or any(not isinstance(s, str) for s in roster):
-            raise ValueError(f'Locked team {project_name} must contain a list of student IDs.')
-        if len(roster) != len(set(roster)):
-            raise ValueError(f'Locked team {project_name} contains duplicate students.')
-        for student_id in roster:
-            lock_student(student_id, project_name)
-    for student_id, project_name in fixed_assignments.items():
-        if project_name in locked_teams and student_id not in locked_teams[project_name]:
-            raise ValueError(f'Student {student_id} is locked to a team whose roster excludes them.')
-
-    upper_ids = [s_id for s_id in student_ids if students[s_id]['class'] == '3200']
-    required_3200 = len(project_names) * min_3200
-    if len(upper_ids) < required_3200:
-        return {
-            'success': False,
-            'error': (
-                f'Not enough EPCS 3200 students: {len(upper_ids)} available across '
-                f'{len(project_names)} team(s), but a minimum of {min_3200} per team '
-                f'requires at least {required_3200}. Lower the minimum 3200 students '
-                'per team, enroll more 3200 students, or reduce the number of active teams.'
-            ),
-        }
 
     # Decision variables: x[s][p] = 1 if student s is assigned to project p
     x = {}
@@ -133,20 +91,43 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     for s_id in student_ids:
         model.Add(sum(x[s_id][p_name] for p_name in project_names) == 1)
 
-    # Keep fixed students in place and prevent additions to an exactly locked roster.
-    for student_id, project_name in fixed_assignments.items():
-        model.Add(x[student_id][project_name] == 1)
-    for project_name, roster in locked_teams.items():
-        roster_ids = set(roster)
-        for student_id in student_ids:
-            model.Add(x[student_id][project_name] == int(student_id in roster_ids))
-
-    # CONSTRAINT 2: Every project's team size must fall within [min_team_size, max_team_size]
+    # CONSTRAINT 2: Every project's team size must fall within [min_team_size, max_team_size],
+    # counting students already locked into that project ahead of this solve (e.g. 3200
+    # students staff placed manually) even though they're not part of the solver's
+    # decision variables.
     for p_name in project_names:
+        locked_count = projects[p_name].get('locked_count', 0)
         team_size = sum(x[s_id][p_name] for s_id in student_ids)
-        model.Add(team_size >= config['min_team_size'])
-        model.Add(team_size <= config['max_team_size'])
-        model.Add(sum(x[s_id][p_name] for s_id in upper_ids) >= min_3200)
+        model.Add(team_size + locked_count >= config['min_team_size'])
+        model.Add(team_size + locked_count <= config['max_team_size'])
+
+    # CONSTRAINT 2b: Cap how many 3200-level students can land on any single project,
+    # counting any 3200s already locked in there. Without this, the strong 3200
+    # first-choice weighting below can cluster most of the 3200s onto a handful of
+    # popular projects, leaving others without one. Optional — only enforced when
+    # the caller sets max_upperclass_per_project.
+    max_upperclass_per_project = config.get('max_upperclass_per_project')
+    if max_upperclass_per_project is not None:
+        for p_name in project_names:
+            locked_upperclass_count = projects[p_name].get('locked_upperclass_count', 0)
+            upperclass_size = sum(
+                x[s_id][p_name] for s_id in student_ids if students[s_id]['class'] == '3200'
+            )
+            model.Add(upperclass_size + locked_upperclass_count <= max_upperclass_per_project)
+
+    # CONSTRAINT 2c: Guarantee at least min_upperclass_per_project 3200-level students
+    # on every project (e.g. "every team needs a 3200 to lead it"), counting any 3200s
+    # already locked in. Optional and off by default — with few enough 3200 students
+    # relative to the number of teams, this can be infeasible; see the error message
+    # below for that case.
+    min_upperclass_per_project = config.get('min_upperclass_per_project')
+    if min_upperclass_per_project is not None:
+        for p_name in project_names:
+            locked_upperclass_count = projects[p_name].get('locked_upperclass_count', 0)
+            upperclass_size = sum(
+                x[s_id][p_name] for s_id in student_ids if students[s_id]['class'] == '3200'
+            )
+            model.Add(upperclass_size + locked_upperclass_count >= min_upperclass_per_project)
 
     # CONSTRAINT 3: Only 3200 students can be returning students
     # (Validation - returning students must be 3200)
@@ -304,8 +285,9 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     else:
         total_students = len(student_ids)
         total_teams = len(project_names)
-        min_capacity = total_teams * config['min_team_size']
-        max_capacity = total_teams * config['max_team_size']
+        # Remaining capacity per project after accounting for students already locked in.
+        min_capacity = sum(max(0, config['min_team_size'] - projects[p].get('locked_count', 0)) for p in project_names)
+        max_capacity = sum(max(0, config['max_team_size'] - projects[p].get('locked_count', 0)) for p in project_names)
 
         if total_students < min_capacity:
             error = (
@@ -320,23 +302,152 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
                 'Raise the maximum team size, add more teams, or reduce enrollment for this semester and day.'
             )
         else:
-            error = (
-                f'No assignment exists that keeps every team within the configured min/max team size, '
-                f'even though {total_students} student(s) fits the overall capacity for {total_teams} team(s) '
-                '(this can happen when other requirements, such as meeting-day splits, prevent a valid '
-                'assignment). Try adjusting min/max team size, or the set of active projects/teams for '
-                'this semester and day. Also check that enough EPCS 3200 students are available '
-                'on each meeting day to meet the configured minimum per team.'
+            max_upperclass_per_project = config.get('max_upperclass_per_project')
+            total_upperclass = sum(1 for s in students.values() if s['class'] == '3200')
+            upperclass_capacity = (
+                sum(max(0, max_upperclass_per_project - projects[p].get('locked_upperclass_count', 0)) for p in project_names)
+                if max_upperclass_per_project is not None else None
             )
+            min_upperclass_per_project = config.get('min_upperclass_per_project')
+            upperclass_needed = (
+                sum(max(0, min_upperclass_per_project - projects[p].get('locked_upperclass_count', 0)) for p in project_names)
+                if min_upperclass_per_project is not None else None
+            )
+
+            if upperclass_capacity is not None and total_upperclass > upperclass_capacity:
+                error = (
+                    f'Too many 3200 students for the "max {max_upperclass_per_project} per project" cap: '
+                    f'{total_upperclass} 3200 student(s) across {total_teams} team(s), but the cap allows at '
+                    f'most {upperclass_capacity} total. Raise the max-3200-per-project cap, or add more teams.'
+                )
+            elif upperclass_needed is not None and total_upperclass < upperclass_needed:
+                error = (
+                    f'Not enough 3200 students for the "at least {min_upperclass_per_project} per project" '
+                    f'requirement: {total_upperclass} 3200 student(s) across {total_teams} team(s), but '
+                    f'{upperclass_needed} are needed to give every team one. Lower the minimum, reduce the '
+                    'number of active teams, or lock a few teams manually and generate the rest separately.'
+                )
+            else:
+                error = (
+                    f'No assignment exists that keeps every team within the configured min/max team size, '
+                    f'even though {total_students} student(s) fits the overall capacity for {total_teams} team(s) '
+                    '(this can happen when other requirements, such as meeting-day splits or the 3200-per-project '
+                    'min/max, prevent a valid assignment). Try adjusting min/max team size, the 3200-per-project '
+                    'settings, or the set of active projects/teams for this semester and day.'
+                )
 
         return {
             'success': False,
-            'error': error + (
-                ' Student/team locks must also satisfy team-size, meeting-day, and minimum '
-                '3200 requirements. Adjust the locks or constraints and retry.'
-                if locked_students or locked_teams else ''
-            ),
+            'error': error,
         }
+
+
+def suggest_upperclass_placements(students_data: list[StudentDict], projects_data: list[ProjectDict], config: Optional[ConfigDict] = None):
+    """
+    Suggest team placements for a subset of students (typically 3200-level, called
+    ahead of the main solve) — guaranteeing each student their 1st or 2nd choice
+    whenever at all possible, falling back to 3rd choice only if no full solution
+    exists otherwise. Unlike generate_teams, this does not enforce a minimum team
+    size (this is a partial, early placement pass) — it only caps each project at
+    max_team_size, counting any students already locked in.
+
+    Students with no submitted choices are set aside (returned separately) rather
+    than blocking a solution for everyone else. Also caps how many of these students
+    can land on any single project (`max_upperclass_per_project`, counting anyone
+    already locked there) — so one popular project can't absorb most of the 3200s
+    and leave other projects without a 3200 to lead them.
+    """
+    if config is None:
+        config = {'max_team_size': 6}
+    max_per_project = config.get('max_upperclass_per_project', config['max_team_size'])
+
+    projects = {p['name']: p for p in projects_data}
+    project_names = list(projects.keys())
+
+    with_choices = [s for s in students_data if s.get('choices')]
+    without_choices_ids = [s['id'] for s in students_data if not s.get('choices')]
+    students = {s['id']: s for s in with_choices}
+    student_ids = list(students.keys())
+
+    def try_solve(max_rank: int):
+        model = cp_model.CpModel()
+        x = {}
+        for s_id in student_ids:
+            student = students[s_id]
+            allowed = [p for p in student['choices'][:max_rank] if p in projects]
+            if not allowed:
+                return None
+            x[s_id] = {}
+            for p_name in project_names:
+                x[s_id][p_name] = model.NewBoolVar(f'x_{s_id}_{p_name}')
+                if p_name not in allowed:
+                    model.Add(x[s_id][p_name] == 0)
+
+        for s_id in student_ids:
+            model.Add(sum(x[s_id][p_name] for p_name in project_names) == 1)
+
+        for p_name in project_names:
+            locked_count = projects[p_name].get('locked_count', 0)
+            team_size = sum(x[s_id][p_name] for s_id in student_ids)
+            model.Add(team_size + locked_count <= config['max_team_size'])
+            model.Add(team_size + locked_count <= max_per_project)
+
+        objective_terms = []
+        for s_id in student_ids:
+            student = students[s_id]
+            is_returning = student.get('previousProject') is not None
+            for p_name in project_names:
+                if p_name in student['choices']:
+                    pref_index = student['choices'].index(p_name)
+                    base_score = max(0, 1000 - pref_index * 300)
+                    if is_returning and student['previousProject'] == p_name:
+                        base_score *= 1.5
+                    objective_terms.append(base_score * x[s_id][p_name])
+        model.Maximize(sum(objective_terms))
+
+        solver = cp_model.CpSolver()
+        solver.parameters.max_time_in_seconds = 15.0
+        status = solver.Solve(model)
+        if status in (cp_model.OPTIMAL, cp_model.FEASIBLE):
+            return solver, x
+        return None
+
+    if not student_ids:
+        return {'success': True, 'placements': [], 'usedFallbackThirdChoice': False, 'noChoicesStudentIds': without_choices_ids}
+
+    used_fallback = False
+    result = try_solve(2)
+    if result is None:
+        result = try_solve(3)
+        used_fallback = True
+
+    if result is None:
+        return {
+            'success': False,
+            'error': 'Could not place every 3200 student within their top 3 choices given current team capacity. Try locking some manually first, or increase max team size.',
+        }
+
+    solver, x = result
+    placements = []
+    for s_id in student_ids:
+        student = students[s_id]
+        for p_name in project_names:
+            if solver.Value(x[s_id][p_name]) == 1:
+                rank = student['choices'].index(p_name) + 1  # 1-indexed for readability
+                placements.append({
+                    'studentId': s_id,
+                    'projectName': p_name,
+                    'choiceRank': rank,
+                    'isReturning': student.get('previousProject') == p_name,
+                })
+                break
+
+    return {
+        'success': True,
+        'placements': placements,
+        'usedFallbackThirdChoice': used_fallback,
+        'noChoicesStudentIds': without_choices_ids,
+    }
 
 
 def main():
@@ -348,9 +459,12 @@ def main():
         students = input_data['students']
         projects = input_data['projects']
         config = input_data.get('config', None)
+        mode = input_data.get('mode', 'generate')
 
-        # Generate teams
-        result = generate_teams(students, projects, config)
+        if mode == 'suggest_3200':
+            result = suggest_upperclass_placements(students, projects, config)
+        else:
+            result = generate_teams(students, projects, config)
 
         # Output result as JSON
         print(json.dumps(result))

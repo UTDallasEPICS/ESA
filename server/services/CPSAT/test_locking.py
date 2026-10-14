@@ -1,91 +1,91 @@
 import unittest
-
 from team_generator import generate_teams
 
 
 class LockingTests(unittest.TestCase):
     def setUp(self):
-        self.projects = [{'name': name, 'type': 'SW', 'day': 'Wednesday'} for name in ('A', 'B')]
-        self.students = [
-            {'id': str(i), 'major': 'CS', 'class': '3200' if i < 2 else '2200',
-             'choices': ['A', 'B'], 'gender': 'Male', 'day': 'Wednesday'}
-            for i in range(8)
-        ]
+        self.projects = [{'name': n, 'type': 'SW', 'day': 'Wednesday',
+                          'locked_count': 0, 'locked_upperclass_count': 0} for n in ('A', 'B')]
+        self.students = [{'id': str(i), 'major': 'CS', 'class': '3200' if i < 2 else '2200',
+                          'choices': ['A', 'B'], 'gender': 'Male', 'day': 'Wednesday'} for i in range(8)]
         self.config = {'min_team_size': 4, 'max_team_size': 6,
-                       'min_3200_per_team': 1, 'balance_gender': False}
+                       'min_upperclass_per_project': 1, 'balance_gender': False}
 
-    def solve(self, **locks):
-        return generate_teams(self.students, self.projects, {**self.config, **locks})
+    def solve(self):
+        return generate_teams(self.students, self.projects, self.config)
+
+    def reserve(self, ids, project_index=0):
+        locked = [s for s in self.students if s['id'] in ids]
+        self.students = [s for s in self.students if s['id'] not in ids]
+        project = self.projects[project_index]
+        project['locked_count'] += len(locked)
+        project['locked_upperclass_count'] += sum(s['class'] == '3200' for s in locked)
+        return locked
 
     def assert_valid(self, result):
         self.assertTrue(result['success'], result)
         self.assertCountEqual([s for roster in result['teams'].values() for s in roster],
                               [s['id'] for s in self.students])
-        for roster in result['teams'].values():
-            self.assertGreaterEqual(len(roster), 4)
-            self.assertLessEqual(len(roster), 6)
-            self.assertGreaterEqual(sum(s in ('0', '1') for s in roster), 1)
+        for p in self.projects:
+            roster = result['teams'][p['name']]
+            self.assertGreaterEqual(len(roster) + p['locked_count'], self.config['min_team_size'])
+            self.assertLessEqual(len(roster) + p['locked_count'], 6)
+            upper = sum(s['class'] == '3200' for s in self.students if s['id'] in roster)
+            self.assertGreaterEqual(upper + p['locked_upperclass_count'], 1)
 
-    def test_student_lock_overrides_preference(self):
-        result = self.solve(locked_student_assignments={'0': 'B'})
+    def test_individual_lock_reserves_capacity_and_3200_coverage(self):
+        self.reserve(['0'])
+        self.assert_valid(self.solve())
+
+    def test_bulk_locked_members_are_excluded_from_new_assignments(self):
+        self.reserve(['0', '2', '3', '4'])
+        result = self.solve()
         self.assert_valid(result)
-        self.assertIn('0', result['teams']['B'])
+        self.assertFalse(set(['0', '2', '3', '4']) & set(sum(result['teams'].values(), [])))
 
-    def test_team_lock_preserves_exact_roster(self):
-        roster = ['0', '2', '3', '4']
-        result = self.solve(locked_teams={'A': roster})
+    def test_full_locked_team_receives_no_new_students(self):
+        self.reserve(['0', '2', '3', '4', '5', '6'])
+        self.config['min_team_size'] = 2
+        result = self.solve()
         self.assert_valid(result)
-        self.assertCountEqual(result['teams']['A'], roster)
-        self.assertCountEqual(result['teams']['B'], ['1', '5', '6', '7'])
+        self.assertEqual(result['teams']['A'], [])
 
-    def test_rerun_preserves_locks_after_preferences_change(self):
-        first = self.solve(locked_student_assignments={'0': 'B'})
-        self.assert_valid(first)
-        for student in self.students:
-            student['choices'] = ['B', 'A']
-        result = self.solve(locked_teams={'B': first['teams']['B']})
+    def test_locked_3200_counts_toward_maximum(self):
+        self.reserve(['0'])
+        self.config['max_upperclass_per_project'] = 1
+        result = self.solve()
         self.assert_valid(result)
-        self.assertCountEqual(result['teams']['B'], first['teams']['B'])
+        self.assertIn('1', result['teams']['B'])
 
-    def test_compatible_student_and_team_locks(self):
-        result = self.solve(locked_teams={'A': ['0', '2', '3', '4']},
-                            locked_student_assignments={'0': 'A', '1': 'B'})
+    def test_locked_2200_does_not_satisfy_3200_minimum(self):
+        self.reserve(['2', '3', '4', '5'])
+        self.config['min_team_size'] = 3
+        result = self.solve()
         self.assert_valid(result)
+        self.assertTrue(set(result['teams']['A']) & {'0', '1'})
 
-    def test_invalid_and_conflicting_locks(self):
-        cases = [
-            {'locked_student_assignments': {'missing': 'A'}},
-            {'locked_student_assignments': {'0': 'missing'}},
-            {'locked_teams': {'missing': []}},
-            {'locked_teams': {'A': ['0', '0']}},
-            {'locked_teams': {'A': '0'}},
-            {'locked_student_assignments': None},
-            {'locked_teams': {'A': ['0'], 'B': ['0']}},
-            {'locked_teams': {'A': ['0', '2', '3', '4']},
-             'locked_student_assignments': {'0': 'B'}},
-            {'locked_teams': {'A': ['0', '2', '3', '4']},
-             'locked_student_assignments': {'1': 'A'}},
-        ]
-        for locks in cases:
-            with self.subTest(locks=locks), self.assertRaises(ValueError):
-                self.solve(**locks)
+    def test_excess_locked_roster_is_infeasible(self):
+        self.projects[0]['locked_count'] = 7
+        self.assertFalse(self.solve()['success'])
 
-    def test_locked_team_still_requires_3200_student(self):
-        result = self.solve(locked_teams={'A': ['2', '3', '4', '5']})
-        self.assertFalse(result['success'])
-        self.assertIn('locks', result['error'])
+    def test_full_locked_team_without_3200_is_infeasible(self):
+        self.reserve(['2', '3', '4', '5', '6', '7'])
+        self.config['min_team_size'] = 1
+        self.assertFalse(self.solve()['success'])
 
-    def test_locked_team_still_requires_valid_size(self):
-        for roster in ([], ['0', '2', '3'], ['0', '2', '3', '4', '5', '6', '7']):
-            with self.subTest(roster=roster):
-                self.assertFalse(self.solve(locked_teams={'A': roster})['success'])
+    def test_rerun_with_changed_preferences_retains_reserved_capacity(self):
+        self.reserve(['0', '2', '3', '4'])
+        self.assert_valid(self.solve())
+        for s in self.students:
+            s['choices'] = ['B', 'A']
+        self.assert_valid(self.solve())
+        self.assertEqual(self.projects[0]['locked_count'], 4)
+        self.assertEqual(self.projects[0]['locked_upperclass_count'], 1)
 
-    def test_locked_student_still_requires_matching_day(self):
-        self.students[0]['day'] = 'Thursday'
-        self.assertFalse(self.solve(locked_student_assignments={'0': 'A'})['success'])
-
-    def test_empty_locks_allow_normal_generation(self):
-        self.assert_valid(self.solve(locked_student_assignments={}, locked_teams={}))
+    def test_all_students_locked_can_solve_without_new_assignments(self):
+        self.reserve(['0', '2', '3', '4'])
+        self.reserve(['1', '5', '6', '7'], 1)
+        self.assert_valid(self.solve())
 
 
 if __name__ == '__main__':
