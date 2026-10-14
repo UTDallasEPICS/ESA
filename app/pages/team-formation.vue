@@ -712,14 +712,25 @@
 
       <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
 
-      <div v-if="semesterId" class="grid grid-cols-2 gap-4">
-        <UFormField label="Min 3200 per Project">
-          <UInputNumber v-model="minUpperclassPerProject" :min="0" class="w-full" />
-        </UFormField>
-        <UFormField label="Max 3200 per Project">
-          <UInputNumber v-model="maxUpperclassPerProject" :min="minUpperclassPerProject || 1" class="w-full" />
-        </UFormField>
-      </div>
+
+
+<div v-if="semesterId" class="space-y-4">
+  <UCheckbox
+    :model-value="minUpperclassPerProject >= 1"
+    label="Force at least one CS 3200 student per team"
+    @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
+  />
+
+  <UFormField label="Max 3200 per Project">
+    <UInputNumber
+      v-model="maxUpperclassPerProject"
+      :min="minUpperclassPerProject || 1"
+      class="w-full"
+    />
+  </UFormField>
+</div>
+
+
 
       <div v-if="semesterId" class="flex flex-wrap items-end gap-2">
         <UButton
