@@ -205,6 +205,7 @@
   const config = reactive({
     min_team_size: 4,
     max_team_size: 6,
+    min_3200_per_team: 1,
     prioritize_returning_students: true,
     prioritize_3200_first_choice: true,
     balance_gender: true,
@@ -380,6 +381,14 @@
         </UFormField>
         <UFormField label="Max Team Size">
           <UInputNumber v-model="config.max_team_size" :min="config.min_team_size" class="w-full" />
+        </UFormField>
+        <UFormField label="Minimum 3200 Students per Team" description="Set to 0 to disable.">
+          <UInputNumber
+            v-model="config.min_3200_per_team"
+            :min="0"
+            :max="config.max_team_size"
+            class="w-full"
+          />
         </UFormField>
       </div>
 

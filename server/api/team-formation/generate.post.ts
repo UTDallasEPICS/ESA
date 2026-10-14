@@ -56,6 +56,14 @@ export default defineEventHandler(async (event) => {
     throw createError({statusCode: 400, message: 'day is required and must be WEDNESDAY or THURSDAY.'})
   }
 
+  const min3200 = config?.min_3200_per_team ?? 1
+  if (!Number.isInteger(min3200) || min3200 < 0) {
+    throw createError({statusCode: 400, message: 'Minimum 3200 students per team must be a non-negative integer.'})
+  }
+  if (min3200 > (config?.max_team_size ?? 6)) {
+    throw createError({statusCode: 400, message: 'Minimum 3200 students per team cannot exceed maximum team size.'})
+  }
+
   interface StudentWithChoices {
     Choices: Choice[],
     Enrollments: Enrollment[],

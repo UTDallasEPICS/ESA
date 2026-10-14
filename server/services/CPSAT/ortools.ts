@@ -37,6 +37,7 @@ export interface CPSATRunResult {
 export interface CPSATConfig {
   min_team_size?: number;
   max_team_size?: number;
+  min_3200_per_team?: number;
   prioritize_returning_students?: boolean;
   prioritize_3200_first_choice?: boolean;
   balance_gender?: boolean;
@@ -105,6 +106,7 @@ export async function generateTeamsORTools(
     config: config || {
       min_team_size: 4,
       max_team_size: 6,
+      min_3200_per_team: 1,
       prioritize_returning_students: true,
       prioritize_3200_first_choice: true,
       balance_gender: true,

@@ -32,6 +32,7 @@ ProjectDict = TypedDict('ProjectDict', {
 ConfigDict = TypedDict('ConfigDict', {
     'min_team_size': int,
     'max_team_size': int,
+    'min_3200_per_team': int,
     'prioritize_returning_students': bool,
     'prioritize_3200_first_choice': bool,
     'balance_gender': bool,
@@ -56,10 +57,17 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
         config = {
             'min_team_size': 4,
             'max_team_size': 6,
+            'min_3200_per_team': 1,
             'prioritize_returning_students': True,
             'prioritize_3200_first_choice': True,
             'balance_gender': True,
         }
+
+    min_3200 = config.get('min_3200_per_team', 1)
+    if isinstance(min_3200, bool) or not isinstance(min_3200, int) or min_3200 < 0:
+        raise ValueError('Minimum 3200 students per team must be a non-negative integer.')
+    if min_3200 > config['max_team_size']:
+        raise ValueError('Minimum 3200 students per team cannot exceed maximum team size.')
 
     model = cp_model.CpModel()
 
@@ -68,6 +76,19 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     projects = {p['name']: p for p in projects_data}
     student_ids = list(students.keys())
     project_names = list(projects.keys())
+
+    upper_ids = [s_id for s_id in student_ids if students[s_id]['class'] == '3200']
+    required_3200 = len(project_names) * min_3200
+    if len(upper_ids) < required_3200:
+        return {
+            'success': False,
+            'error': (
+                f'Not enough EPCS 3200 students: {len(upper_ids)} available across '
+                f'{len(project_names)} team(s), but a minimum of {min_3200} per team '
+                f'requires at least {required_3200}. Lower the minimum 3200 students '
+                'per team, enroll more 3200 students, or reduce the number of active teams.'
+            ),
+        }
 
     # Decision variables: x[s][p] = 1 if student s is assigned to project p
     x = {}
@@ -85,6 +106,7 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
         team_size = sum(x[s_id][p_name] for s_id in student_ids)
         model.Add(team_size >= config['min_team_size'])
         model.Add(team_size <= config['max_team_size'])
+        model.Add(sum(x[s_id][p_name] for s_id in upper_ids) >= min_3200)
 
     # CONSTRAINT 3: Only 3200 students can be returning students
     # (Validation - returning students must be 3200)
@@ -263,7 +285,8 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
                 f'even though {total_students} student(s) fits the overall capacity for {total_teams} team(s) '
                 '(this can happen when other requirements, such as meeting-day splits, prevent a valid '
                 'assignment). Try adjusting min/max team size, or the set of active projects/teams for '
-                'this semester and day.'
+                'this semester and day. Also check that enough EPCS 3200 students are available '
+                'on each meeting day to meet the configured minimum per team.'
             )
 
         return {
