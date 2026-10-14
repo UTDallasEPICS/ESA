@@ -48,6 +48,21 @@ only reweight the objective among otherwise-valid solutions.
 
 ## 2. Hard Constraints
 
+Solver callers may pass `locked_student_assignments` (student ID → project name) and
+`locked_teams` (project name → exact list of student IDs) in `CPSATConfig`. All students,
+including locked students, remain in the solver input so they count toward team size,
+gender scoring, and the minimum 3200 requirement. Locked teams cannot gain or lose members;
+individual student locks leave the rest of their team open to reassignment. Unknown IDs,
+duplicate roster members, and conflicting locks are rejected. Locks that violate hard
+constraints produce an infeasible result rather than being silently ignored.
+
+This is solver support only. The TeamBuilder page does not yet provide lock controls or
+persist lock state; callers must explicitly supply locks on every run. The existing
+generation endpoint accepts these config fields and saves the solver's resulting rosters.
+
+Run the locking tests with:
+`PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s server/services/CPSAT -p test_locking.py`.
+
 Enforced directly in the CP-SAT model (`team_generator.py`); violating any of these makes the model infeasible,
 which surfaces to the caller as a 400 with a diagnostic message (`generate.post.ts` catches the rejected promise
 from `generateTeamsORTools`).

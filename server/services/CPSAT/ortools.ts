@@ -38,6 +38,9 @@ export interface CPSATConfig {
   min_team_size?: number;
   max_team_size?: number;
   min_3200_per_team?: number;
+  // Solver project names are used here, matching the choices wire format.
+  locked_student_assignments?: Record<string, string>;
+  locked_teams?: Record<string, string[]>;
   prioritize_returning_students?: boolean;
   prioritize_3200_first_choice?: boolean;
   balance_gender?: boolean;

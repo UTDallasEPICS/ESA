@@ -33,6 +33,8 @@ ConfigDict = TypedDict('ConfigDict', {
     'min_team_size': int,
     'max_team_size': int,
     'min_3200_per_team': int,
+    'locked_student_assignments': dict[str, str],
+    'locked_teams': dict[str, list[str]],
     'prioritize_returning_students': bool,
     'prioritize_3200_first_choice': bool,
     'balance_gender': bool,
@@ -77,6 +79,36 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     student_ids = list(students.keys())
     project_names = list(projects.keys())
 
+    locked_students = config.get('locked_student_assignments', {})
+    locked_teams = config.get('locked_teams', {})
+    if not isinstance(locked_students, dict) or not isinstance(locked_teams, dict):
+        raise ValueError('Student and team locks must be objects.')
+    fixed_assignments = {}
+
+    def lock_student(student_id, project_name):
+        if not isinstance(student_id, str) or student_id not in students:
+            raise ValueError(f'Unknown locked student: {student_id}')
+        if not isinstance(project_name, str) or project_name not in projects:
+            raise ValueError(f'Unknown locked project: {project_name}')
+        if student_id in fixed_assignments and fixed_assignments[student_id] != project_name:
+            raise ValueError(f'Conflicting locks for student {student_id}')
+        fixed_assignments[student_id] = project_name
+
+    for student_id, project_name in locked_students.items():
+        lock_student(student_id, project_name)
+    for project_name, roster in locked_teams.items():
+        if project_name not in projects:
+            raise ValueError(f'Unknown locked project: {project_name}')
+        if not isinstance(roster, list) or any(not isinstance(s, str) for s in roster):
+            raise ValueError(f'Locked team {project_name} must contain a list of student IDs.')
+        if len(roster) != len(set(roster)):
+            raise ValueError(f'Locked team {project_name} contains duplicate students.')
+        for student_id in roster:
+            lock_student(student_id, project_name)
+    for student_id, project_name in fixed_assignments.items():
+        if project_name in locked_teams and student_id not in locked_teams[project_name]:
+            raise ValueError(f'Student {student_id} is locked to a team whose roster excludes them.')
+
     upper_ids = [s_id for s_id in student_ids if students[s_id]['class'] == '3200']
     required_3200 = len(project_names) * min_3200
     if len(upper_ids) < required_3200:
@@ -100,6 +132,14 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
     # CONSTRAINT 1: Each student assigned to exactly one project
     for s_id in student_ids:
         model.Add(sum(x[s_id][p_name] for p_name in project_names) == 1)
+
+    # Keep fixed students in place and prevent additions to an exactly locked roster.
+    for student_id, project_name in fixed_assignments.items():
+        model.Add(x[student_id][project_name] == 1)
+    for project_name, roster in locked_teams.items():
+        roster_ids = set(roster)
+        for student_id in student_ids:
+            model.Add(x[student_id][project_name] == int(student_id in roster_ids))
 
     # CONSTRAINT 2: Every project's team size must fall within [min_team_size, max_team_size]
     for p_name in project_names:
@@ -291,7 +331,11 @@ def generate_teams(students_data: list[StudentDict], projects_data: list[Project
 
         return {
             'success': False,
-            'error': error,
+            'error': error + (
+                ' Student/team locks must also satisfy team-size, meeting-day, and minimum '
+                '3200 requirements. Adjust the locks or constraints and retry.'
+                if locked_students or locked_teams else ''
+            ),
         }
 
 
