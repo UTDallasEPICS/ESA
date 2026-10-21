@@ -1,5 +1,4 @@
 <script setup lang="ts">
-  import { parseCsv, validateBidRows, type BidRowError } from '~/utils/bidCsv'
   import { downloadCsv } from '~/utils/csvExport'
   import { titleCase } from '~/utils/labels'
   import { MEETING_DAY_OPTIONS } from '~/utils/options'
@@ -167,84 +166,14 @@
 
   // ── Bid file upload ──────────────────────────────────────────────────────────
 
-  const bidFile = ref<File | null>(null)
-  const parsedRows = ref<Record<string, string>[]>([])
-  const parseErrors = ref<BidRowError[]>([])
-  const missingColumns = ref<string[]>([])
-  const uploadResult = ref<{
-    studentsImported: number
-    choicesCreated: number
-    skippedStudents: string[]
-  } | null>(null)
-  const uploading = ref(false)
-  const uploadError = ref<string | null>(null)
-
-  watch(bidFile, async (file) => {
-    parsedRows.value = []
-    parseErrors.value = []
-    missingColumns.value = []
-    if (!file) return
-
-    // Only clear prior results once a new file is actually chosen, so a successful
-    // upload's summary stays visible after we reset `bidFile` below.
-    uploadResult.value = null
-    uploadError.value = null
-
-    const text = await file.text()
-    const rows = parseCsv(text)
-    const validation = validateBidRows(rows)
-    missingColumns.value = validation.missingColumns
-    parseErrors.value = validation.errors
-    if (!validation.missingColumns.length && !validation.errors.length) {
-      parsedRows.value = rows
-    }
-  })
-
-  // Once bids are saved for this semester/day the upload box is tucked away behind
-  // "Replace bid file", since the usual visit has nothing to upload. With nothing
-  // saved yet it's the whole step, as before.
-  const replacingBids = ref(false)
-  const showBidUpload = computed(() => !bidCountForDay.value || replacingBids.value)
-  watch([semesterId, meetingDay], () => (replacingBids.value = false))
-
-  function cancelReplaceBids() {
-    replacingBids.value = false
-    bidFile.value = null
-  }
-
-  const canUpload = computed(
-    () =>
-      !!semesterId.value &&
-      parsedRows.value.length > 0 &&
-      !parseErrors.value.length &&
-      !missingColumns.value.length
-  )
-
-  async function submitBidFile() {
-    if (!canUpload.value || !semesterId.value) return
-    uploading.value = true
-    uploadError.value = null
-    try {
-      uploadResult.value = await $fetch('/api/team-formation/bids', {
-        method: 'POST',
-        query: { semesterId: semesterId.value, meetingDay: meetingDay.value },
-        body: parsedRows.value,
-      })
-      // Require an explicit new file selection before another upload can be submitted —
-      // otherwise switching the meeting day and re-clicking Upload silently resubmits the
-      // same roster under the new day, overwriting those students' enrollment day.
-      bidFile.value = null
-      replacingBids.value = false
-      await Promise.all([
-        refreshProjectsForSemester(),
-        refreshAllProjects(),
-        refreshStudentsForSemester(),
-      ])
-    } catch (e: any) {
-      uploadError.value = e?.data?.message ?? e?.message ?? 'Failed to import bid file.'
-    } finally {
-      uploading.value = false
-    }
+  // Each day's bid file is uploaded in its own BidDayUpload card (step 2), so
+  // both days can be imported without switching the meeting day.
+  async function refreshAfterBidImport() {
+    await Promise.all([
+      refreshProjectsForSemester(),
+      refreshAllProjects(),
+      refreshStudentsForSemester(),
+    ])
   }
 
   // ── Step-by-step page layout ─────────────────────────────────────────────────
@@ -263,7 +192,7 @@
   const steps = computed(() =>
     [
       { title: 'Semester & Day', icon: 'i-heroicons-calendar' },
-      { title: 'Bid File', icon: 'i-heroicons-arrow-up-tray' },
+      { title: 'Bid Files', icon: 'i-heroicons-arrow-up-tray' },
       { title: 'Lock 3200s', icon: 'i-heroicons-lock-closed' },
       { title: 'Generate', icon: 'i-heroicons-sparkles' },
       { title: 'Arrange Teams', icon: 'i-heroicons-squares-2x2' },
@@ -275,22 +204,21 @@
     set: (i: number) => (activeSection.value = i + 1),
   })
 
-  const bidCountForDay = computed(
-    () =>
-      studentsForSemester.value.filter(
-        (s) =>
-          s.Enrollments.some(
-            (e) => e.semesterId === semesterId.value && e.meetingDay === meetingDay.value
-          ) && s.Choices.some((c) => c.semesterId === semesterId.value)
-      ).length
-  )
+  function bidCountFor(day: MeetingDay) {
+    return studentsForSemester.value.filter(
+      (s) =>
+        s.Enrollments.some((e) => e.semesterId === semesterId.value && e.meetingDay === day) &&
+        s.Choices.some((c) => c.semesterId === semesterId.value)
+    ).length
+  }
+  const bidCountForDay = computed(() => bidCountFor(meetingDay.value))
   const teamsHaveMembers = computed(() => teamsForDay.value.some((t) => t.memberCount > 0))
 
   // Why Next is blocked on the current step, or null when it's free to go.
   const nextBlocker = computed(() => {
     if (activeSection.value === 1 && !semesterId.value) return 'Pick a semester first.'
     if (activeSection.value === 2 && !bidCountForDay.value)
-      return 'Upload a bid file for this day first.'
+      return `Upload the ${titleCase(meetingDay.value)} bid file first.`
     if (activeSection.value === 4 && !teamsHaveMembers.value) return 'Generate teams first.'
     return null
   })
@@ -319,8 +247,23 @@
     )
   }
 
-  function choiceLabelsFor(student: StudentRead) {
+  // A student with no bid gets one project written in as their Choice 1 at import
+  // (server/utils/noBid.ts), so the solver places them by major. That's a placement,
+  // not a preference, so everywhere on this page they read as having no choices.
+  const NO_BID_TAG = '[No bid]'
+  function isNoBid(student: StudentRead | undefined) {
+    return !!student?.Enrollments.find(
+      (e) => e.semesterId === semesterId.value
+    )?.comments.startsWith(NO_BID_TAG)
+  }
+
+  function bidChoicesFor(student: StudentRead | undefined) {
+    if (!student || isNoBid(student)) return []
     return student.Choices.filter((c) => c.semesterId === semesterId.value)
+  }
+
+  function choiceLabelsFor(student: StudentRead) {
+    return bidChoicesFor(student)
       .sort((a, b) => a.rank - b.rank)
       .map((c) => allProjects.value.find((p) => p.id === c.projectId)?.name ?? '')
       .filter(Boolean)
@@ -706,9 +649,8 @@
   const studentById = computed(() => new Map(studentsForSemester.value.map((s) => [s.id, s])))
 
   function boardRank(studentId: string, projectId: string) {
-    return studentById.value
-      .get(studentId)
-      ?.Choices.find((c) => c.semesterId === semesterId.value && c.projectId === projectId)?.rank
+    return bidChoicesFor(studentById.value.get(studentId)).find((c) => c.projectId === projectId)
+      ?.rank
   }
 
   function boardIs3200(studentId: string) {
@@ -716,6 +658,10 @@
       .get(studentId)
       ?.Enrollments.find((e) => e.semesterId === semesterId.value)
     return enrollment?.class === 'EPCS_3200'
+  }
+
+  function boardIsNoBid(studentId: string) {
+    return isNoBid(studentById.value.get(studentId))
   }
 
   function boardCount3200(teamId: string) {
@@ -740,7 +686,7 @@
     const student = studentById.value.get(studentId)
     if (!student) return []
     const workbenchProjectIds = new Set(workbenchTeams.value.map((t) => t.projectId))
-    return student.Choices.filter((c) => c.semesterId === semesterId.value)
+    return bidChoicesFor(student)
       .sort((a, b) => a.rank - b.rank)
       .map((c) => ({
         rank: c.rank,
@@ -994,8 +940,7 @@
   // Both a student's own ranking and which of the teams in play each choice is.
   function compareChoices(studentId: string, teamIds: string[]) {
     const projectIds = new Set(teamIds.flatMap((id) => teamById(id)?.projectId ?? []))
-    return (studentById.value.get(studentId)?.Choices ?? [])
-      .filter((c) => c.semesterId === semesterId.value)
+    return bidChoicesFor(studentById.value.get(studentId))
       .sort((a, b) => a.rank - b.rank)
       .map((c) => ({
         rank: c.rank,
@@ -1088,8 +1033,8 @@
     const minSize = config.min_team_size
     const min3200 = minUpperclassPerProject.value
     const max3200 = maxUpperclassPerProject.value
-    const choices = (studentById.value.get(studentId)?.Choices ?? [])
-      .filter((c) => c.semesterId === semesterId.value && c.rank < hereCost)
+    const choices = bidChoicesFor(studentById.value.get(studentId))
+      .filter((c) => c.rank < hereCost)
       .sort((a, b) => a.rank - b.rank)
     const blocked: StudentReview['blocked'] = []
     const noTrade = 'nobody there would trade without losing out'
@@ -1229,7 +1174,18 @@
           >
             <span>
               {{ team.projectName }} ({{ team.partnerName }})
-              <UBadge v-if="isTeamLocked(team.id)" color="primary" variant="subtle" size="sm">Locked</UBadge>
+              <UBadge
+                :color="isTeamLocked(team.id) ? 'primary' : 'neutral'"
+                variant="subtle"
+                size="sm"
+              >
+                <UIcon
+                  :name="
+                    isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
+                  "
+                />
+                {{ isTeamLocked(team.id) ? 'Locked' : 'Unlocked' }}
+              </UBadge>
             </span>
             <span class="text-gray-500">{{ team.memberCount }} member(s)</span>
           </li>
@@ -1238,105 +1194,22 @@
     </section>
 
     <section v-if="activeSection === 2" class="space-y-4">
-      <h2 class="text-lg font-semibold">2. Bid File</h2>
+      <h2 class="text-lg font-semibold">2. Bid Files</h2>
 
-      <div
-        v-if="!showBidUpload"
-        class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-      >
-        <p class="text-sm">
-          Bids from {{ bidCountForDay }} student(s) are saved for this day. Nothing to upload,
-          go on to the next step.
-        </p>
-        <UButton
-          label="Replace bid file"
-          icon="i-heroicons-arrow-path"
-          size="xs"
-          color="neutral"
-          variant="ghost"
-          @click="replacingBids = true"
-        />
-      </div>
-
-      <template v-if="showBidUpload">
-      <div v-if="replacingBids" class="space-y-2">
-        <UAlert
-          color="warning"
-          variant="subtle"
-          title="Replacing the bid file"
-          description="Students in the new file get their details updated and their choices replaced. Students not in the file are kept as they are. Teams that already exist won't change until you generate again."
-        />
-        <UButton label="Cancel" size="xs" color="neutral" variant="ghost" @click="cancelReplaceBids" />
-      </div>
-
-      <UFormField label="Bid Response CSV">
-        <UFileUpload
-          v-model="bidFile"
-          accept=".csv"
-          label="Drop CSV here or click to browse"
-          :disabled="!semesterId"
-        />
-      </UFormField>
       <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
+      <p v-else class="text-sm text-gray-500">
+        Import each day's bid responses into the selected semester. The next steps work on
+        {{ titleCase(meetingDay) }} (set in step 1), so that day needs bids before going on.
+      </p>
 
-      <UAlert
-        v-if="missingColumns.length"
-        color="error"
-        variant="subtle"
-        title="Missing required columns"
-        :description="missingColumns.join(', ')"
-      />
-
-      <div v-else-if="parseErrors.length" class="space-y-2">
-        <UAlert
-          color="error"
-          variant="subtle"
-          :title="`${parseErrors.length} error(s) found. Upload aborted.`"
-        />
-        <ul class="max-h-64 space-y-1 overflow-y-auto text-sm">
-          <li v-for="(err, i) in parseErrors" :key="i" class="text-red-600 dark:text-red-400">
-            Row {{ err.row }}: {{ err.message }}
-          </li>
-        </ul>
-      </div>
-
-      <UAlert
-        v-else-if="parsedRows.length"
-        color="success"
-        variant="subtle"
-        :title="`${parsedRows.length} row(s) validated successfully`"
-      />
-
-      <UButton
-        label="Upload"
-        icon="i-heroicons-arrow-up-tray"
-        :loading="uploading"
-        :disabled="!canUpload || uploading"
-        @click="submitBidFile"
-      />
-
-      <UAlert
-        v-if="uploadError"
-        color="error"
-        variant="subtle"
-        title="Upload failed"
-        :description="uploadError"
-      />
-      </template>
-
-      <div v-if="uploadResult" class="space-y-2">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Import complete"
-          :description="`${uploadResult.studentsImported} student(s) imported, ${uploadResult.choicesCreated} choice(s) recorded.`"
-        />
-        <UAlert
-          v-if="uploadResult.skippedStudents.length"
-          color="warning"
-          variant="subtle"
-          title="Skipped rows (missing SSO ID)"
-          :description="uploadResult.skippedStudents.join(', ')"
+      <div class="grid gap-4 md:grid-cols-2">
+        <BidDayUpload
+          v-for="day in MEETING_DAY_OPTIONS"
+          :key="`${semesterId}-${day.value}`"
+          :semester-id="semesterId"
+          :meeting-day="day.value"
+          :saved-count="bidCountFor(day.value)"
+          @imported="refreshAfterBidImport"
         />
       </div>
     </section>
@@ -1352,18 +1225,20 @@
 
       <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
 
-      <div v-if="semesterId" class="grid grid-cols-2 gap-4">
-        <UFormField label="Min 3200 per Project">
-          <UInputNumber v-model="minUpperclassPerProject" :min="0" class="w-full" />
-        </UFormField>
+      <div v-if="semesterId" class="space-y-4">
+        <UCheckbox
+          :model-value="minUpperclassPerProject >= 1"
+          label="Force at least one CS 3200 student per team"
+          @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
+        />
         <UFormField label="Max 3200 per Project">
           <UInputNumber v-model="maxUpperclassPerProject" :min="minUpperclassPerProject || 1" class="w-full" />
         </UFormField>
       </div>
       <p v-if="semesterId" class="text-sm text-gray-500">
         These apply to Generate Teams too. Max stops one popular project absorbing all the
-        3200s. Min is 1 by default (every project gets at least one 3200); set it to 0 if
-        there aren't enough 3200 students to go around.
+        3200s. The checkbox is on by default (every project gets at least one 3200); turn it
+        off if there aren't enough 3200 students to go around.
       </p>
 
       <div
@@ -1538,8 +1413,9 @@
       </div>
 
       <p class="text-sm text-gray-500">
-        3200-per-project range is set in step 3 (currently
-        {{ minUpperclassPerProject }} to {{ maxUpperclassPerProject }}) and applies here too.
+        3200 limits are set in step 3 (currently
+        {{ minUpperclassPerProject ? 'at least one, ' : '' }}at most {{ maxUpperclassPerProject }}
+        per project) and apply here too.
       </p>
 
       <UButton
@@ -1624,6 +1500,9 @@
                 <span class="text-gray-500">· {{ majorOf(review.studentId) }}</span>
                 <UBadge v-if="boardIs3200(review.studentId)" color="neutral" variant="subtle" size="sm">
                   3200
+                </UBadge>
+                <UBadge v-if="boardIsNoBid(review.studentId)" color="neutral" variant="subtle" size="sm">
+                  no bid
                 </UBadge>
               </span>
               <span class="flex items-center gap-1 text-xs text-gray-500">
@@ -1756,6 +1635,9 @@
                   <UBadge v-if="boardIs3200(side.studentId)" color="neutral" variant="subtle" size="sm" class="ml-1">
                     3200
                   </UBadge>
+                  <UBadge v-if="boardIsNoBid(side.studentId)" color="neutral" variant="subtle" size="sm" class="ml-1">
+                    no bid
+                  </UBadge>
                 </div>
                 <div class="flex flex-wrap items-center gap-1 text-xs">
                   {{ side.from.projectName }}
@@ -1797,6 +1679,9 @@
                 <span class="text-gray-500"> · {{ majorOf(comparePicks[0].studentId) }}</span>
                 <UBadge v-if="boardIs3200(comparePicks[0].studentId)" color="neutral" variant="subtle" size="sm" class="ml-1">
                   3200
+                </UBadge>
+                <UBadge v-if="boardIsNoBid(comparePicks[0].studentId)" color="neutral" variant="subtle" size="sm" class="ml-1">
+                  no bid
                 </UBadge>
                 <p class="text-xs text-gray-500">
                   Click a student on another Workbench team to preview a swap.
@@ -1958,6 +1843,9 @@
                     <UBadge v-if="boardIs3200(m.studentId)" color="neutral" variant="subtle" size="sm">
                       3200
                     </UBadge>
+                    <UBadge v-if="boardIsNoBid(m.studentId)" color="neutral" variant="subtle" size="sm">
+                      no bid
+                    </UBadge>
                   </span>
                   <span class="flex shrink-0 items-center gap-1 text-xs text-gray-500">
                     <template v-if="otherWorkbenchTeam(team.id)">here</template>
@@ -2054,6 +1942,15 @@
                       class="shrink-0"
                     >
                       3200
+                    </UBadge>
+                    <UBadge
+                      v-if="boardIsNoBid(m.studentId)"
+                      color="neutral"
+                      variant="subtle"
+                      size="xs"
+                      class="shrink-0"
+                    >
+                      no bid
                     </UBadge>
                   </span>
                   <UBadge
