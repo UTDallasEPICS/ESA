@@ -52,11 +52,13 @@ Stack: Nuxt 4 + Nuxt UI v4 + Tailwind. All components live in `app/`; no other U
    4. [Implementation notes and known limits (Database)](#34-implementation-notes-and-known-limits-database)
       1. [Shared composables and utils](#341-shared-composables-and-utils)
 4. [Team Formation (`pages/team-formation.vue`)](#4-team-formation-pagesteam-formationvue)
-   1. [Section 1 — Semester & Meeting Day](#41-section-1-semester-meeting-day)
+   1. [Step 1 — Semester](#41-step-1-semester)
    2. [Team Export](#42-team-export)
-   3. [Section 2 — Bid File](#43-section-2-bid-file)
+   3. [Step 2 — Bid Files](#43-step-2-bid-files)
       1. [Students With No Bid](#431-students-with-no-bid)
-   4. [Section 3 — Team Generation](#44-section-3-team-generation)
+   4. [Step 3 — Lock 3200s (optional)](#44-step-3-lock-3200s-optional)
+   5. [Step 4 — Generate](#45-step-4-generate)
+   6. [Step 5 — Arrange Teams](#46-step-5-arrange-teams)
 5. [User Management (`pages/users.vue`)](#5-user-management-pagesusersvue)
    1. [Active Users card](#51-active-users-card)
    2. [Inactive Users card](#52-inactive-users-card)
@@ -663,29 +665,41 @@ for the semester-set view, once inside the semester-unset `UAccordion` — and n
 
 ## 4. Team Formation (`pages/team-formation.vue`)
 
-One narrow page (`max-w-4xl`) of three numbered sections separated by `USeparator`. The v1.0 stepper was
-flattened into stacked sections: all three are visible at once, and each guards itself with disabled controls and
-hint text rather than blocking progression.
+A five-step page driven by a `UStepper`: **Semester → Bid Files → Lock 3200s → Generate → Arrange Teams**. One step
+is on screen at a time, with Back / Next underneath. You can always go back to a step you have reached; Next stays
+disabled (with a hint beside it) until the data that step exists for is actually there. Data saved on an earlier
+visit counts, so a returning user can step straight through.
 
-### 4.1 Section 1 — Semester & Meeting Day
+| Step         | Next is blocked until…                                   |
+| ------------ | -------------------------------------------------------- |
+| 1. Semester  | a semester is picked                                     |
+| 2. Bid Files | at least one meeting day has bids saved                  |
+| 3. Lock 3200s| never (locking is optional)                              |
+| 4. Generate  | the day being worked on has teams with members           |
 
-| Element        | Component                                          | Behavior                                                        |
-| -------------- | -------------------------------------------------- | ---------------------------------------------------------------- |
-| Semester       | `SemesterFilter` inside a `UFormField`             | Full filter, including Add/Delete Semester (§2.2)                 |
-| Meeting Day    | `URadioGroup` — Wednesday / Thursday                | Defaults to Wednesday; drives sections 1–3                        |
-| Export Teams   | `UButton` (↓ tray, soft)                            | Disabled until a semester and day are set; see §4.2               |
-| Teams list     | Bordered rows, `Project — Partner` + member count   | Only rendered once a semester is selected                         |
+Steps 1 and 2 cover **both** meeting days. Steps 3–5 work on one day at a time, chosen with the **Working on**
+toggle above them, which shows each day's bid and team counts (`Wednesday · 70 bids, 12 teams`). Switching day keeps
+you on the current step, unless the new day has no teams to arrange yet, in which case you land on Generate. The page
+starts on a day that has bids. Changing the semester starts the walk over at step 1.
 
-| State              | Condition                                                   | Appearance                                                                     |
-| ------------------ | ------------------------------------------------------------ | ------------------------------------------------------------------------------ |
-| No semester        | `semesterId` unset                                           | Teams list hidden; upload disabled; generation disabled                         |
-| No teams for day   | Fetch settled and no team matches the semester + day          | Warning `UAlert` "No teams found" pointing the user at the Database tab         |
-| Teams present      | ≥1 matching team                                             | The list, each row showing its current membership count                         |
+**Colour.** Red means locked and green means unlocked, everywhere on the page (team badges, lock buttons, locked
+students). Rank badges use blue for a 1st/2nd choice, amber for 3rd, and grey for anything lower or unranked, so
+rank and lock colours never mean the same thing.
+
+### 4.1 Step 1 — Semester
+
+| Element     | Component                                        | Behavior                                                         |
+| ----------- | ------------------------------------------------ | ---------------------------------------------------------------- |
+| Semester    | `SemesterFilter` inside a `UFormField`           | Full filter, including Add/Delete Semester (§2.2)                |
+| Teams lists | One list per meeting day, bordered rows          | `Project (Partner)`, a red **Locked** / green **Unlocked** badge, member count |
+| Export      | `UButton` "Export Wednesday" / "Export Thursday" | One per day that has teams; see §4.2                             |
+
+If neither day has a team for the semester, a warning `UAlert` "No teams found" points to the Database tab.
 
 ### 4.2 Team Export
 
 Downloads `Wed Teams - Fall-2025.csv` (or `Thu …`) built entirely client-side from the already-fetched data. One
-row per membership on a team matching the selected day:
+row per membership on a team for that day:
 
 | Column                                                   | Source                                                        |
 | -------------------------------------------------------- | ------------------------------------------------------------- |
@@ -694,12 +708,19 @@ row per membership on a team matching the selected day:
 | Choice 1 … Choice 6                                      | The student's ranked choices for that semester, blank-padded to 6 |
 | Student Major / Student Classification / Gender / Skills / Comments | The student's enrollment for that semester (skills joined with `; `) |
 
-### 4.3 Section 2 — Bid File
+### 4.3 Step 2 — Bid Files
 
-| Element         | Component                    | Behavior                                                                  |
-| --------------- | ---------------------------- | ------------------------------------------------------------------------- |
-| Bid Response CSV| `UFileUpload` (accept `.csv`)| Disabled until a semester is chosen; hint text "Select a semester above first." |
-| Upload          | `UButton` (↑ tray)           | Enabled only when a semester is set and the parsed file is error-free      |
+Two cards side by side (`components/BidDayUpload.vue`), one per meeting day, so both days' files can be imported
+without switching anything.
+
+| Card state         | Shown                                                                                       |
+| ------------------ | ------------------------------------------------------------------------------------------- |
+| Bids already saved | "Bids from N student(s) are saved." with a **Replace bid file** button                      |
+| Nothing saved yet  | The upload box and **Upload {Day} CSV** button                                              |
+| Replacing          | A warning explaining what a re-upload changes, a **Cancel** link, then the upload box        |
+
+A re-upload is a partial update: students in the new file get their details updated and their choices replaced;
+students not in the file are kept as they are; existing teams don't change until you generate again.
 
 Selecting a file parses and validates it in the browser (`utils/bidCsv.ts`) **before** anything is sent. Validation
 checks that each required column group is present under one of its accepted header spellings — Student Name, SSO
@@ -713,9 +734,9 @@ commented out.)
 | Row errors       | ≥1 row failed                             | Error `UAlert` with the count, plus a scrollable (`max-h-64`) list of `Row N: message`; upload blocked |
 | Valid            | No missing columns and no row errors      | Success `UAlert` "N row(s) validated successfully"; upload enabled           |
 
-Submitting `POST`s the parsed rows to `/api/team-formation/bids` with the semester and meeting day as query
-params, then refreshes the semester's projects and students. On success the file input is deliberately cleared, so
-changing the meeting day and clicking Upload again cannot silently re-import the same roster under the new day.
+Uploading `POST`s the parsed rows to `/api/team-formation/bids` with the semester and that card's meeting day, then
+refreshes the page's data. The file input is cleared afterwards so the same roster can't be re-sent by accident.
+The result stays visible under the card:
 
 | Result state       | Feedback                                                                                                   |
 | ------------------ | ------------------------------------------------------------------------------------------------------------ |
@@ -724,15 +745,14 @@ changing the meeting day and clicking Upload again cannot silently re-import the
 | Imported           | Success `UAlert` — "N student(s) imported, M choice(s) recorded."                                             |
 | Skipped rows       | Warning `UAlert` naming rows dropped because they have neither an SSO ID nor a name                           |
 | No-bid placements  | Info `UAlert` plus a list of `Student (Major) → Project` for every student placed by major (§4.3.1)           |
-| No-bid unplaced    | Warning `UAlert` naming no-bid students imported without a project because the semester/day has no teams yet   |
-| Unmatched projects | Warning `UAlert` listing bid choices whose project could not be matched                                       |
-| Meeting day moved  | Warning `UAlert` naming students who already had an enrollment that semester on the other day and were moved  |
+| No-bid unplaced    | Warning `UAlert` naming no-bid students imported without a project because that day has no teams yet          |
 
 #### 4.3.1 Students With No Bid
 
 Some students never submitted a bid, so they are missing from the bid file. They still need a team. The importer
 (`server/api/team-formation/bids.post.ts`, helpers in `server/utils/noBid.ts`) places each of them on a project
-that fits their major, and the solver then treats them like any other bidder.
+that fits their major, and the solver then treats them like any other bidder. This is a fixed rule, not a guess
+from their preferences (they have none) and not AI.
 
 **What counts as "no bid":** any bid-file row that ends up with zero usable project choices — a row you add by hand
 with only a name and a major, or an existing row whose Choice 1–6 cells are all blank.
@@ -749,15 +769,19 @@ with only a name and a major, or an existing row whose Choice 1–6 cells are al
    - **School and Major** — a major such as `Computer Science`, or the long form
      `Erik Jonsson School of Engineering and Computer Science :::: Computer Science`.
 4. Save the file as CSV.
-5. Go to **Team Formation**, pick the semester and the **same meeting day** as the file, choose the file, and click
-   **Upload**. Rows with no SSO ID are no longer skipped: each gets a stand-in netID of the form
-   `nobid-first-last` so re-uploading updates the same student instead of duplicating them.
-6. Read the **"N student(s) had no bid and were placed by major"** list under the upload result. It shows each
-   student's major and the project they were placed on.
-7. Click **Generate Teams** (Section 3). Under the success message, **"No-bid students — where they ended up"**
-   lists each student's final project and a badge: *kept placement* if the solver left them where the importer put
-   them, or *moved from …* if team-size limits forced a change. No-bid students also carry a **no bid** badge in the
-   team lists below.
+5. Go to **Team Formation**, pick the semester (step 1) and go to **Bid Files** (step 2). On the card for the
+   **same day as the file**, click **Replace bid file** if bids are already saved, choose the file, and click
+   **Upload**. Rows with no SSO ID are not skipped: each gets a stand-in netID of the form `nobid-first-last`, so
+   re-uploading updates the same student instead of duplicating them.
+6. Read the **"N student(s) had no bid and were placed by major"** list under the card. It shows each student's
+   major and the project they were placed on.
+7. Go to **Generate** (step 4), set **Working on** to that day, and click **Generate Teams**. Under the success
+   message, **"No-bid students: where they ended up"** lists each student's final project and a badge: *kept
+   placement* if the solver left them where the importer put them, or *moved from …* if team sizes or a locked team
+   forced a change.
+8. On **Arrange Teams** (step 5) no-bid students carry a **no bid** tag and show as *not ranked*. The project they
+   were placed on is not a preference, so the board never shows it as a 1st choice and **Improve** never suggests
+   moves for them; place them by hand if the major-based pick isn't right.
 
 **How the project is chosen** (`pickProjectForMajor`): only teams that already exist for the selected semester and
 meeting day are candidates. A project whose type matches the major wins — Software projects for CS/SE/DS, Hardware
@@ -765,12 +789,27 @@ projects for EE/ME/BME/CE; next come "Both" projects; any other project is the l
 happens for `Systems` and `Other` majors). Ties go to the project with the fewest students already headed there, so
 no-bid students spread across teams rather than piling onto one. The chosen project is saved as the student's
 Choice 1, and the enrollment's Comments cell starts with `[No bid]` so the student can be recognised later (it also
-appears in the Team Export).
+appears in the Team Export). Don't remove that tag when editing the student in the Database tab, or the page will
+treat their placement as a real 1st choice.
 
 **Defaults for blank cells:** Classification → Freshman, Enrollment → EPCS 2200, Gender → Prefer not to say, Email →
 none. Fill these in before uploading if you know them, since the solver's 3200 and gender rules use them.
 
-### 4.4 Section 3 — Team Generation
+### 4.4 Step 3 — Lock 3200s (optional)
+
+| Element                                   | Behavior                                                                                   |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------ |
+| Force at least one CS 3200 student per team | `UCheckbox`, on by default. Turn it off if there aren't enough 3200 students to go around |
+| Max 3200 per Project                      | `UInputNumber`, default 4, so one popular project can't absorb all the 3200s               |
+| Summary + **Show 3200 students**          | "N 3200 student(s) this day · M locked"; the list itself is folded away until opened       |
+| Suggest Placements / Lock all / Unlock all| Pre-fill a team per 3200 student (1st or 2nd choice where possible), then lock them        |
+| Per student                               | A team picker and **Lock**, or a red **Locked: Project** badge with **Unlock**             |
+
+Both 3200 limits also apply to Generate (step 4) and to the warnings on Arrange Teams (step 5). Locked students are
+left exactly where they are by Generate. **Unlock** on one student removes their placement; **Unlock all** keeps
+everyone where they are and only clears the lock.
+
+### 4.5 Step 4 — Generate
 
 | Parameter                      | Input                                          | Default |
 | ------------------------------ | ---------------------------------------------- | ------- |
@@ -780,21 +819,32 @@ none. Fill these in before uploading if you know them, since the solver's 3200 a
 | Prioritize 3200 first choice   | `UCheckbox`                                     | on      |
 | Balance gender                 | `UCheckbox`                                     | on      |
 
-Generate Teams (sparkles) `POST`s `{ semesterId, day, config }` to `/api/team-formation/generate` and then
-refreshes the page's project and student data.
+**Generate Teams** `POST`s `{ semesterId, day, config }` (including the step 3 limits) to
+`/api/team-formation/generate` and refreshes the page's data. Everyone who isn't locked is re-solved; locked
+students and locked teams are kept as they are. If the day already has teams, a note says you can go straight on to
+arranging them.
 
-| State            | Condition                                                | Appearance                                                                     |
-| ---------------- | --------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Blocked          | No semester, or no team for the semester + day             | Button disabled; hint "Select a semester/day with at least one team above first." |
-| Generating       | Request in flight                                          | Button spinner; prior results cleared                                            |
-| Failed           | Request threw (includes a missing Python/ortools host, or a minimum team size that cannot be met) | Error `UAlert` "Team generation failed" with the server message |
-| Succeeded clean  | No fallback placements                                     | Success `UAlert` "Teams generated successfully"                                  |
-| Succeeded w/ notes | ≥1 student had no valid choices                          | Warning `UAlert` "Teams generated — some students needed best-effort placement", listing the count placed by fallback logic |
+| State     | Appearance                                                                                       |
+| --------- | ------------------------------------------------------------------------------------------------ |
+| Blocked   | Button disabled; hint "No {Day} teams for this semester. Add them in the Database tab first."    |
+| Failed    | Error `UAlert` "Team generation failed" with the server message (e.g. Python/ortools missing, or a team size that can't be met) |
+| Succeeded | Success `UAlert` "Teams generated", plus the **No-bid students: where they ended up** list when there are any (§4.3.1) |
 
-Results render as one bordered card per team: the project name over the list of assigned students
-(`First Last (netID)`). When the semester/day contains no-bid students (§4.3.1), a **"No-bid students — where they
-ended up"** list is shown above the team cards (student, major, final project, and a *kept placement* / *moved from …*
-badge), and those students carry a **no bid** badge inside their team card.
+### 4.6 Step 5 — Arrange Teams
+
+For fixing a few teams by hand after Generate, with each student's preferences in view. Everything here saves as
+soon as a student is moved or a team is locked; there is no separate Save.
+
+| Area          | What it does                                                                                              |
+| ------------- | --------------------------------------------------------------------------------------------------------- |
+| All teams     | A grid of every team for the day. Each square shows size, 3200 count (red when below the minimum), and every student with their rank for that team. Locked squares sort last and can't be dragged |
+| Workbench     | Drag a team here (or click **Set aside**) to work on it at full size next to others. Students can be dragged between Workbench teams; while dragging, every Workbench team shows that student's rank for it |
+| Compare / swap| Click a student to see their major and full ranking, with the teams in play marked. Click a student on another Workbench team to preview a swap: both students' rank before → after, plus warnings (team size, 3200 limits). Warnings never block; **Confirm swap** is the staff member's call |
+| Improve       | Per team: for each student, the best higher-ranked team they can actually get onto, by a straight move or a swap with someone who is no worse off. It never moves anyone to a team they ranked lower and never touches locked students or teams. When there's no fix it says why (team full, would drop below the minimum, only 3200, …) |
+| Lock / Unlock | Red **Locked** with **Unlock** on locked teams; a green open-lock button on unlocked ones. Locking a Workbench team sends it back to the grid |
+
+A moved student keeps their lock state. No-bid students show a **no bid** tag and *not ranked* (§4.3.1).
+
 
 ---
 

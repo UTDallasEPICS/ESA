@@ -114,69 +114,69 @@
     </div>
 
     <template v-if="showUpload">
-    <div v-if="replacing" class="space-y-2">
+      <div v-if="replacing" class="space-y-2">
+        <UAlert
+          color="warning"
+          variant="subtle"
+          title="Replacing the bid file"
+          description="Students in the new file get their details updated and their choices replaced. Students not in the file are kept as they are. Teams that already exist won't change until you generate again."
+        />
+        <UButton label="Cancel" size="xs" color="neutral" variant="ghost" @click="cancelReplace" />
+      </div>
+
+      <UFormField :label="`${titleCase(meetingDay)} Bid Response CSV`">
+        <UFileUpload
+          v-model="bidFile"
+          accept=".csv"
+          label="Drop CSV here or click to browse"
+          :disabled="!semesterId || uploading"
+        />
+      </UFormField>
+      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
+
       <UAlert
-        color="warning"
-        variant="subtle"
-        title="Replacing the bid file"
-        description="Students in the new file get their details updated and their choices replaced. Students not in the file are kept as they are. Teams that already exist won't change until you generate again."
-      />
-      <UButton label="Cancel" size="xs" color="neutral" variant="ghost" @click="cancelReplace" />
-    </div>
-
-    <UFormField :label="`${titleCase(meetingDay)} Bid Response CSV`">
-      <UFileUpload
-        v-model="bidFile"
-        accept=".csv"
-        label="Drop CSV here or click to browse"
-        :disabled="!semesterId || uploading"
-      />
-    </UFormField>
-    <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
-
-    <UAlert
-      v-if="missingColumns.length"
-      color="error"
-      variant="subtle"
-      title="Missing required columns"
-      :description="missingColumns.join(', ')"
-    />
-
-    <div v-else-if="parseErrors.length" class="space-y-2">
-      <UAlert
+        v-if="missingColumns.length"
         color="error"
         variant="subtle"
-        :title="`${parseErrors.length} error(s) found. Upload aborted.`"
+        title="Missing required columns"
+        :description="missingColumns.join(', ')"
       />
-      <ul class="max-h-64 space-y-1 overflow-y-auto text-sm">
-        <li v-for="(err, i) in parseErrors" :key="i" class="text-red-600 dark:text-red-400">
-          Row {{ err.row }}: {{ err.message }}
-        </li>
-      </ul>
-    </div>
 
-    <UAlert
-      v-else-if="parsedRows.length"
-      color="success"
-      variant="subtle"
-      :title="`${parsedRows.length} row(s) validated successfully`"
-    />
+      <div v-else-if="parseErrors.length" class="space-y-2">
+        <UAlert
+          color="error"
+          variant="subtle"
+          :title="`${parseErrors.length} error(s) found. Upload aborted.`"
+        />
+        <ul class="max-h-64 space-y-1 overflow-y-auto text-sm">
+          <li v-for="(err, i) in parseErrors" :key="i" class="text-red-600 dark:text-red-400">
+            Row {{ err.row }}: {{ err.message }}
+          </li>
+        </ul>
+      </div>
 
-    <UButton
-      :label="`Upload ${titleCase(meetingDay)} CSV`"
-      icon="i-heroicons-arrow-up-tray"
-      :loading="uploading"
-      :disabled="!canUpload || uploading"
-      @click="submitBidFile"
-    />
+      <UAlert
+        v-else-if="parsedRows.length"
+        color="success"
+        variant="subtle"
+        :title="`${parsedRows.length} row(s) validated successfully`"
+      />
 
-    <UAlert
-      v-if="uploadError"
-      color="error"
-      variant="subtle"
-      title="Upload failed"
-      :description="uploadError"
-    />
+      <UButton
+        :label="`Upload ${titleCase(meetingDay)} CSV`"
+        icon="i-heroicons-arrow-up-tray"
+        :loading="uploading"
+        :disabled="!canUpload || uploading"
+        @click="submitBidFile"
+      />
+
+      <UAlert
+        v-if="uploadError"
+        color="error"
+        variant="subtle"
+        title="Upload failed"
+        :description="uploadError"
+      />
     </template>
 
     <div v-if="uploadResult" class="space-y-2">
@@ -206,7 +206,9 @@
             :key="p.netID"
             class="flex items-center justify-between rounded border border-gray-200 p-2 dark:border-gray-800"
           >
-            <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
+            <span
+              >{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span
+            >
             <span class="text-gray-500">→ {{ p.projectName }}</span>
           </li>
         </ul>
