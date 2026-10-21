@@ -141,6 +141,8 @@
     studentsImported: number
     choicesCreated: number
     skippedStudents: string[]
+    noBidPlacements: { name: string; netID: string; major: string; projectName: string }[]
+    noBidUnplaced: string[]
   } | null>(null)
   const uploading = ref(false)
   const uploadError = ref<string | null>(null)
@@ -213,9 +215,20 @@
   const generating = ref(false)
   const generateError = ref<string | null>(null)
   interface GenerateResponse {
-    teamAssignments: Record<string, { firstName: string; lastName: string; netID: string }[]>
+    teamAssignments: Record<
+      string,
+      { id: string; firstName: string; lastName: string; netID: string }[]
+    >
     projects: { id: string; name: string }[]
     teamMeta: Record<string, { projectId: string; meetingDay: MeetingDay; projectName: string }>
+    noBidPlacements: {
+      id: string
+      name: string
+      netID: string
+      major: string
+      placedProject: string | null
+      assignedProject: string | null
+    }[]
   }
   const generateResult = ref<GenerateResponse | null>(null)
 
@@ -246,6 +259,11 @@
   function studentsFor(teamId: string) {
     return generateResult.value?.teamAssignments[teamId] ?? []
   }
+
+  // Students who submitted no bid and were placed by major (see docs/design/ui.md §4.3.1).
+  const noBidIds = computed(
+    () => new Set((generateResult.value?.noBidPlacements ?? []).map((p) => p.id))
+  )
 </script>
 
 <template>
@@ -363,8 +381,33 @@
           v-if="uploadResult.skippedStudents.length"
           color="warning"
           variant="subtle"
-          title="Skipped rows (missing SSO ID)"
+          title="Skipped rows (no SSO ID and no name)"
           :description="uploadResult.skippedStudents.join(', ')"
+        />
+
+        <div v-if="uploadResult.noBidPlacements.length" class="space-y-2">
+          <UAlert
+            color="info"
+            variant="subtle"
+            :title="`${uploadResult.noBidPlacements.length} student(s) had no bid and were placed by major`"
+          />
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="p in uploadResult.noBidPlacements"
+              :key="p.netID"
+              class="flex items-center justify-between rounded border border-gray-200 p-2 dark:border-gray-800"
+            >
+              <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
+              <span class="text-gray-500">→ {{ p.projectName }}</span>
+            </li>
+          </ul>
+        </div>
+        <UAlert
+          v-if="uploadResult.noBidUnplaced.length"
+          color="warning"
+          variant="subtle"
+          title="No-bid students imported but not placed (no teams for this semester/day yet)"
+          :description="uploadResult.noBidUnplaced.join(', ')"
         />
       </div>
     </section>
@@ -417,6 +460,31 @@
       <div v-if="generateResult" class="space-y-4">
         <UAlert color="success" variant="subtle" title="Teams generated successfully" />
 
+        <div v-if="generateResult.noBidPlacements.length" class="space-y-2">
+          <h3 class="font-medium">No-bid students — where they ended up</h3>
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="p in generateResult.noBidPlacements"
+              :key="p.id"
+              class="flex items-center justify-between rounded border border-gray-200 p-2 dark:border-gray-800"
+            >
+              <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
+              <span class="flex items-center gap-2">
+                <span>{{ p.assignedProject ?? 'Unassigned' }}</span>
+                <UBadge
+                  :color="p.assignedProject === p.placedProject ? 'success' : 'warning'"
+                  variant="subtle"
+                  :label="
+                    p.assignedProject === p.placedProject
+                      ? 'kept placement'
+                      : `moved from ${p.placedProject ?? 'none'}`
+                  "
+                />
+              </span>
+            </li>
+          </ul>
+        </div>
+
         <div class="space-y-2">
           <div
             v-for="[teamId, meta] in Object.entries(generateResult.teamMeta)"
@@ -427,6 +495,13 @@
             <ul class="text-sm text-gray-600 dark:text-gray-400">
               <li v-for="student in studentsFor(teamId)" :key="student.netID">
                 {{ student.firstName }} {{ student.lastName }} ({{ student.netID }})
+                <UBadge
+                  v-if="noBidIds.has(student.id)"
+                  color="info"
+                  variant="subtle"
+                  size="sm"
+                  label="no bid"
+                />
               </li>
             </ul>
           </div>

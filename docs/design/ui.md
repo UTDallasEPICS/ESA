@@ -55,6 +55,7 @@ Stack: Nuxt 4 + Nuxt UI v4 + Tailwind. All components live in `app/`; no other U
    1. [Section 1 — Semester & Meeting Day](#41-section-1-semester-meeting-day)
    2. [Team Export](#42-team-export)
    3. [Section 2 — Bid File](#43-section-2-bid-file)
+      1. [Students With No Bid](#431-students-with-no-bid)
    4. [Section 3 — Team Generation](#44-section-3-team-generation)
 5. [User Management (`pages/users.vue`)](#5-user-management-pagesusersvue)
    1. [Active Users card](#51-active-users-card)
@@ -721,9 +722,53 @@ changing the meeting day and clicking Upload again cannot silently re-import the
 | Uploading          | Upload button shows its loading spinner and is disabled                                                       |
 | Failed             | Error `UAlert` "Upload failed" with the server message                                                        |
 | Imported           | Success `UAlert` — "N student(s) imported, M choice(s) recorded."                                             |
-| Skipped rows       | Warning `UAlert` naming rows dropped for a missing SSO ID                                                     |
+| Skipped rows       | Warning `UAlert` naming rows dropped because they have neither an SSO ID nor a name                           |
+| No-bid placements  | Info `UAlert` plus a list of `Student (Major) → Project` for every student placed by major (§4.3.1)           |
+| No-bid unplaced    | Warning `UAlert` naming no-bid students imported without a project because the semester/day has no teams yet   |
 | Unmatched projects | Warning `UAlert` listing bid choices whose project could not be matched                                       |
 | Meeting day moved  | Warning `UAlert` naming students who already had an enrollment that semester on the other day and were moved  |
+
+#### 4.3.1 Students With No Bid
+
+Some students never submitted a bid, so they are missing from the bid file. They still need a team. The importer
+(`server/api/team-formation/bids.post.ts`, helpers in `server/utils/noBid.ts`) places each of them on a project
+that fits their major, and the solver then treats them like any other bidder.
+
+**What counts as "no bid":** any bid-file row that ends up with zero usable project choices — a row you add by hand
+with only a name and a major, or an existing row whose Choice 1–6 cells are all blank.
+
+**How to add no-bid students (steps):**
+
+1. Open the bid CSV for the lab day (Wednesday or Thursday) in a spreadsheet app or text editor.
+2. Add one new row per no-bid student **below the last existing row**, keeping the file's header row and column
+   order unchanged (the upload validator needs the SSO ID, Classification, Enrollment, School and Major, and Gender
+   *columns* to exist, but their cells may stay empty).
+3. Fill in only these cells and leave everything else blank:
+   - **Student Name** — either `First` in the first column and `Last` in the unnamed second column (the layout the
+     existing rows use), or `Last, First` in the Student Name cell.
+   - **School and Major** — a major such as `Computer Science`, or the long form
+     `Erik Jonsson School of Engineering and Computer Science :::: Computer Science`.
+4. Save the file as CSV.
+5. Go to **Team Formation**, pick the semester and the **same meeting day** as the file, choose the file, and click
+   **Upload**. Rows with no SSO ID are no longer skipped: each gets a stand-in netID of the form
+   `nobid-first-last` so re-uploading updates the same student instead of duplicating them.
+6. Read the **"N student(s) had no bid and were placed by major"** list under the upload result. It shows each
+   student's major and the project they were placed on.
+7. Click **Generate Teams** (Section 3). Under the success message, **"No-bid students — where they ended up"**
+   lists each student's final project and a badge: *kept placement* if the solver left them where the importer put
+   them, or *moved from …* if team-size limits forced a change. No-bid students also carry a **no bid** badge in the
+   team lists below.
+
+**How the project is chosen** (`pickProjectForMajor`): only teams that already exist for the selected semester and
+meeting day are candidates. A project whose type matches the major wins — Software projects for CS/SE/DS, Hardware
+projects for EE/ME/BME/CE; next come "Both" projects; any other project is the last resort (this is also what
+happens for `Systems` and `Other` majors). Ties go to the project with the fewest students already headed there, so
+no-bid students spread across teams rather than piling onto one. The chosen project is saved as the student's
+Choice 1, and the enrollment's Comments cell starts with `[No bid]` so the student can be recognised later (it also
+appears in the Team Export).
+
+**Defaults for blank cells:** Classification → Freshman, Enrollment → EPCS 2200, Gender → Prefer not to say, Email →
+none. Fill these in before uploading if you know them, since the solver's 3200 and gender rules use them.
 
 ### 4.4 Section 3 — Team Generation
 
@@ -747,7 +792,9 @@ refreshes the page's project and student data.
 | Succeeded w/ notes | ≥1 student had no valid choices                          | Warning `UAlert` "Teams generated — some students needed best-effort placement", listing the count placed by fallback logic |
 
 Results render as one bordered card per team: the project name over the list of assigned students
-(`First Last (netID)`).
+(`First Last (netID)`). When the semester/day contains no-bid students (§4.3.1), a **"No-bid students — where they
+ended up"** list is shown above the team cards (student, major, final project, and a *kept placement* / *moved from …*
+badge), and those students carry a **no bid** badge inside their team card.
 
 ---
 
