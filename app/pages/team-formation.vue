@@ -30,10 +30,10 @@
     default: () => [],
   })
 
-  const teamsForDay = computed(() =>
-    projectsForSemester.value.flatMap((project) =>
+  function teamsFor(day: MeetingDay) {
+    return projectsForSemester.value.flatMap((project) =>
       project.Teams.filter(
-        (t) => t.semesterId === semesterId.value && t.meetingDay === meetingDay.value
+        (t) => t.semesterId === semesterId.value && t.meetingDay === day
       ).map((team) => ({
         id: team.id,
         projectId: project.id,
@@ -42,7 +42,8 @@
         memberCount: team.Memberships.length,
       }))
     )
-  )
+  }
+  const teamsForDay = computed(() => teamsFor(meetingDay.value))
 
   // Single source of truth for "is this team locked" — reads straight off
   // projectsForSemester (always loaded, not dependent on having clicked Generate
@@ -92,8 +93,6 @@
     }
   )
 
-  const canExport = computed(() => !!semesterId.value && !!meetingDay.value)
-
   function seasonCode(season: string) {
     if (season === 'SPRING') return 'S'
     if (season === 'SUMMER') return 'U'
@@ -103,7 +102,7 @@
 
   const CHOICE_COLUMN_COUNT = 6
 
-  function exportTeams() {
+  function exportTeams(day: MeetingDay) {
     const semester = semesters.value.find((s) => s.id === semesterId.value)
     if (!semester) return
 
@@ -131,7 +130,7 @@
         projectLabelById.get(project.id) ?? `${term} - ${project.Partner.name}: ${project.name}`
 
       for (const team of project.Teams) {
-        if (team.meetingDay !== meetingDay.value) continue
+        if (team.meetingDay !== day) continue
 
         for (const membership of team.Memberships) {
           const student = studentById.get(membership.studentId)
@@ -160,7 +159,7 @@
       }
     }
 
-    const dayLabel = meetingDay.value === 'WEDNESDAY' ? 'Wed' : 'Thu'
+    const dayLabel = day === 'WEDNESDAY' ? 'Wed' : 'Thu'
     downloadCsv(`${dayLabel} Teams - ${selectedSemesterLabel.value}.csv`, rows)
   }
 
@@ -182,16 +181,24 @@
   // always go back to any step they've reached, but can only move forward with
   // Next, and Next waits until the data that step exists for is actually there
   // (not until a particular button was clicked): bids already imported on an
-  // earlier visit count, and locking 3200s is optional. Changing the semester or
-  // day starts the walk over, since everything after step 1 depends on it.
+  // earlier visit count, and locking 3200s is optional. Steps 1 and 2 cover both
+  // meeting days; steps 3–5 work on one day at a time, picked with the "Working
+  // on" toggle above them. Changing the semester starts the walk over. Switching
+  // the day keeps you on the step you're on, unless that day has no teams to
+  // arrange yet, which sends you back to Generate.
   const activeSection = ref(1)
   const furthestStep = ref(1)
-  watch([semesterId, meetingDay], () => (furthestStep.value = 1))
+  watch(semesterId, () => (furthestStep.value = 1))
+  watch(meetingDay, () => {
+    if (furthestStep.value < 3) return
+    furthestStep.value = teamsHaveMembers.value ? STEP_COUNT : 4
+    activeSection.value = Math.min(activeSection.value, furthestStep.value)
+  })
 
   const STEP_COUNT = 5
   const steps = computed(() =>
     [
-      { title: 'Semester & Day', icon: 'i-heroicons-calendar' },
+      { title: 'Semester', icon: 'i-heroicons-calendar' },
       { title: 'Bid Files', icon: 'i-heroicons-arrow-up-tray' },
       { title: 'Lock 3200s', icon: 'i-heroicons-lock-closed' },
       { title: 'Generate', icon: 'i-heroicons-sparkles' },
@@ -212,13 +219,22 @@
     ).length
   }
   const bidCountForDay = computed(() => bidCountFor(meetingDay.value))
+
+  // Start steps 3–5 on a day that actually has bids, so a Thursday-only semester
+  // doesn't open on an empty Wednesday.
+  watch(
+    () => [semesterId.value, bidCountFor('WEDNESDAY'), bidCountFor('THURSDAY')] as const,
+    ([, wed, thu]) => {
+      if (!bidCountForDay.value && (wed || thu)) meetingDay.value = wed ? 'WEDNESDAY' : 'THURSDAY'
+    }
+  )
   const teamsHaveMembers = computed(() => teamsForDay.value.some((t) => t.memberCount > 0))
 
   // Why Next is blocked on the current step, or null when it's free to go.
   const nextBlocker = computed(() => {
     if (activeSection.value === 1 && !semesterId.value) return 'Pick a semester first.'
-    if (activeSection.value === 2 && !bidCountForDay.value)
-      return `Upload the ${titleCase(meetingDay.value)} bid file first.`
+    if (activeSection.value === 2 && !bidCountFor('WEDNESDAY') && !bidCountFor('THURSDAY'))
+      return 'Upload a bid file first.'
     if (activeSection.value === 4 && !teamsHaveMembers.value) return 'Generate teams first.'
     return null
   })
@@ -1151,59 +1167,64 @@
   >
     <UStepper v-model="stepIndex" :items="steps" :linear="false" size="sm" />
     <section v-if="activeSection === 1" class="space-y-4">
-      <h2 class="text-lg font-semibold">1. Semester & Meeting Day</h2>
+      <h2 class="text-lg font-semibold">1. Semester</h2>
 
-        <UFormField label="Semester">
-          <SemesterFilter v-model="semesterId" />
-        </UFormField>
+      <UFormField label="Semester">
+        <SemesterFilter v-model="semesterId" />
+      </UFormField>
 
-        <UFormField label="Meeting Day">
-          <URadioGroup v-model="meetingDay" orientation="horizontal" :items="MEETING_DAY_OPTIONS" />
-        </UFormField>
-
-        <UButton
-          label="Export Teams"
-          icon="i-heroicons-arrow-down-tray"
-          color="neutral"
-          variant="soft"
-          :disabled="!canExport"
-          @click="exportTeams"
-        />
-
-      <div v-if="semesterId" class="space-y-2">
-        <h3 class="font-medium">Teams already entered for this semester/day</h3>
+      <div v-if="semesterId" class="space-y-4">
+        <h3 class="font-medium">Teams already entered for this semester</h3>
         <UAlert
-          v-if="projectsStatus !== 'pending' && !teamsForDay.length"
+          v-if="projectsStatus !== 'pending' && !teamsFor('WEDNESDAY').length && !teamsFor('THURSDAY').length"
           icon="i-heroicons-exclamation-triangle"
           color="warning"
           variant="subtle"
           title="No teams found"
-          description="Create projects and teams for this semester/day in the Database tab before continuing."
+          description="Create projects and teams for this semester in the Database tab before continuing."
         />
-        <ul class="space-y-1">
-          <li
-            v-for="team in teamsForDay"
-            :key="team.id"
-            class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-          >
-            <span>
-              {{ team.projectName }} ({{ team.partnerName }})
-              <UBadge
-                :color="isTeamLocked(team.id) ? 'primary' : 'neutral'"
-                variant="subtle"
-                size="sm"
-              >
-                <UIcon
-                  :name="
-                    isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
-                  "
-                />
-                {{ isTeamLocked(team.id) ? 'Locked' : 'Unlocked' }}
-              </UBadge>
-            </span>
-            <span class="text-gray-500">{{ team.memberCount }} member(s)</span>
-          </li>
-        </ul>
+        <div v-for="day in MEETING_DAY_OPTIONS" :key="day.value" class="space-y-1">
+          <div class="flex items-center justify-between gap-2">
+            <h4 class="text-sm font-medium">
+              {{ day.label }}
+              <span class="font-normal text-gray-500">({{ teamsFor(day.value).length }} teams)</span>
+            </h4>
+            <UButton
+              v-if="teamsFor(day.value).length"
+              :label="`Export ${day.label}`"
+              icon="i-heroicons-arrow-down-tray"
+              size="xs"
+              color="neutral"
+              variant="ghost"
+              @click="exportTeams(day.value)"
+            />
+          </div>
+          <p v-if="!teamsFor(day.value).length" class="text-sm text-gray-500">No teams for this day.</p>
+          <ul v-else class="space-y-1">
+            <li
+              v-for="team in teamsFor(day.value)"
+              :key="team.id"
+              class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
+            >
+              <span>
+                {{ team.projectName }} ({{ team.partnerName }})
+                <UBadge
+                  :color="isTeamLocked(team.id) ? 'primary' : 'neutral'"
+                  variant="subtle"
+                  size="sm"
+                >
+                  <UIcon
+                    :name="
+                      isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
+                    "
+                  />
+                  {{ isTeamLocked(team.id) ? 'Locked' : 'Unlocked' }}
+                </UBadge>
+              </span>
+              <span class="text-gray-500">{{ team.memberCount }} member(s)</span>
+            </li>
+          </ul>
+        </div>
       </div>
     </section>
 
@@ -1213,7 +1234,7 @@
       <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
       <p v-else class="text-sm text-gray-500">
         Import each day's bid responses into the selected semester. The next steps work on
-        {{ titleCase(meetingDay) }} (set in step 1), so that day needs bids before going on.
+        one day at a time; you can switch between them there.
       </p>
 
       <div class="grid gap-4 md:grid-cols-2">
@@ -1227,6 +1248,23 @@
         />
       </div>
     </section>
+
+    <div
+      v-if="activeSection >= 3"
+      class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
+    >
+      <span class="font-medium">Working on</span>
+      <URadioGroup
+        v-model="meetingDay"
+        orientation="horizontal"
+        :items="
+          MEETING_DAY_OPTIONS.map((d) => ({
+            ...d,
+            label: `${d.label} · ${bidCountFor(d.value)} bids, ${teamsFor(d.value).length} teams`,
+          }))
+        "
+      />
+    </div>
 
     <section v-if="activeSection === 3" class="space-y-4">
       <h2 class="text-lg font-semibold">3. Lock 3200 Students</h2>
@@ -1440,7 +1478,7 @@
         @click="generateTeams"
       />
       <p v-if="!canGenerate" class="text-sm text-gray-500">
-        Select a semester/day with at least one team in step 1 first.
+        No {{ titleCase(meetingDay) }} teams for this semester. Add them in the Database tab first.
       </p>
 
       <UAlert
