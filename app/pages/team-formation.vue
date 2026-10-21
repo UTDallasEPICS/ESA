@@ -702,10 +702,11 @@
     return rank ? ordinal(rank) : 'not ranked'
   }
 
-  // Colour says how good a fit is, nothing else: green for 1st/2nd, amber for
-  // 3rd, grey for anything lower or unranked.
+  // Rank colour says how good a fit is: blue for 1st/2nd, amber for 3rd, grey for
+  // anything lower or unranked. Red and green are kept for lock status (red locked,
+  // green unlocked), so the two never read as the same thing.
   function rankColor(rank: number | undefined) {
-    if (rank && rank <= 2) return 'success'
+    if (rank && rank <= 2) return 'info'
     if (rank === 3) return 'warning'
     return 'neutral'
   }
@@ -1209,7 +1210,7 @@
               <span>
                 {{ team.projectName }} ({{ team.partnerName }})
                 <UBadge
-                  :color="isTeamLocked(team.id) ? 'primary' : 'neutral'"
+                  :color="isTeamLocked(team.id) ? 'error' : 'success'"
                   variant="subtle"
                   size="sm"
                 >
@@ -1407,7 +1408,7 @@
           </div>
 
           <div v-if="lockedMembershipFor(student)" class="flex items-center gap-2">
-            <UBadge color="primary" variant="subtle">
+            <UBadge color="error" variant="subtle" icon="i-heroicons-lock-closed">
               Locked: {{ lockedMembershipFor(student)!.Team.Project.name }}
             </UBadge>
             <UButton
@@ -1572,7 +1573,7 @@
           >
             <div class="flex flex-wrap items-center justify-between gap-2">
               <span class="flex items-center gap-1">
-                <UIcon v-if="review.locked" name="i-heroicons-lock-closed" class="text-gray-400" />
+                <UIcon v-if="review.locked" name="i-heroicons-lock-closed" class="text-red-500" />
                 <span class="font-medium">{{ studentName(review.studentId) }}</span>
                 <span class="text-gray-500">· {{ majorOf(review.studentId) }}</span>
                 <UBadge v-if="boardIs3200(review.studentId)" color="neutral" variant="subtle" size="sm">
@@ -1870,9 +1871,10 @@
                 <UButton
                   v-if="team.memberCount > 0"
                   label="Lock"
-                  icon="i-heroicons-lock-closed"
+                  icon="i-heroicons-lock-open"
+                  title="Unlocked. Click to lock"
                   size="xs"
-                  color="neutral"
+                  color="success"
                   variant="ghost"
                   :loading="lockingTeamKey === team.id"
                   @click="lockFromBoard(team.id, true)"
@@ -1914,7 +1916,7 @@
               >
                 <div class="flex items-center justify-between gap-2">
                   <span class="flex min-w-0 flex-wrap items-center gap-x-1">
-                    <UIcon v-if="m.locked" name="i-heroicons-lock-closed" class="text-gray-400" />
+                    <UIcon v-if="m.locked" name="i-heroicons-lock-closed" class="text-red-500" />
                     <span>{{ m.Student.firstName }} {{ m.Student.lastName }}</span>
                     <span class="text-xs text-gray-500">· {{ majorOf(m.studentId) }}</span>
                     <UBadge v-if="boardIs3200(m.studentId)" color="neutral" variant="subtle" size="sm">
@@ -2044,8 +2046,8 @@
             </div>
 
             <div v-if="isTeamLocked(team.id)" class="flex items-center justify-between gap-1">
-              <span class="flex items-center gap-1 text-xs font-medium">
-                <UIcon name="i-heroicons-lock-closed" class="text-primary-500" />
+              <span class="flex items-center gap-1 text-xs font-medium text-red-500">
+                <UIcon name="i-heroicons-lock-closed" />
                 Locked
               </span>
               <UButton
@@ -2076,10 +2078,11 @@
               />
               <UButton
                 v-if="team.memberCount > 0"
-                icon="i-heroicons-lock-closed"
-                aria-label="Lock team"
+                icon="i-heroicons-lock-open"
+                aria-label="Unlocked. Lock team"
+                title="Unlocked. Click to lock"
                 size="xs"
-                color="neutral"
+                color="success"
                 variant="ghost"
                 :loading="lockingTeamKey === team.id"
                 @click="lockFromBoard(team.id, true)"
