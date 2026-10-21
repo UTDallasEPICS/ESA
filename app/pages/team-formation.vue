@@ -560,6 +560,19 @@
   const generating = ref(false)
   const generateError = ref<string | null>(null)
   const generated = ref(false)
+  // Where each no-bid student ended up after the last run, and whether the solver
+  // kept the project the importer placed them on.
+  const noBidResults = ref<
+    {
+      id: string
+      name: string
+      netID: string
+      major: string
+      placedProject: string | null
+      assignedProject: string | null
+    }[]
+  >([])
+  watch([semesterId, meetingDay], () => (noBidResults.value = []))
 
   const canGenerate = computed(() => !!semesterId.value && teamsForDay.value.length > 0)
 
@@ -569,7 +582,7 @@
     generateError.value = null
     generated.value = false
     try {
-      await $fetch('/api/team-formation/generate', {
+      const result = await $fetch('/api/team-formation/generate', {
         method: 'POST',
         body: {
           semesterId: semesterId.value,
@@ -586,6 +599,7 @@
         refreshAllProjects(),
         refreshStudentsForSemester(),
       ])
+      noBidResults.value = result.noBidPlacements
       generated.value = true
     } catch (e: any) {
       generateError.value = e?.data?.message ?? e?.message ?? 'Team generation failed.'
@@ -1449,6 +1463,31 @@
         title="Teams generated"
         description="Arrange them in the next step. Teams you lock there are kept exactly as they are if you come back and generate again; only everyone else is re-solved."
       />
+
+      <div v-if="generated && noBidResults.length" class="space-y-2">
+        <h3 class="font-medium">No-bid students: where they ended up</h3>
+        <ul class="space-y-1 text-sm">
+          <li
+            v-for="p in noBidResults"
+            :key="p.id"
+            class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 dark:border-gray-800"
+          >
+            <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
+            <span class="flex items-center gap-2">
+              <span>{{ p.assignedProject ?? 'Unassigned' }}</span>
+              <UBadge
+                :color="p.assignedProject === p.placedProject ? 'neutral' : 'warning'"
+                variant="subtle"
+                :label="
+                  p.assignedProject === p.placedProject
+                    ? 'kept placement'
+                    : `moved from ${p.placedProject ?? 'none'}`
+                "
+              />
+            </span>
+          </li>
+        </ul>
+      </div>
     </section>
 
     <section v-if="activeSection === 5" class="space-y-6">

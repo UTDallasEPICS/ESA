@@ -10,6 +10,7 @@ import type {Student as CPSATStudent, Project as CPSATProject, Gender as CPSATGe
 import type {CPSATConfig} from '#server/services//CPSAT/ortools'
 import {Year, ProjectType, Choice, Project, Class, ProjectMeetingDay, Enrollment, Gender, Season} from '@@/prisma/generated/client'
 import {prisma} from '#server/utils/prisma'
+import {NO_BID_TAG} from '#server/utils/noBid'
 
 type MeetingDay = 'WEDNESDAY' | 'THURSDAY'
 
@@ -276,5 +277,26 @@ export default defineEventHandler(async (event) => {
       teamsForRun.map((team) => [team.id, {projectId: team.projectId, meetingDay: day, projectName: team.Project.name}])
   )
 
-  return {teamAssignments, projects, teamMeta}
+  // Where each no-bid student (see noBid.ts) ended up, and whether the solver kept them on the
+  // project the importer placed them on (their Choice 1) or moved them to satisfy team sizes.
+  const assignedProjectIdByStudentId = new Map<string, string>()
+  for (const [pId, members] of Object.entries(assignmentsByProjectId)) {
+    for (const m of members) assignedProjectIdByStudentId.set(m.id, pId)
+  }
+  const noBidPlacements = students
+      .filter((s) => s.Enrollments[0]?.comments.startsWith(NO_BID_TAG))
+      .map((s) => {
+        const assignedId = assignedProjectIdByStudentId.get(s.id)
+        const placedId = s.Choices.slice().sort((a: Choice, b: Choice) => a.rank - b.rank)[0]?.projectId
+        return {
+          id: s.id,
+          name: `${s.firstName} ${s.lastName}`.trim(),
+          netID: s.netID,
+          major: s.Enrollments[0]!.major,
+          placedProject: placedId ? (projectIdToName.get(placedId) ?? null) : null,
+          assignedProject: assignedId ? (projectIdToName.get(assignedId) ?? null) : null,
+        }
+      })
+
+  return {teamAssignments, projects, teamMeta, noBidPlacements}
 })
