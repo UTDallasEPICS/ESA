@@ -1,5 +1,4 @@
 <script setup lang="ts">
-  import { parseCsv, validateBidRows, type BidRowError } from '~/utils/bidCsv'
   import { downloadCsv } from '~/utils/csvExport'
   import { titleCase } from '~/utils/labels'
   import { MEETING_DAY_OPTIONS } from '~/utils/options'
@@ -166,71 +165,12 @@
 
   // ── Bid file upload ──────────────────────────────────────────────────────────
 
-  const bidFile = ref<File | null>(null)
-  const parsedRows = ref<Record<string, string>[]>([])
-  const parseErrors = ref<BidRowError[]>([])
-  const missingColumns = ref<string[]>([])
-  const uploadResult = ref<{
-    studentsImported: number
-    choicesCreated: number
-    skippedStudents: string[]
-  } | null>(null)
-  const uploading = ref(false)
-  const uploadError = ref<string | null>(null)
-
-  watch(bidFile, async (file) => {
-    parsedRows.value = []
-    parseErrors.value = []
-    missingColumns.value = []
-    if (!file) return
-
-    // Only clear prior results once a new file is actually chosen, so a successful
-    // upload's summary stays visible after we reset `bidFile` below.
-    uploadResult.value = null
-    uploadError.value = null
-
-    const text = await file.text()
-    const rows = parseCsv(text)
-    const validation = validateBidRows(rows)
-    missingColumns.value = validation.missingColumns
-    parseErrors.value = validation.errors
-    if (!validation.missingColumns.length && !validation.errors.length) {
-      parsedRows.value = rows
-    }
-  })
-
-  const canUpload = computed(
-    () =>
-      !!semesterId.value &&
-      parsedRows.value.length > 0 &&
-      !parseErrors.value.length &&
-      !missingColumns.value.length
-  )
-
-  async function submitBidFile() {
-    if (!canUpload.value || !semesterId.value) return
-    uploading.value = true
-    uploadError.value = null
-    try {
-      uploadResult.value = await $fetch('/api/team-formation/bids', {
-        method: 'POST',
-        query: { semesterId: semesterId.value, meetingDay: meetingDay.value },
-        body: parsedRows.value,
-      })
-      // Require an explicit new file selection before another upload can be submitted —
-      // otherwise switching the meeting day and re-clicking Upload silently resubmits the
-      // same roster under the new day, overwriting those students' enrollment day.
-      bidFile.value = null
-      await Promise.all([
-        refreshProjectsForSemester(),
-        refreshAllProjects(),
-        refreshStudentsForSemester(),
-      ])
-    } catch (e: any) {
-      uploadError.value = e?.data?.message ?? e?.message ?? 'Failed to import bid file.'
-    } finally {
-      uploading.value = false
-    }
+  async function refreshAfterBidImport() {
+    await Promise.all([
+      refreshProjectsForSemester(),
+      refreshAllProjects(),
+      refreshStudentsForSemester(),
+    ])
   }
 
   // ── 3200 lock-in ──────────────────────────────────────────────────────────────
@@ -264,9 +204,7 @@
   function lockedMembershipFor(student: StudentRead) {
     return student.Memberships.find(
       (m) =>
-        m.locked &&
-        m.Team.semesterId === semesterId.value &&
-        m.Team.meetingDay === meetingDay.value
+        m.locked && m.Team.semesterId === semesterId.value && m.Team.meetingDay === meetingDay.value
     )
   }
 
@@ -342,7 +280,8 @@
     if (!projectName) return null
     const isReturning = projectName === previousProjectFor(student)
     const idx = choiceLabelsFor(student).indexOf(projectName)
-    const rankPart = idx === -1 ? 'not one of their ranked choices' : `their ${ordinal(idx + 1)} choice`
+    const rankPart =
+      idx === -1 ? 'not one of their ranked choices' : `their ${ordinal(idx + 1)} choice`
     return isReturning ? `This is their returning project, and ${rankPart}` : `This is ${rankPart}`
   }
 
@@ -408,7 +347,12 @@
     suggestError.value = null
     try {
       const result = await $fetch<{
-        placements: { studentId: string; teamId: string; choiceRank: number; isReturning: boolean }[]
+        placements: {
+          studentId: string
+          teamId: string
+          choiceRank: number
+          isReturning: boolean
+        }[]
         noChoicesStudentIds: string[]
         usedFallbackThirdChoice: boolean
       }>('/api/team-formation/suggest-locks', {
@@ -544,13 +488,26 @@
 <template>
   <UContainer class="max-w-4xl space-y-10 py-8">
     <section class="space-y-4">
-      <h2 class="text-lg font-semibold">1. Semester & Meeting Day</h2>
+      <h2 class="text-lg font-semibold">1. Semester & Bid Files</h2>
 
       <UFormField label="Semester">
         <SemesterFilter v-model="semesterId" />
       </UFormField>
 
-      <UFormField label="Meeting Day">
+      <p class="text-sm text-gray-500">
+        Import each day's bid responses into the selected semester.
+      </p>
+      <div class="grid gap-4 md:grid-cols-2">
+        <BidDayUpload
+          v-for="day in MEETING_DAY_OPTIONS"
+          :key="`${semesterId}-${day.value}`"
+          :semester-id="semesterId"
+          :meeting-day="day.value"
+          @imported="refreshAfterBidImport"
+        />
+      </div>
+
+      <UFormField label="View teams and generate for">
         <URadioGroup v-model="meetingDay" orientation="horizontal" :items="MEETING_DAY_OPTIONS" />
       </UFormField>
 
@@ -589,13 +546,25 @@
           >
             <span>
               {{ team.projectName }} ({{ team.partnerName }})
-              <UBadge v-if="isTeamLocked(team.id)" color="primary" variant="subtle" size="sm">Locked</UBadge>
+              <UBadge
+                :color="isTeamLocked(team.id) ? 'primary' : 'neutral'"
+                variant="subtle"
+                size="sm"
+              >
+                <UIcon
+                  :name="
+                    isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
+                  "
+                />
+                {{ isTeamLocked(team.id) ? 'Locked' : 'Unlocked' }}
+              </UBadge>
             </span>
             <div class="flex items-center gap-2">
               <span class="text-gray-500">{{ team.memberCount }} member(s)</span>
               <UButton
                 v-if="team.memberCount > 0"
                 :label="isTeamLocked(team.id) ? 'Unlock Team' : 'Lock Team'"
+                :icon="isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
                 size="xs"
                 :color="isTeamLocked(team.id) ? 'neutral' : 'primary'"
                 :variant="isTeamLocked(team.id) ? 'soft' : 'solid'"
@@ -611,84 +580,8 @@
     <USeparator />
 
     <section class="space-y-4">
-      <h2 class="text-lg font-semibold">2. Bid File</h2>
-
-      <UFormField label="Bid Response CSV">
-        <UFileUpload
-          v-model="bidFile"
-          accept=".csv"
-          label="Drop CSV here or click to browse"
-          :disabled="!semesterId"
-        />
-      </UFormField>
-      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
-
-      <UAlert
-        v-if="missingColumns.length"
-        color="error"
-        variant="subtle"
-        title="Missing required columns"
-        :description="missingColumns.join(', ')"
-      />
-
-      <div v-else-if="parseErrors.length" class="space-y-2">
-        <UAlert
-          color="error"
-          variant="subtle"
-          :title="`${parseErrors.length} error(s) found. Upload aborted.`"
-        />
-        <ul class="max-h-64 space-y-1 overflow-y-auto text-sm">
-          <li v-for="(err, i) in parseErrors" :key="i" class="text-red-600 dark:text-red-400">
-            Row {{ err.row }}: {{ err.message }}
-          </li>
-        </ul>
-      </div>
-
-      <UAlert
-        v-else-if="parsedRows.length"
-        color="success"
-        variant="subtle"
-        :title="`${parsedRows.length} row(s) validated successfully`"
-      />
-
-      <UButton
-        label="Upload"
-        icon="i-heroicons-arrow-up-tray"
-        :loading="uploading"
-        :disabled="!canUpload || uploading"
-        @click="submitBidFile"
-      />
-
-      <UAlert
-        v-if="uploadError"
-        color="error"
-        variant="subtle"
-        title="Upload failed"
-        :description="uploadError"
-      />
-
-      <div v-if="uploadResult" class="space-y-2">
-        <UAlert
-          color="success"
-          variant="subtle"
-          title="Import complete"
-          :description="`${uploadResult.studentsImported} student(s) imported, ${uploadResult.choicesCreated} choice(s) recorded.`"
-        />
-        <UAlert
-          v-if="uploadResult.skippedStudents.length"
-          color="warning"
-          variant="subtle"
-          title="Skipped rows (missing SSO ID)"
-          :description="uploadResult.skippedStudents.join(', ')"
-        />
-      </div>
-    </section>
-
-    <USeparator />
-
-    <section class="space-y-4">
       <div class="flex items-center justify-between gap-2">
-        <h2 class="text-lg font-semibold">3. Lock 3200 Students</h2>
+        <h2 class="text-lg font-semibold">2. Lock 3200 Students</h2>
         <UButton
           :label="lockSectionCollapsed ? 'Show' : 'Hide'"
           :icon="lockSectionCollapsed ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-up'"
@@ -704,151 +597,146 @@
       </p>
 
       <div v-else class="space-y-4">
-      <p class="text-sm text-gray-500">
-        Place specific 3200 students into a team ahead of time. Locked students are
-        skipped by the solver below and kept as is. Everyone else, including any
-        3200 students you leave unlocked, is assigned by Team Generation.
-      </p>
+        <p class="text-sm text-gray-500">
+          Place specific 3200 students into a team ahead of time. Locked students are skipped by the
+          solver below and kept as is. Everyone else, including any 3200 students you leave
+          unlocked, is assigned by Team Generation.
+        </p>
 
-      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
+        <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
 
+        <div v-if="semesterId" class="space-y-4">
+          <UCheckbox
+            :model-value="minUpperclassPerProject >= 1"
+            label="Force at least one CS 3200 student per team"
+            @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
+          />
 
+          <UFormField label="Max 3200 per Project">
+            <UInputNumber
+              v-model="maxUpperclassPerProject"
+              :min="minUpperclassPerProject || 1"
+              class="w-full"
+            />
+          </UFormField>
+        </div>
 
-<div v-if="semesterId" class="space-y-4">
-  <UCheckbox
-    :model-value="minUpperclassPerProject >= 1"
-    label="Force at least one CS 3200 student per team"
-    @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
-  />
+        <div v-if="semesterId" class="flex flex-wrap items-end gap-2">
+          <UButton
+            label="Suggest Placements"
+            icon="i-heroicons-light-bulb"
+            color="neutral"
+            variant="soft"
+            :loading="suggesting"
+            @click="suggestPlacements"
+          />
+          <UButton
+            v-if="Object.keys(suggestions).length"
+            label="Lock All Suggested"
+            icon="i-heroicons-lock-closed"
+            :loading="lockingAllSuggested"
+            @click="lockAllSuggested"
+          />
+        </div>
+        <p class="text-sm text-gray-500">
+          "Suggest Placements" runs the algorithm on just the unlocked 3200 students, guaranteeing
+          each one their 1st or 2nd choice whenever possible, and pre-fills the team below with a
+          reason. Review it, then lock individually or all at once. Max above also applies when you
+          hit Generate Teams later, so a popular project can't absorb all the 3200s and leave
+          another project without one. Min is 0 by default (no requirement) since it's tight by
+          nature (roughly one 3200 per project) and only applies to Generate Teams. Set it above 0
+          if you want every project guaranteed that many. It fails with a clear message if there
+          genuinely aren't enough 3200 students to meet it.
+        </p>
 
-  <UFormField label="Max 3200 per Project">
-    <UInputNumber
-      v-model="maxUpperclassPerProject"
-      :min="minUpperclassPerProject || 1"
-      class="w-full"
-    />
-  </UFormField>
-</div>
-
-
-
-      <div v-if="semesterId" class="flex flex-wrap items-end gap-2">
-        <UButton
-          label="Suggest Placements"
-          icon="i-heroicons-light-bulb"
-          color="neutral"
-          variant="soft"
-          :loading="suggesting"
-          @click="suggestPlacements"
+        <UAlert
+          v-if="suggestError"
+          color="error"
+          variant="subtle"
+          title="Could not compute suggestions"
+          :description="suggestError"
         />
-        <UButton
-          v-if="Object.keys(suggestions).length"
-          label="Lock All Suggested"
-          icon="i-heroicons-lock-closed"
-          :loading="lockingAllSuggested"
-          @click="lockAllSuggested"
+        <UAlert
+          v-if="usedFallbackThirdChoice"
+          color="warning"
+          variant="subtle"
+          title="Some students required their 3rd choice"
+          description="Capacity didn't allow 1st/2nd choice for everyone. Check which students show a 3rd-choice reason below before locking."
         />
-      </div>
-      <p class="text-sm text-gray-500">
-        "Suggest Placements" runs the algorithm on just the unlocked 3200 students,
-        guaranteeing each one their 1st or 2nd choice whenever possible, and pre-fills
-        the team below with a reason. Review it, then lock individually or all at once.
-        Max above also applies when you hit Generate Teams later, so a popular project
-        can't absorb all the 3200s and leave another project without one. Min is 0 by
-        default (no requirement) since it's tight by nature (roughly one 3200 per
-        project) and only applies to Generate Teams. Set it above 0 if you want every
-        project guaranteed that many. It fails with a clear message if there genuinely
-        aren't enough 3200 students to meet it.
-      </p>
 
-      <UAlert
-        v-if="suggestError"
-        color="error"
-        variant="subtle"
-        title="Could not compute suggestions"
-        :description="suggestError"
-      />
-      <UAlert
-        v-if="usedFallbackThirdChoice"
-        color="warning"
-        variant="subtle"
-        title="Some students required their 3rd choice"
-        description="Capacity didn't allow 1st/2nd choice for everyone. Check which students show a 3rd-choice reason below before locking."
-      />
+        <UAlert
+          v-if="lockError"
+          color="error"
+          variant="subtle"
+          title="Lock/unlock failed"
+          :description="lockError"
+        />
 
-      <UAlert
-        v-if="lockError"
-        color="error"
-        variant="subtle"
-        title="Lock/unlock failed"
-        :description="lockError"
-      />
+        <p v-else-if="semesterId && !students3200ForDay.length" class="text-sm text-gray-500">
+          No 3200 students enrolled for this semester/day.
+        </p>
 
-      <p
-        v-else-if="semesterId && !students3200ForDay.length"
-        class="text-sm text-gray-500"
-      >
-        No 3200 students enrolled for this semester/day.
-      </p>
-
-      <ul v-else-if="semesterId" class="space-y-2">
-        <li
-          v-for="student in students3200ForDay"
-          :key="student.id"
-          class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-        >
-          <div>
-            <div class="font-medium">
-              {{ student.firstName }} {{ student.lastName }} ({{ student.netID }})
+        <ul v-else-if="semesterId" class="space-y-2">
+          <li
+            v-for="student in students3200ForDay"
+            :key="student.id"
+            class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
+          >
+            <div>
+              <div class="font-medium">
+                {{ student.firstName }} {{ student.lastName }} ({{ student.netID }})
+              </div>
+              <div
+                v-if="!lockedMembershipFor(student) && selectionLabel(student)"
+                class="text-primary-500"
+              >
+                {{ selectionLabel(student) }}
+              </div>
+              <div
+                v-else-if="!lockedMembershipFor(student) && noChoiceStudentIds.has(student.id)"
+                class="text-amber-500"
+              >
+                No bid submitted. Needs manual placement.
+              </div>
             </div>
-            <div v-if="!lockedMembershipFor(student) && selectionLabel(student)" class="text-primary-500">
-              {{ selectionLabel(student) }}
-            </div>
-            <div
-              v-else-if="!lockedMembershipFor(student) && noChoiceStudentIds.has(student.id)"
-              class="text-amber-500"
-            >
-              No bid submitted. Needs manual placement.
-            </div>
-          </div>
 
-          <div v-if="lockedMembershipFor(student)" class="flex items-center gap-2">
-            <UBadge color="primary" variant="subtle">
-              Locked: {{ lockedMembershipFor(student)!.Team.Project.name }}
-            </UBadge>
-            <UButton
-              label="Unlock"
-              size="xs"
-              color="neutral"
-              variant="soft"
-              :loading="lockingKey === lockedMembershipFor(student)!.id"
-              @click="unlockMembership(lockedMembershipFor(student)!.id)"
-            />
-          </div>
-          <div v-else class="flex items-center gap-2">
-            <USelect
-              v-model="lockSelections[student.id]"
-              :items="teamOptionsFor(student)"
-              placeholder="Choose team"
-              class="w-64"
-            />
-            <UButton
-              label="Lock"
-              size="xs"
-              :disabled="!lockSelections[student.id]"
-              :loading="lockingKey === student.id"
-              @click="lockStudent(student.id)"
-            />
-          </div>
-        </li>
-      </ul>
+            <div v-if="lockedMembershipFor(student)" class="flex items-center gap-2">
+              <UBadge color="primary" variant="subtle">
+                Locked: {{ lockedMembershipFor(student)!.Team.Project.name }}
+              </UBadge>
+              <UButton
+                label="Unlock"
+                size="xs"
+                color="neutral"
+                variant="soft"
+                :loading="lockingKey === lockedMembershipFor(student)!.id"
+                @click="unlockMembership(lockedMembershipFor(student)!.id)"
+              />
+            </div>
+            <div v-else class="flex items-center gap-2">
+              <USelect
+                v-model="lockSelections[student.id]"
+                :items="teamOptionsFor(student)"
+                placeholder="Choose team"
+                class="w-64"
+              />
+              <UButton
+                label="Lock"
+                size="xs"
+                :disabled="!lockSelections[student.id]"
+                :loading="lockingKey === student.id"
+                @click="lockStudent(student.id)"
+              />
+            </div>
+          </li>
+        </ul>
       </div>
     </section>
 
     <USeparator />
 
     <section class="space-y-4">
-      <h2 class="text-lg font-semibold">4. Team Generation</h2>
+      <h2 class="text-lg font-semibold">3. Team Generation</h2>
 
       <div class="grid grid-cols-2 gap-4">
         <UFormField label="Min Team Size">
@@ -898,9 +786,9 @@
       <div v-if="generateResult" class="space-y-4">
         <UAlert color="success" variant="subtle" title="Teams generated successfully" />
         <p class="text-sm text-gray-500">
-          Happy with a team? Lock it, then hit Generate Teams again. Locked teams are
-          left exactly as is, and the algorithm only re-solves for everyone else. Keep
-          locking and regenerating as many rounds as you want.
+          Happy with a team? Lock it, then hit Generate Teams again. Locked teams are left exactly
+          as is, and the algorithm only re-solves for everyone else. Keep locking and regenerating
+          as many rounds as you want.
         </p>
 
         <UCheckbox
@@ -925,10 +813,22 @@
             <div class="mb-1 flex items-center justify-between gap-2">
               <div class="flex items-center gap-2 font-medium">
                 {{ meta.projectName }}
-                <UBadge v-if="isTeamLocked(teamId)" color="primary" variant="subtle" size="sm">Locked</UBadge>
+                <UBadge
+                  :color="isTeamLocked(teamId) ? 'primary' : 'neutral'"
+                  variant="subtle"
+                  size="sm"
+                >
+                  <UIcon
+                    :name="
+                      isTeamLocked(teamId) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
+                    "
+                  />
+                  {{ isTeamLocked(teamId) ? 'Locked' : 'Unlocked' }}
+                </UBadge>
               </div>
               <UButton
                 :label="isTeamLocked(teamId) ? 'Unlock Team' : 'Lock Team'"
+                :icon="isTeamLocked(teamId) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
                 size="xs"
                 :color="isTeamLocked(teamId) ? 'neutral' : 'primary'"
                 :variant="isTeamLocked(teamId) ? 'soft' : 'solid'"
@@ -939,7 +839,9 @@
             <ul class="text-sm text-gray-600 dark:text-gray-400">
               <li v-for="student in studentsFor(teamId)" :key="student.netID">
                 {{ student.firstName }} {{ student.lastName }} ({{ student.netID }})
-                <UBadge v-if="is3200(student)" color="primary" variant="subtle" size="sm">3200</UBadge>
+                <UBadge v-if="is3200(student)" color="primary" variant="subtle" size="sm"
+                  >3200</UBadge
+                >
                 <span v-if="showChoiceRank" class="text-gray-400">
                   ({{ choiceRankLabel(student, teamId) }})
                 </span>
