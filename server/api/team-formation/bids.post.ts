@@ -19,6 +19,12 @@ import { prisma } from '#server/utils/prisma'
 import projectService from '#server/services/projectService'
 import partnerService from '#server/services/partnerService'
 import teamService from '#server/services/teamService'
+import {
+  NO_BID_TAG,
+  pickProjectForMajor,
+  placeholderNetID,
+  type PlacementCandidate,
+} from '#server/utils/noBid'
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -339,17 +345,26 @@ export default defineEventHandler(async (event) => {
   let choicesCreated = 0
   const skippedStudents: string[] = []
 
+  // Students whose row produced no usable choice (no bid). They are placed after every
+  // other row is read, so the teams their classmates bid on already exist.
+  const noBidRecords: BidRecord[] = []
+  // How many bidders have each project as Choice 1, so no-bid students can be spread out.
+  const firstChoiceLoad = new Map<string, number>()
+
   for (const row of rows) {
-    const netID = readFirstValue(row, ['SSO ID', 'ssoid', 'netID', 'netid', 'id'])
+    // ── Build student record ─────────────────────────────────────────────────
+    const { firstName, lastName } = parseStudentName(row)
+    // A row with only a name and major has no SSO ID; give it a stable stand-in netID.
+    // Only a row with neither an SSO ID nor a name is skipped.
+    const netID =
+      readFirstValue(row, ['SSO ID', 'ssoid', 'netID', 'netid', 'id']) ||
+      (firstName || lastName ? placeholderNetID(firstName, lastName) : '')
     if (!netID) {
       skippedStudents.push(
         readFirstValue(row, ['Student Name', 'student name', 'name', 'fullName']) || '(no name)'
       )
       continue
     }
-
-    // ── Build student record ─────────────────────────────────────────────────
-    const { firstName, lastName } = parseStudentName(row)
     const email = readFirstValue(row, ['Student Email', 'student email', 'studentemail']) || null
     const yearRaw = readFirstValue(row, ['Classification', 'classification']).toLowerCase()
     const year: Year = YEAR_MAP[yearRaw] ?? 'FRESHMAN'
@@ -404,9 +419,64 @@ export default defineEventHandler(async (event) => {
       skills,
       comments,
     }
+
+    // No bid: hold the record until every bidder has been read, then place it below.
+    if (!chosenProjectIds.length) {
+      noBidRecords.push(record)
+      continue
+    }
+
     await processBidRecord(semesterId, meetingDay, record)
     studentsImported++
     choicesCreated += chosenProjectIds.length
+    const firstChoice = chosenProjectIds[0]!
+    firstChoiceLoad.set(firstChoice, (firstChoiceLoad.get(firstChoice) ?? 0) + 1)
+  }
+
+  // ── Place no-bid students ────────────────────────────────────────────────────
+  // Each one goes on a project that fits their major, written in as their Choice 1 so the
+  // solver (generate.post.ts) sees them as an ordinary bidder. Only teams for this
+  // semester + meeting day are candidates, which also keeps the solver's day constraint happy.
+  const noBidPlacements: { name: string; netID: string; major: string; projectName: string }[] = []
+  const noBidUnplaced: string[] = []
+
+  if (noBidRecords.length) {
+    const teamsForDay = await prisma.team.findMany({
+      where: { semesterId, meetingDay },
+      include: { Project: true },
+    })
+    const candidates: PlacementCandidate[] = teamsForDay.map((t) => ({
+      projectId: t.projectId,
+      projectName: t.Project.name,
+      type: t.Project.type,
+      load: firstChoiceLoad.get(t.projectId) ?? 0,
+    }))
+
+    for (const record of noBidRecords) {
+      const pick = pickProjectForMajor(record.major, candidates)
+      const fullName = `${record.firstName} ${record.lastName}`.trim()
+
+      await processBidRecord(semesterId, meetingDay, {
+        ...record,
+        choices: pick ? [pick.projectId] : [],
+        comments: [NO_BID_TAG, record.comments].filter(Boolean).join(' '),
+      })
+      studentsImported++
+
+      if (pick) {
+        pick.load++
+        choicesCreated++
+        noBidPlacements.push({
+          name: fullName,
+          netID: record.netID,
+          major: record.major,
+          projectName: pick.projectName,
+        })
+      } else {
+        // No team exists for this semester/day yet, so there is nothing to place them on.
+        noBidUnplaced.push(fullName)
+      }
+    }
   }
 
   return {
@@ -416,5 +486,7 @@ export default defineEventHandler(async (event) => {
     projectsCreated,
     teamsCreated,
     skippedStudents,
+    noBidPlacements,
+    noBidUnplaced,
   }
 })
