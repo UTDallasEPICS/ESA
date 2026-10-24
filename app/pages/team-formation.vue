@@ -165,7 +165,7 @@
 
   // ── Bid file upload ──────────────────────────────────────────────────────────
 
-  // Each day's bid file is uploaded in its own BidDayUpload card (step 2), so
+  // Each day's bid file is uploaded in its own BidDayUpload card (Bid Files step), so
   // both days can be imported without switching the meeting day.
   async function refreshAfterBidImport() {
     await Promise.all([
@@ -177,39 +177,30 @@
 
   // ── Step-by-step page layout ─────────────────────────────────────────────────
 
-  // One step on screen at a time — the others aren't rendered at all. Staff can
-  // always go back to any step they've reached, but can only move forward with
-  // Next, and Next waits until the data that step exists for is actually there
-  // (not until a particular button was clicked): bids already imported on an
-  // earlier visit count, and locking 3200s is optional. Steps 1 and 2 cover both
-  // meeting days; steps 3–5 work on one day at a time, picked with the "Working
-  // on" toggle above them. Changing the semester starts the walk over. Switching
-  // the day keeps you on the step you're on, unless that day has no teams to
-  // arrange yet, which sends you back to Generate.
+  // One step on screen at a time — the others aren't rendered at all. The steps
+  // run down the left rail and Next/Back sit on the right rail. Staff can always
+  // go back to any step they've reached, but can only move forward with Next, and
+  // Next waits until the data that step exists for is actually there (not until
+  // a particular button was clicked): bids already imported on an earlier visit
+  // count. Steps 1 and 2 cover both meeting days; Manage Teams (lock 3200s,
+  // generate, arrange) works on one day at a time, picked with the "Working on"
+  // toggle. Changing the semester starts the walk over.
   const activeSection = ref(1)
   const furthestStep = ref(1)
   watch(semesterId, () => (furthestStep.value = 1))
-  watch(meetingDay, () => {
-    if (furthestStep.value < 3) return
-    furthestStep.value = teamsHaveMembers.value ? STEP_COUNT : 4
-    activeSection.value = Math.min(activeSection.value, furthestStep.value)
-  })
 
-  const STEP_COUNT = 5
+  const STEP_COUNT = 3
   const steps = computed(() =>
     [
       { title: 'Semester', icon: 'i-heroicons-calendar' },
       { title: 'Bid Files', icon: 'i-heroicons-arrow-up-tray' },
-      { title: 'Lock 3200s', icon: 'i-heroicons-lock-closed' },
-      { title: 'Generate', icon: 'i-heroicons-sparkles' },
-      { title: 'Arrange Teams', icon: 'i-heroicons-squares-2x2' },
+      { title: 'Manage Teams', icon: 'i-heroicons-squares-2x2' },
     ].map((step, i) => ({ ...step, disabled: i + 1 > furthestStep.value }))
   )
-  // UStepper treats a numeric v-model as a 0-based index; sections are numbered from 1.
-  const stepIndex = computed({
-    get: () => activeSection.value - 1,
-    set: (i: number) => (activeSection.value = i + 1),
-  })
+
+  // The ESA menu (Database, Team Formation, …) slides out from the ≡ button.
+  const navOpen = ref(false)
+  const colorMode = useColorMode()
 
   function bidCountFor(day: MeetingDay) {
     return studentsForSemester.value.filter(
@@ -235,7 +226,6 @@
     if (activeSection.value === 1 && !semesterId.value) return 'Pick a semester first.'
     if (activeSection.value === 2 && !bidCountFor('WEDNESDAY') && !bidCountFor('THURSDAY'))
       return 'Upload a bid file first.'
-    if (activeSection.value === 4 && !teamsHaveMembers.value) return 'Generate teams first.'
     return null
   })
 
@@ -1163,10 +1153,82 @@
 </script>
 
 <template>
+  <div class="flex min-h-screen">
+    <nav
+      class="sticky top-0 flex h-screen w-24 shrink-0 flex-col items-center gap-6 border-r border-gray-200 py-4 dark:border-gray-800"
+      aria-label="Team formation steps"
+    >
+      <UButton
+        icon="i-heroicons-bars-3"
+        color="neutral"
+        variant="ghost"
+        size="lg"
+        aria-label="Open menu"
+        @click="navOpen = true"
+      />
+      <ol class="flex flex-col items-center">
+        <li v-for="(step, i) in steps" :key="step.title" class="flex flex-col items-center">
+          <div
+            v-if="i > 0"
+            :class="[
+              'my-1 h-10 w-0.5',
+              i + 1 <= furthestStep ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-800',
+            ]"
+          />
+          <button
+            type="button"
+            :disabled="step.disabled"
+            :aria-current="activeSection === i + 1 ? 'step' : undefined"
+            class="group flex flex-col items-center gap-1 rounded-md p-1"
+            @click="activeSection = i + 1"
+          >
+            <span
+              :class="[
+                'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors',
+                activeSection === i + 1
+                  ? 'border-primary-500 bg-primary-500 text-white'
+                  : step.disabled
+                    ? 'border-gray-200 text-gray-300 dark:border-gray-800 dark:text-gray-700'
+                    : 'border-primary-500 text-primary-500 group-hover:bg-primary-50 dark:group-hover:bg-primary-950',
+              ]"
+            >
+              <UIcon :name="step.icon" class="h-5 w-5" />
+            </span>
+            <span
+              :class="[
+                'text-center text-xs leading-tight',
+                activeSection === i + 1
+                  ? 'font-semibold text-primary-600 dark:text-primary-400'
+                  : step.disabled
+                    ? 'text-gray-400 dark:text-gray-600'
+                    : 'text-gray-600 dark:text-gray-300',
+              ]"
+            >
+              {{ step.title }}
+            </span>
+          </button>
+        </li>
+      </ol>
+    </nav>
+
+    <USlideover v-model:open="navOpen" side="left" title="ESA" class="max-w-64">
+      <template #body>
+        <div class="flex flex-col gap-2">
+          <Navbar orientation="vertical" />
+          <UButton
+            :icon="colorMode.value === 'dark' ? 'i-heroicons-moon-20-solid' : 'i-heroicons-sun-20-solid'"
+            :label="colorMode.value === 'dark' ? 'Dark mode' : 'Light mode'"
+            color="neutral"
+            variant="ghost"
+            @click="colorMode.preference = colorMode.value === 'dark' ? 'light' : 'dark'"
+          />
+        </div>
+      </template>
+    </USlideover>
+
   <UContainer
-    :class="['space-y-8 py-8', activeSection === 5 ? 'max-w-7xl' : 'max-w-4xl']"
+    :class="['min-w-0 flex-1 space-y-8 py-8', activeSection === 3 ? 'max-w-7xl' : 'max-w-4xl']"
   >
-    <UStepper v-model="stepIndex" :items="steps" :linear="false" size="sm" />
     <section v-if="activeSection === 1" class="space-y-4">
       <h2 class="text-lg font-semibold">1. Semester</h2>
 
@@ -1250,8 +1312,10 @@
       </div>
     </section>
 
+    <h2 v-if="activeSection === 3" class="text-lg font-semibold">3. Manage Teams</h2>
+
     <div
-      v-if="activeSection >= 3"
+      v-if="activeSection === 3"
       class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
     >
       <span class="font-medium">Working on</span>
@@ -1268,11 +1332,11 @@
     </div>
 
     <section v-if="activeSection === 3" class="space-y-4">
-      <h2 class="text-lg font-semibold">3. Lock 3200 Students</h2>
+      <h3 class="text-base font-semibold">Lock 3200 Students</h3>
 
       <p class="text-sm text-gray-500">
         Optional. Place specific 3200 students into a team ahead of time; locked students
-        are kept as is by Team Generation (step 4). Skip this and everyone is assigned by
+        are kept as is by Generate Teams (below). Skip this and everyone is assigned by
         Team Generation.
       </p>
 
@@ -1440,8 +1504,11 @@
       </template>
     </section>
 
-    <section v-if="activeSection === 4" class="space-y-4">
-      <h2 class="text-lg font-semibold">4. Team Generation</h2>
+    <section
+      v-if="activeSection === 3"
+      class="space-y-4 border-t border-gray-200 pt-6 dark:border-gray-800"
+    >
+      <h3 class="text-base font-semibold">Generate Teams</h3>
 
 
       <div class="grid grid-cols-2 gap-4">
@@ -1466,7 +1533,7 @@
       </div>
 
       <p class="text-sm text-gray-500">
-        3200 limits are set in step 3 (currently
+        3200 limits are set above (currently
         {{ minUpperclassPerProject ? 'at least one, ' : '' }}at most {{ maxUpperclassPerProject }}
         per project) and apply here too.
       </p>
@@ -1529,9 +1596,12 @@
       </div>
     </section>
 
-    <section v-if="activeSection === 5" class="space-y-6">
+    <section
+      v-if="activeSection === 3 && teamsHaveMembers"
+      class="space-y-6 border-t border-gray-200 pt-6 dark:border-gray-800"
+    >
       <div class="space-y-1">
-        <h2 class="text-lg font-semibold">5. Arrange Teams</h2>
+        <h3 class="text-base font-semibold">Arrange Teams</h3>
         <p class="text-sm text-gray-500">
           Set aside the teams you want to work on, then drag students between them, or click
           a student to compare: click one student to see their major, full ranking and what
@@ -2093,27 +2163,37 @@
       </div>
     </section>
 
-    <div
-      class="flex items-center justify-between gap-2 border-t border-gray-200 pt-4 dark:border-gray-800"
-    >
-      <UButton
-        v-if="activeSection > 1"
-        label="Back"
-        icon="i-heroicons-arrow-left"
-        color="neutral"
-        variant="soft"
-        @click="activeSection--"
-      />
-      <span v-else />
-      <div v-if="activeSection < STEP_COUNT" class="flex items-center gap-3">
-        <span v-if="nextBlocker" class="text-sm text-gray-500">{{ nextBlocker }}</span>
-        <UButton
-          label="Next"
-          trailing-icon="i-heroicons-arrow-right"
-          :disabled="!!nextBlocker"
-          @click="goNext"
-        />
-      </div>
-    </div>
   </UContainer>
+
+    <nav
+      class="sticky top-0 flex h-screen w-24 shrink-0 flex-col items-center justify-between border-l border-gray-200 py-8 dark:border-gray-800"
+      aria-label="Next and back"
+    >
+      <div class="flex flex-col items-center gap-2 px-2 text-center">
+        <template v-if="activeSection < STEP_COUNT">
+          <UButton
+            icon="i-heroicons-arrow-right"
+            size="xl"
+            class="rounded-full disabled:opacity-30 aria-disabled:opacity-30"
+            :disabled="!!nextBlocker"
+            aria-label="Next step"
+            @click="goNext"
+          />
+          <span class="text-xs text-gray-500">{{ nextBlocker ?? 'Next' }}</span>
+        </template>
+      </div>
+      <div v-if="activeSection > 1" class="flex flex-col items-center gap-2">
+        <UButton
+          icon="i-heroicons-arrow-left"
+          size="xl"
+          color="neutral"
+          variant="soft"
+          class="rounded-full"
+          aria-label="Previous step"
+          @click="activeSection--"
+        />
+        <span class="text-xs text-gray-500">Back</span>
+      </div>
+    </nav>
+  </div>
 </template>
