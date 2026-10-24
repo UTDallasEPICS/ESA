@@ -19,6 +19,7 @@ import { prisma } from '#server/utils/prisma'
 import projectService from '#server/services/projectService'
 import partnerService from '#server/services/partnerService'
 import teamService from '#server/services/teamService'
+import bidFileService from '#server/services/bidFileService'
 import {
   NO_BID_TAG,
   pickProjectForMajor,
@@ -478,6 +479,11 @@ export default defineEventHandler(async (event) => {
       }
     }
   }
+
+  // Keep the file as uploaded (replacing the day's previous one) so staff can
+  // open it on the Bid Files step and check it's the right form.
+  const fileName = String(getQuery(event).fileName ?? '').trim() || 'bids.csv'
+  await bidFileService.saveBidFile(semesterId, meetingDay, fileName, rows)
 
   return {
     studentsImported,

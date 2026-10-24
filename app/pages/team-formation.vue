@@ -211,6 +211,14 @@
   }
   const bidCountForDay = computed(() => bidCountFor(meetingDay.value))
 
+  // Bid Files rows: a day still waiting for its file goes on top; otherwise
+  // Wednesday, then Thursday.
+  const bidDayOrder = computed(() =>
+    [...MEETING_DAY_OPTIONS].sort(
+      (a, b) => Number(bidCountFor(a.value) > 0) - Number(bidCountFor(b.value) > 0)
+    )
+  )
+
   // Start steps 3–5 on a day that actually has bids, so a Thursday-only semester
   // doesn't open on an empty Wednesday.
   watch(
@@ -1296,13 +1304,13 @@
 
       <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
       <p v-else class="text-sm text-gray-500">
-        Import each day's bid responses into the selected semester. The next steps work on
-        one day at a time; you can switch between them there.
+        Upload each day's bid file. Once a day has one, click its row (&gt;) to see the file
+        as it was uploaded, or ↻ to replace it. Manage Teams works on one day at a time.
       </p>
 
-      <div class="grid gap-4 md:grid-cols-2">
+      <div class="space-y-3">
         <BidDayUpload
-          v-for="day in MEETING_DAY_OPTIONS"
+          v-for="day in bidDayOrder"
           :key="`${semesterId}-${day.value}`"
           :semester-id="semesterId"
           :meeting-day="day.value"

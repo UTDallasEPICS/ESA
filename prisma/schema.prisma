@@ -216,8 +216,26 @@ model Semester {
   Teams       Team[]
   Enrollments Enrollment[]
   Choices     Choice[]
+  BidFiles    BidFile[]
 
   @@unique([year, season])
+}
+
+// The bid file last uploaded for a semester and meeting day, kept as it came in
+// so staff can check the right form was uploaded. `rows` is the file's rows as
+// JSON (one object per row, keyed by column name, in the file's column order).
+model BidFile {
+  id         String            @id @default(uuid())
+  semesterId String
+  meetingDay ProjectMeetingDay
+  fileName   String
+  rows       String
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
+
+  Semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)
+
+  @@unique([semesterId, meetingDay])
 }
 
 enum Year {

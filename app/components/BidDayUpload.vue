@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import { parseCsv, validateBidRows, type BidRowError } from '~/utils/bidCsv'
   import { titleCase } from '~/utils/labels'
+  import type { TableColumn } from '@nuxt/ui'
+  import type { BidFileRead } from '#server/services/bidFileService'
 
   const props = defineProps<{
     semesterId?: string
@@ -56,16 +58,44 @@
     }
   })
 
-  // Once bids are saved for this semester/day the upload box is tucked away behind
-  // "Replace bid file", since the usual visit has nothing to upload. With nothing
-  // saved yet it's the whole card.
+  // One row per day. With nothing saved yet the row is the upload box; once bids
+  // are saved it's a summary that opens (>) to show the uploaded file as a table,
+  // with the upload box tucked away behind ↻ (replace).
   const replacing = ref(false)
   const showUpload = computed(() => !props.savedCount || replacing.value)
+  const open = ref(false)
+
+  function startReplace() {
+    replacing.value = true
+    open.value = false
+  }
 
   function cancelReplace() {
     replacing.value = false
     bidFile.value = null
   }
+
+  // The file as it was uploaded, so staff can check it's the right form. Files
+  // uploaded before they were kept come back as null.
+  const savedFile = ref<BidFileRead | null>(null)
+  async function loadSavedFile() {
+    savedFile.value = null
+    if (!props.semesterId || !props.savedCount) return
+    savedFile.value = await $fetch<BidFileRead | null>('/api/team-formation/bid-file', {
+      query: { semesterId: props.semesterId, meetingDay: props.meetingDay },
+    }).catch(() => null)
+  }
+  watch(() => [props.semesterId, props.savedCount], loadSavedFile, { immediate: true })
+
+  // Columns are keyed by position: header names can contain dots, which the table
+  // would otherwise read as nested paths.
+  const fileColumns = computed<TableColumn<Record<string, string>>[]>(() =>
+    (savedFile.value?.columns ?? []).map((name, i) => ({
+      id: `col${i}`,
+      header: name || '(no header)',
+      accessorFn: (row) => row[name] ?? '',
+    }))
+  )
 
   const canUpload = computed(
     () =>
@@ -82,13 +112,18 @@
     try {
       uploadResult.value = await $fetch('/api/team-formation/bids', {
         method: 'POST',
-        query: { semesterId: props.semesterId, meetingDay: props.meetingDay },
+        query: {
+          semesterId: props.semesterId,
+          meetingDay: props.meetingDay,
+          fileName: bidFile.value?.name,
+        },
         body: parsedRows.value,
       })
       // Require a fresh selection before importing this roster again.
       bidFile.value = null
       replacing.value = false
       emit('imported')
+      await loadSavedFile()
     } catch (e: any) {
       uploadError.value = e?.data?.message ?? e?.message ?? 'Failed to import bid file.'
     } finally {
@@ -98,22 +133,76 @@
 </script>
 
 <template>
-  <div class="space-y-3 rounded-lg border border-gray-200 p-4 dark:border-gray-800">
-    <h3 class="font-medium">{{ titleCase(meetingDay) }}</h3>
-
-    <div v-if="!showUpload" class="flex flex-wrap items-center justify-between gap-2">
-      <p class="text-sm">Bids from {{ savedCount }} student(s) are saved.</p>
+  <div class="rounded-lg border border-gray-200 dark:border-gray-800">
+    <div class="flex items-center gap-2 p-3">
       <UButton
-        label="Replace bid file"
-        icon="i-heroicons-arrow-path"
-        size="xs"
+        v-if="savedCount && !replacing"
+        :icon="open ? 'i-heroicons-chevron-down' : 'i-heroicons-chevron-right'"
         color="neutral"
         variant="ghost"
-        @click="replacing = true"
+        size="sm"
+        :aria-label="open ? 'Hide bid file' : 'Show bid file'"
+        :aria-expanded="open"
+        @click="open = !open"
+      />
+      <span v-else class="w-8 shrink-0" />
+      <span class="w-24 shrink-0 font-medium">{{ titleCase(meetingDay) }}</span>
+
+      <template v-if="!showUpload">
+        <button
+          type="button"
+          class="min-w-0 flex-1 truncate text-left text-sm text-gray-600 dark:text-gray-300"
+          @click="open = !open"
+        >
+          {{ savedFile ? savedFile.rows.length : savedCount }} student(s)
+          <template v-if="savedFile">
+            · {{ savedFile.fileName }} · uploaded
+            {{ new Date(savedFile.uploadedAt).toLocaleDateString() }}
+          </template>
+        </button>
+        <UButton
+          icon="i-heroicons-arrow-path"
+          color="neutral"
+          variant="ghost"
+          size="sm"
+          aria-label="Replace bid file"
+          title="Replace bid file"
+          @click="startReplace"
+        />
+      </template>
+
+      <UFileUpload
+        v-else
+        v-model="bidFile"
+        accept=".csv"
+        layout="list"
+        icon="i-heroicons-arrow-up-tray"
+        :label="`Drop the ${titleCase(meetingDay)} bid file here or click to browse`"
+        :disabled="!semesterId || uploading"
+        class="min-w-0 flex-1"
+        :ui="{ base: 'min-h-0 border-dashed py-3', label: 'mt-1 text-sm' }"
       />
     </div>
 
-    <template v-if="showUpload">
+    <div v-if="open && !showUpload" class="border-t border-gray-200 p-3 dark:border-gray-800">
+      <UTable
+        v-if="savedFile"
+        :data="savedFile.rows"
+        :columns="fileColumns"
+        sticky
+        class="max-h-96"
+        :ui="{ td: 'whitespace-nowrap py-2', th: 'whitespace-nowrap' }"
+      />
+      <p v-else class="text-sm text-gray-500">
+        This day's file was uploaded before the app kept bid files, so it can't be shown. Use ↻
+        to upload it again if you want to see it here.
+      </p>
+    </div>
+
+    <div
+      v-if="showUpload && (replacing || !semesterId || bidFile || uploadError)"
+      class="space-y-3 px-3 pb-3"
+    >
       <div v-if="replacing" class="space-y-2">
         <UAlert
           color="warning"
@@ -124,15 +213,7 @@
         <UButton label="Cancel" size="xs" color="neutral" variant="ghost" @click="cancelReplace" />
       </div>
 
-      <UFormField :label="`${titleCase(meetingDay)} Bid Response CSV`">
-        <UFileUpload
-          v-model="bidFile"
-          accept=".csv"
-          label="Drop CSV here or click to browse"
-          :disabled="!semesterId || uploading"
-        />
-      </UFormField>
-      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester above first.</p>
+      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester first.</p>
 
       <UAlert
         v-if="missingColumns.length"
@@ -163,6 +244,7 @@
       />
 
       <UButton
+        v-if="bidFile"
         :label="`Upload ${titleCase(meetingDay)} CSV`"
         icon="i-heroicons-arrow-up-tray"
         :loading="uploading"
@@ -177,9 +259,9 @@
         title="Upload failed"
         :description="uploadError"
       />
-    </template>
+    </div>
 
-    <div v-if="uploadResult" class="space-y-2">
+    <div v-if="uploadResult" class="space-y-2 px-3 pb-3">
       <UAlert
         color="success"
         variant="subtle"
