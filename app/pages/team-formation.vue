@@ -1,6 +1,8 @@
 <script setup lang="ts">
   import { downloadCsv } from '~/utils/csvExport'
-  import { titleCase } from '~/utils/labels'
+  import { formatSemester, semesterOrder, titleCase } from '~/utils/labels'
+  import CreateSemesterModal from '~/components/modals/CreateSemesterModal.vue'
+  import type { TableColumn } from '@nuxt/ui'
   import { MEETING_DAY_OPTIONS } from '~/utils/options'
   import type { ProjectRead } from '#server/services/projectService'
   import type { StudentRead } from '#server/services/studentService'
@@ -12,7 +14,7 @@
   const semesterId = ref<string | undefined>()
   const meetingDay = ref<MeetingDay>('WEDNESDAY')
 
-  const { semesters } = useSemesters()
+  const { semesters, createSemester } = useSemesters()
   const selectedSemesterLabel = computed(() => {
     const semester = semesters.value.find((s) => s.id === semesterId.value)
     if (!semester) return 'semester'
@@ -184,10 +186,9 @@
   // a particular button was clicked): bids already imported on an earlier visit
   // count. Steps 1 and 2 cover both meeting days; Manage Teams (lock 3200s,
   // generate, arrange) works on one day at a time, picked with the "Working on"
-  // toggle. Changing the semester starts the walk over.
+  // toggle. Picking a semester jumps ahead (see selectSemester).
   const activeSection = ref(1)
   const furthestStep = ref(1)
-  watch(semesterId, () => (furthestStep.value = 1))
 
   const STEP_COUNT = 3
   const steps = computed(() =>
@@ -197,6 +198,70 @@
       { title: 'Manage Teams', icon: 'i-heroicons-squares-2x2' },
     ].map((step, i) => ({ ...step, disabled: i + 1 > furthestStep.value }))
   )
+
+  // ── Step 1: semester table ───────────────────────────────────────────────────
+
+  // Where each semester stands on a day, read off its teams: bid import creates
+  // the (empty) teams, Generate fills them, and locking finalizes them. Staff call
+  // a finalized (fully locked) team a "project" and one still being worked on a
+  // "team", so the counts use those words.
+  function semesterDayStatus(id: string, day: MeetingDay) {
+    const teams = allProjects.value.flatMap((p) =>
+      p.Teams.filter((t) => t.semesterId === id && t.meetingDay === day)
+    )
+    if (!teams.length) return { label: 'No bids yet', ready: false, final: false }
+    const members = teams.map((t) => t.Memberships.filter((m) => !m.isMentor))
+    const students = members.reduce((sum, m) => sum + m.length, 0)
+    if (!students) return { label: 'Bids in, teams not built', ready: true, final: false }
+    const projects = members.filter((m) => m.length && m.every((x) => x.locked)).length
+    const inProgress = teams.length - projects
+    const parts = [
+      projects && `${projects} project${projects === 1 ? '' : 's'}`,
+      inProgress && `${inProgress} team${inProgress === 1 ? '' : 's'}`,
+      `${students} students`,
+    ].filter(Boolean)
+    return { label: parts.join(' · '), ready: true, final: !inProgress }
+  }
+
+  const semesterRows = computed(() =>
+    [...semesters.value]
+      .sort((a, b) => semesterOrder(b) - semesterOrder(a))
+      .map((s) => ({
+        id: s.id,
+        name: formatSemester(s),
+        WEDNESDAY: semesterDayStatus(s.id, 'WEDNESDAY'),
+        THURSDAY: semesterDayStatus(s.id, 'THURSDAY'),
+      }))
+  )
+  type SemesterRow = (typeof semesterRows.value)[number]
+
+  const semesterColumns: TableColumn<SemesterRow>[] = [
+    { accessorKey: 'name', header: 'Semester' },
+    { id: 'WEDNESDAY', header: 'Wednesday' },
+    { id: 'THURSDAY', header: 'Thursday' },
+    { id: 'select', header: '' },
+  ]
+
+  // Picking a semester opens Bid Files so staff can check the files first. When
+  // bids are already in, Manage Teams is unlocked too, one click away.
+  function selectSemester(row: SemesterRow) {
+    semesterId.value = row.id
+    furthestStep.value = row.WEDNESDAY.ready || row.THURSDAY.ready ? STEP_COUNT : 2
+    activeSection.value = 2
+  }
+
+  // Coming back to the table, refresh it: Generate and bid imports elsewhere
+  // change the counts.
+  watch(activeSection, (step) => {
+    if (step === 1) refreshAllProjects()
+  })
+
+  const overlay = useOverlay()
+  const createSemesterModal = overlay.create(CreateSemesterModal)
+  async function addSemester() {
+    const semester = await createSemesterModal.open().result
+    if (semester) await createSemester(semester)
+  }
 
   // The ESA menu (Database, Team Formation, …) slides out from the ≡ button.
   const navOpen = ref(false)
@@ -1240,63 +1305,62 @@
     <section v-if="activeSection === 1" class="space-y-4">
       <h2 class="text-lg font-semibold">1. Semester</h2>
 
-      <UFormField label="Semester">
-        <SemesterFilter v-model="semesterId" />
-      </UFormField>
+      <p class="text-sm text-gray-500">
+        Pick the semester to work on. It opens on Bid Files; if bids are already in, you can
+        go straight on to Manage Teams. A <strong>project</strong> is a finalized (locked) team; a
+        <strong>team</strong> is one still being worked on.
+      </p>
 
-      <div v-if="semesterId" class="space-y-4">
-        <h3 class="font-medium">Teams already entered for this semester</h3>
-        <UAlert
-          v-if="projectsStatus !== 'pending' && !teamsFor('WEDNESDAY').length && !teamsFor('THURSDAY').length"
-          icon="i-heroicons-exclamation-triangle"
-          color="warning"
-          variant="subtle"
-          title="No teams found"
-          description="Create projects and teams for this semester in the Database tab before continuing."
-        />
-        <div v-for="day in MEETING_DAY_OPTIONS" :key="day.value" class="space-y-1">
-          <div class="flex items-center justify-between gap-2">
-            <h4 class="text-sm font-medium">
-              {{ day.label }}
-              <span class="font-normal text-gray-500">({{ teamsFor(day.value).length }} teams)</span>
-            </h4>
+      <UTable
+        :data="semesterRows"
+        :columns="semesterColumns"
+        :loading="!semesters.length"
+        class="rounded-lg border border-gray-200 dark:border-gray-800"
+        :ui="{ tr: 'cursor-pointer' }"
+        @select="(_e: Event, row: any) => selectSemester(row.original)"
+      >
+        <template #name-cell="{ row }">
+          <span :class="row.original.id === semesterId ? 'font-semibold text-primary-600 dark:text-primary-400' : 'font-medium'">
+            {{ row.original.name }}
+          </span>
+        </template>
+        <template v-for="day in MEETING_DAY_OPTIONS" :key="day.value" #[`${day.value}-cell`]="{ row }">
+          <span
+            :class="
+              row.original[day.value].final
+                ? 'font-semibold'
+                : row.original[day.value].ready
+                  ? ''
+                  : 'text-gray-400 dark:text-gray-500'
+            "
+          >
+            <UIcon
+              v-if="row.original[day.value].final"
+              name="i-heroicons-lock-closed"
+              class="me-1 align-[-2px] text-red-500"
+            />
+            {{ row.original[day.value].label }}
+          </span>
+        </template>
+        <template #select-cell="{ row }">
+          <div class="text-right">
             <UButton
-              v-if="teamsFor(day.value).length"
-              :label="`Export ${day.label}`"
-              icon="i-heroicons-arrow-down-tray"
-              size="xs"
-              color="neutral"
-              variant="ghost"
-              @click="exportTeams(day.value)"
+              :label="row.original.id === semesterId ? 'Selected' : 'Select'"
+              size="sm"
+              :variant="row.original.id === semesterId ? 'solid' : 'soft'"
+              @click.stop="selectSemester(row.original)"
             />
           </div>
-          <p v-if="!teamsFor(day.value).length" class="text-sm text-gray-500">No teams for this day.</p>
-          <ul v-else class="space-y-1">
-            <li
-              v-for="team in teamsFor(day.value)"
-              :key="team.id"
-              class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-            >
-              <span>
-                {{ team.projectName }} ({{ team.partnerName }})
-                <UBadge
-                  :color="isTeamLocked(team.id) ? 'error' : 'success'"
-                  variant="subtle"
-                  size="sm"
-                >
-                  <UIcon
-                    :name="
-                      isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'
-                    "
-                  />
-                  {{ isTeamLocked(team.id) ? 'Locked' : 'Unlocked' }}
-                </UBadge>
-              </span>
-              <span class="text-gray-500">{{ team.memberCount }} member(s)</span>
-            </li>
-          </ul>
-        </div>
-      </div>
+        </template>
+      </UTable>
+
+      <UButton
+        label="Add semester"
+        icon="i-heroicons-plus"
+        color="neutral"
+        variant="soft"
+        @click="addSemester"
+      />
     </section>
 
     <section v-if="activeSection === 2" class="space-y-4">
@@ -1336,6 +1400,16 @@
             label: `${d.label} · ${bidCountFor(d.value)} bids, ${teamsFor(d.value).length} teams`,
           }))
         "
+      />
+      <UButton
+        v-if="teamsHaveMembers"
+        :label="`Export ${titleCase(meetingDay)} teams`"
+        icon="i-heroicons-arrow-down-tray"
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        class="ms-auto"
+        @click="exportTeams(meetingDay)"
       />
     </div>
 
