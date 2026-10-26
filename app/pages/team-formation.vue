@@ -1911,7 +1911,8 @@
       <div class="space-y-1">
         <h3 class="text-base font-semibold">Arrange Teams</h3>
         <p class="text-sm text-gray-500">
-          Set aside the teams you want to work on, then drag students between them, or click
+          Click the teams you want to work on to bring them up to the Workbench, then drag
+          students between them, or click
           a student to compare: click one student to see their major, full ranking and what
           each move would mean, then click a student on another team to preview a swap.
           Nothing is saved until you confirm. A moved student keeps their lock state.
@@ -2185,7 +2186,7 @@
                   </ul>
                 </li>
                 <li v-if="!compareMoveOptions.length" class="text-xs text-gray-500">
-                  Set aside another team to compare moves.
+                  Click another team below to bring it up and compare moves.
                 </li>
               </ul>
             </div>
@@ -2193,7 +2194,7 @@
         </div>
 
         <p v-if="!workbenchTeams.length" class="py-8 text-center text-sm text-gray-500">
-          Drag a team here, or use Set aside on it, to work on it side by side with others.
+          Click a team below (or drag it here) to work on it side by side with others.
         </p>
 
         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -2363,11 +2364,13 @@
               only3200 ? '' : 'sm:min-h-56',
               isTeamLocked(team.id)
                 ? 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60'
-                : 'cursor-grab border-gray-200 bg-white hover:border-gray-300 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700',
+                : 'cursor-pointer border-gray-200 bg-white hover:border-primary-400 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-primary-500',
               boardDrag?.kind === 'team' && boardDrag.teamId === team.id ? 'opacity-40' : '',
             ]"
+            :title="isTeamLocked(team.id) ? undefined : 'Click to bring up to the Workbench'"
             @dragstart="onBoardDragStart($event, { kind: 'team', teamId: team.id })"
             @dragend="onBoardDragEnd"
+            @click="!isTeamLocked(team.id) && setAside(team.id)"
           >
             <div class="min-w-0 space-y-1">
               <div class="flex items-start justify-between gap-1">
@@ -2445,22 +2448,16 @@
               </ul>
             </div>
 
-            <div v-if="!isTeamLocked(team.id)" class="flex items-center justify-between gap-1">
+            <div
+              v-if="!isTeamLocked(team.id) && team.memberCount > 0"
+              class="flex items-center justify-end gap-1"
+            >
               <UButton
-                label="Set aside"
-                icon="i-heroicons-arrow-up"
-                size="xs"
-                color="neutral"
-                variant="soft"
-                @click="setAside(team.id)"
-              />
-              <UButton
-                v-if="team.memberCount > 0"
                 label="Improve"
                 size="xs"
                 color="neutral"
                 variant="ghost"
-                @click="openImprove(team.id)"
+                @click.stop="openImprove(team.id)"
               />
             </div>
           </div>
