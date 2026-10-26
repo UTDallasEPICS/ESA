@@ -188,15 +188,15 @@
       v-if="open && !showUpload"
       class="border-t border-gray-200 bg-gray-200/70 p-4 dark:border-gray-800 dark:bg-gray-950"
     >
-      <!-- The file shows as a white sheet of paper in both light and dark mode, so it
-           reads as the document that was uploaded rather than part of the app. -->
+      <!-- The file shows as a sheet raised off a tray (white in light mode, a lighter
+           grey in dark mode), so it reads as the uploaded document, not part of the app. -->
       <div
         v-if="savedFile"
-        class="paper overflow-hidden rounded-md bg-white text-gray-700 shadow-lg ring-1 ring-gray-300 dark:ring-0"
+        class="bid-paper overflow-hidden rounded-md bg-white shadow-lg ring-1 ring-gray-300 dark:bg-gray-800 dark:ring-gray-700"
       >
-        <div class="flex items-center gap-2 border-b border-gray-200 px-4 py-2.5">
+        <div class="flex items-center gap-2 border-b border-gray-200 px-4 py-2.5 dark:border-gray-700">
           <UIcon name="i-heroicons-document-text" class="size-5 shrink-0 text-gray-400" />
-          <span class="truncate text-sm font-medium text-gray-900">{{ savedFile.fileName }}</span>
+          <span class="truncate text-sm font-medium text-gray-900 dark:text-white">{{ savedFile.fileName }}</span>
           <span class="ms-auto shrink-0 text-xs text-gray-500">
             {{ savedFile.rows.length }} rows · {{ savedFile.columns.length }} columns
           </span>
@@ -322,21 +322,15 @@
   </div>
 </template>
 
-<style scoped>
-  /* Nuxt UI colors the table from these variables, which flip in dark mode. Pin
-     them to their light values on the sheet so the file always looks like paper. */
-  .paper {
-    --ui-bg: white;
-    --ui-bg-muted: var(--ui-color-neutral-50);
-    --ui-bg-elevated: var(--ui-color-neutral-100);
-    --ui-bg-accented: var(--ui-color-neutral-200);
-    --ui-text: var(--ui-color-neutral-700);
-    --ui-text-muted: var(--ui-color-neutral-500);
-    --ui-text-dimmed: var(--ui-color-neutral-400);
-    --ui-text-toned: var(--ui-color-neutral-600);
-    --ui-text-highlighted: var(--ui-color-neutral-900);
-    --ui-border: var(--ui-color-neutral-200);
-    --ui-border-muted: var(--ui-color-neutral-200);
-    --ui-border-accented: var(--ui-color-neutral-300);
+
+
+<style>
+  /* Nuxt UI colors the table from these variables. In dark mode, match them to the
+     gray-800 sheet so its header and row lines blend in (light mode needs nothing). */
+  .dark .bid-paper {
+    --ui-bg: var(--color-gray-800);
+    --ui-bg-elevated: var(--color-gray-700);
+    --ui-border: var(--color-gray-700);
+    --ui-border-accented: var(--color-gray-600);
   }
 </style>
