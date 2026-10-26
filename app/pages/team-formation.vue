@@ -16,6 +16,10 @@
   const meetingDay = ref<MeetingDay>('WEDNESDAY')
 
   const { semesters, createSemester } = useSemesters()
+  const semesterName = computed(() => {
+    const semester = semesters.value.find((s) => s.id === semesterId.value)
+    return semester ? formatSemester(semester) : ''
+  })
   const selectedSemesterLabel = computed(() => {
     const semester = semesters.value.find((s) => s.id === semesterId.value)
     if (!semester) return 'semester'
@@ -280,6 +284,15 @@
     ).length
   }
   const bidCountForDay = computed(() => bidCountFor(meetingDay.value))
+
+  // Manage Teams' day switch: each day with its bid count.
+  const dayTabs = computed(() =>
+    MEETING_DAY_OPTIONS.map((d) => ({
+      label: d.label,
+      value: d.value,
+      badge: { label: String(bidCountFor(d.value)), color: 'neutral' as const, variant: 'subtle' as const },
+    }))
+  )
 
   // Bid Files rows: a day still waiting for its file goes on top; otherwise
   // Wednesday, then Thursday.
@@ -900,6 +913,15 @@
 
   function boardCount3200(teamId: string) {
     return membershipsForTeam(teamId).filter((m) => boardIs3200(m.studentId)).length
+  }
+
+  // 3200 view: the cards in All teams list only their 3200 students, with a count
+  // of everyone else, so the whole board can be scanned for 3200 coverage at once.
+  // The Workbench keeps full rosters, since that's where students get moved.
+  const only3200 = ref(false)
+  function cardMembers(teamId: string) {
+    const members = membershipsForTeam(teamId)
+    return only3200.value ? members.filter((m) => boardIs3200(m.studentId)) : members
   }
 
   function rankText(rank: number | undefined) {
@@ -1529,6 +1551,16 @@
       <h2 class="text-lg font-semibold">3. Manage Teams</h2>
       <!-- Toolbar from the whiteboard sketch: 3200 view, versions, then ⚙. -->
       <div class="ms-auto flex items-center gap-2">
+        <UButton
+          v-if="dayHasStudents"
+          label="3200"
+          :icon="only3200 ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
+          :color="only3200 ? 'primary' : 'neutral'"
+          :variant="only3200 ? 'solid' : 'soft'"
+          :aria-pressed="only3200"
+          title="Show only 3200 students on each card"
+          @click="only3200 = !only3200"
+        />
         <UDropdownMenu
           v-if="versionList && (dayHasStudents || versionList.versions.length)"
           :items="versionMenu"
@@ -1557,26 +1589,37 @@
 
     <div
       v-if="activeSection === 3"
-      class="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-gray-800"
+      class="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50"
     >
-      <span class="font-medium">Working on</span>
-      <URadioGroup
+      <div class="flex items-center gap-3">
+        <div
+          class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500"
+        >
+          <UIcon name="i-heroicons-calendar" class="size-5" />
+        </div>
+        <div>
+          <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Working on</p>
+          <p class="font-semibold">{{ semesterName }}</p>
+        </div>
+      </div>
+      <UTabs
         v-model="meetingDay"
-        orientation="horizontal"
-        :items="
-          MEETING_DAY_OPTIONS.map((d) => ({
-            ...d,
-            label: `${d.label} · ${bidCountFor(d.value)} bids, ${teamsFor(d.value).length} teams`,
-          }))
-        "
+        :items="dayTabs"
+        :content="false"
+        size="sm"
+        aria-label="Meeting day"
       />
+      <p class="text-sm text-gray-500">
+        {{ teamsForDay.length }} teams · {{ bidCountForDay }} bids
+      </p>
       <UButton
         v-if="teamsHaveMembers"
-        :label="`Export ${titleCase(meetingDay)} teams`"
+        label="Export"
         icon="i-heroicons-arrow-down-tray"
-        size="xs"
+        size="sm"
         color="neutral"
-        variant="ghost"
+        variant="outline"
+        :title="`Export ${titleCase(meetingDay)} teams as CSV`"
         class="ms-auto"
         @click="exportTeams(meetingDay)"
       />
@@ -2316,7 +2359,8 @@
             :key="team.id"
             :draggable="!isTeamLocked(team.id)"
             :class="[
-              'flex flex-col justify-between gap-2 rounded-lg border p-3 text-sm sm:min-h-56',
+              'flex flex-col justify-between gap-2 rounded-lg border p-3 text-sm',
+              only3200 ? '' : 'sm:min-h-56',
               isTeamLocked(team.id)
                 ? 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60'
                 : 'cursor-grab border-gray-200 bg-white hover:border-gray-300 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-gray-700',
@@ -2340,7 +2384,7 @@
               </div>
               <ul class="space-y-0.5 text-xs">
                 <li
-                  v-for="m in membershipsForTeam(team.id)"
+                  v-for="m in cardMembers(team.id)"
                   :key="m.id"
                   class="flex items-center justify-between gap-1"
                 >
@@ -2377,6 +2421,12 @@
                   </UBadge>
                 </li>
                 <li v-if="!team.memberCount" class="text-gray-500">No members yet</li>
+                <template v-else-if="only3200">
+                  <li v-if="!boardCount3200(team.id)" class="text-red-500">No 3200s</li>
+                  <li class="text-gray-500">
+                    +{{ membershipsForTeam(team.id).length - boardCount3200(team.id) }} others
+                  </li>
+                </template>
               </ul>
             </div>
 
