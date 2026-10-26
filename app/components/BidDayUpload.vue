@@ -184,15 +184,31 @@
       />
     </div>
 
-    <div v-if="open && !showUpload" class="border-t border-gray-200 p-3 dark:border-gray-800">
-      <UTable
+    <div
+      v-if="open && !showUpload"
+      class="border-t border-gray-200 bg-gray-200/70 p-4 dark:border-gray-800 dark:bg-gray-950"
+    >
+      <!-- The file shows as a white sheet of paper in both light and dark mode, so it
+           reads as the document that was uploaded rather than part of the app. -->
+      <div
         v-if="savedFile"
-        :data="savedFile.rows"
-        :columns="fileColumns"
-        sticky
-        class="max-h-96"
-        :ui="{ td: 'whitespace-nowrap py-2', th: 'whitespace-nowrap' }"
-      />
+        class="paper overflow-hidden rounded-md bg-white text-gray-700 shadow-lg ring-1 ring-gray-300 dark:ring-0"
+      >
+        <div class="flex items-center gap-2 border-b border-gray-200 px-4 py-2.5">
+          <UIcon name="i-heroicons-document-text" class="size-5 shrink-0 text-gray-400" />
+          <span class="truncate text-sm font-medium text-gray-900">{{ savedFile.fileName }}</span>
+          <span class="ms-auto shrink-0 text-xs text-gray-500">
+            {{ savedFile.rows.length }} rows · {{ savedFile.columns.length }} columns
+          </span>
+        </div>
+        <UTable
+          :data="savedFile.rows"
+          :columns="fileColumns"
+          sticky
+          class="max-h-96"
+          :ui="{ td: 'whitespace-nowrap py-2', th: 'whitespace-nowrap' }"
+        />
+      </div>
       <p v-else class="text-sm text-gray-500">
         This day's file was uploaded before the app kept bid files, so it can't be shown. Use ↻
         to upload it again if you want to see it here.
@@ -305,3 +321,22 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+  /* Nuxt UI colors the table from these variables, which flip in dark mode. Pin
+     them to their light values on the sheet so the file always looks like paper. */
+  .paper {
+    --ui-bg: white;
+    --ui-bg-muted: var(--ui-color-neutral-50);
+    --ui-bg-elevated: var(--ui-color-neutral-100);
+    --ui-bg-accented: var(--ui-color-neutral-200);
+    --ui-text: var(--ui-color-neutral-700);
+    --ui-text-muted: var(--ui-color-neutral-500);
+    --ui-text-dimmed: var(--ui-color-neutral-400);
+    --ui-text-toned: var(--ui-color-neutral-600);
+    --ui-text-highlighted: var(--ui-color-neutral-900);
+    --ui-border: var(--ui-color-neutral-200);
+    --ui-border-muted: var(--ui-color-neutral-200);
+    --ui-border-accented: var(--ui-color-neutral-300);
+  }
+</style>

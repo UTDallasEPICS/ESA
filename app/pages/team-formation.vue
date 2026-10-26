@@ -2370,7 +2370,22 @@
             @dragend="onBoardDragEnd"
           >
             <div class="min-w-0 space-y-1">
-              <div class="line-clamp-2 font-medium">{{ team.projectName }}</div>
+              <div class="flex items-start justify-between gap-1">
+                <div class="line-clamp-2 font-medium">{{ team.projectName }}</div>
+                <!-- Padlock: red and closed when locked, green and open when not; one click toggles. -->
+                <UButton
+                  v-if="team.memberCount > 0"
+                  :icon="isTeamLocked(team.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
+                  :color="isTeamLocked(team.id) ? 'error' : 'success'"
+                  :aria-label="isTeamLocked(team.id) ? 'Locked. Unlock team' : 'Unlocked. Lock team'"
+                  :title="isTeamLocked(team.id) ? 'Locked. Click to unlock' : 'Unlocked. Click to lock'"
+                  size="xs"
+                  variant="ghost"
+                  class="-me-1.5 -mt-1 shrink-0"
+                  :loading="lockingTeamKey === team.id"
+                  @click.stop="lockFromBoard(team.id, !isTeamLocked(team.id))"
+                />
+              </div>
               <div class="text-xs text-gray-500">
                 <span :class="team.memberCount > config.max_team_size ? 'text-red-500' : ''">
                   {{ team.memberCount }}/{{ config.max_team_size }}
@@ -2430,21 +2445,7 @@
               </ul>
             </div>
 
-            <div v-if="isTeamLocked(team.id)" class="flex items-center justify-between gap-1">
-              <span class="flex items-center gap-1 text-xs font-medium text-red-500">
-                <UIcon name="i-heroicons-lock-closed" />
-                Locked
-              </span>
-              <UButton
-                label="Unlock"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                :loading="lockingTeamKey === team.id"
-                @click="lockFromBoard(team.id, false)"
-              />
-            </div>
-            <div v-else class="flex items-center justify-between gap-1">
+            <div v-if="!isTeamLocked(team.id)" class="flex items-center justify-between gap-1">
               <UButton
                 label="Set aside"
                 icon="i-heroicons-arrow-up"
@@ -2460,17 +2461,6 @@
                 color="neutral"
                 variant="ghost"
                 @click="openImprove(team.id)"
-              />
-              <UButton
-                v-if="team.memberCount > 0"
-                icon="i-heroicons-lock-open"
-                aria-label="Unlocked. Lock team"
-                title="Unlocked. Click to lock"
-                size="xs"
-                color="success"
-                variant="ghost"
-                :loading="lockingTeamKey === team.id"
-                @click="lockFromBoard(team.id, true)"
               />
             </div>
           </div>
