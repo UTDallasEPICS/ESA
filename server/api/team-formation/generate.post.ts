@@ -11,6 +11,7 @@ import type {CPSATConfig} from '#server/services//CPSAT/ortools'
 import {Year, ProjectType, Choice, Project, Class, ProjectMeetingDay, Enrollment, Gender, Season} from '@@/prisma/generated/client'
 import {prisma} from '#server/utils/prisma'
 import {NO_BID_TAG} from '#server/utils/noBid'
+import teamVersionService from '#server/services/teamVersionService'
 
 type MeetingDay = 'WEDNESDAY' | 'THURSDAY'
 
@@ -243,6 +244,9 @@ export default defineEventHandler(async (event) => {
       studentId: m.id,
     }))
   })
+  // Keep the board as it was before this run as a version, so a regenerate can be
+  // undone from the version menu. Does nothing on a first run (no one placed yet).
+  await teamVersionService.saveVersion(semesterId, day, 'Before regenerating')
   await prisma.$transaction([
     prisma.membership.deleteMany({
       where: {teamId: {in: teamsForRun.map((team) => team.id)}, isMentor: false, locked: false},
