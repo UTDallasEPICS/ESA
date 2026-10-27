@@ -12,8 +12,15 @@
 
   // ── Semester & meeting day ───────────────────────────────────────────────────
 
-  const semesterId = ref<string | undefined>()
-  const meetingDay = ref<MeetingDay>('WEDNESDAY')
+  // Where staff are on the page (semester, step, day) is kept in the URL, e.g.
+  // ?semester=…&step=teams&day=thursday, so a refresh reopens the same view. The
+  // initial values are read from it here; see "Keep your place" for the write side.
+  const route = useRoute()
+  const router = useRouter()
+  const queryText = (value: unknown) => (typeof value === 'string' && value ? value : undefined)
+
+  const semesterId = ref<string | undefined>(queryText(route.query.semester))
+  const meetingDay = ref<MeetingDay>(route.query.day === 'thursday' ? 'THURSDAY' : 'WEDNESDAY')
 
   const { semesters, createSemester } = useSemesters()
   const semesterName = computed(() => {
@@ -196,10 +203,13 @@
   // count. Steps 1 and 2 cover both meeting days; Manage Teams (lock 3200s,
   // generate, arrange) works on one day at a time, picked with the "Working on"
   // toggle. Picking a semester jumps ahead (see selectSemester).
-  const activeSection = ref(1)
-  const furthestStep = ref(1)
-
-  const STEP_COUNT = 3
+  const STEP_KEYS = ['semester', 'bids', 'teams'] as const
+  const STEP_COUNT = STEP_KEYS.length
+  const stepFromQuery = semesterId.value
+    ? Math.max(1, STEP_KEYS.indexOf(route.query.step as (typeof STEP_KEYS)[number]) + 1)
+    : 1
+  const activeSection = ref(stepFromQuery)
+  const furthestStep = ref(stepFromQuery)
   const steps = computed(() =>
     [
       { title: 'Semester', icon: 'i-heroicons-calendar' },
@@ -325,6 +335,44 @@
     activeSection.value++
     furthestStep.value = Math.max(furthestStep.value, activeSection.value)
   }
+
+  // ── Keep your place ──────────────────────────────────────────────────────────
+  // Board moves already save as they happen; this writes the view itself back to
+  // the URL (replace, so Back in the browser isn't filled with every click). The
+  // day only matters on Manage Teams, so it's left off elsewhere.
+  watch(
+    [semesterId, activeSection, meetingDay],
+    () => {
+      const query = { ...route.query }
+      delete query.semester
+      delete query.step
+      delete query.day
+      if (semesterId.value) {
+        query.semester = semesterId.value
+        query.step = STEP_KEYS[activeSection.value - 1]
+        if (activeSection.value === 3) query.day = meetingDay.value.toLowerCase()
+      }
+      const same = ['semester', 'step', 'day'].every((k) => query[k] === route.query[k])
+      if (!same) router.replace({ query })
+    },
+    { immediate: true }
+  )
+
+  // A link to a semester that's gone (deleted, or another database) falls back to
+  // the semester table instead of an empty page. Checked once mounted, so the
+  // server's render and the browser's first render still match.
+  onMounted(() =>
+    watch(
+      semesters,
+      (list) => {
+        if (list?.length && semesterId.value && !list.some((s) => s.id === semesterId.value)) {
+          semesterId.value = undefined
+          activeSection.value = furthestStep.value = 1
+        }
+      },
+      { immediate: true }
+    )
+  )
 
   // ── 3200 lock-in ──────────────────────────────────────────────────────────────
 
@@ -734,9 +782,12 @@
   const versionBusy = ref(false)
   const versionError = ref<string | null>(null)
 
+  // A refresh can open straight on a semester (see "Keep your place"), so this first
+  // runs during server rendering — useRequestFetch passes the login cookie along.
+  const requestFetch = useRequestFetch()
   async function refreshVersions() {
     if (!semesterId.value) return (versionList.value = null)
-    versionList.value = await $fetch<TeamVersionList>('/api/team-formation/versions', {
+    versionList.value = await requestFetch<TeamVersionList>('/api/team-formation/versions', {
       query: { semesterId: semesterId.value, meetingDay: meetingDay.value },
     })
   }
