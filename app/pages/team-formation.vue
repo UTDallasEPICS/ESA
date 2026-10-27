@@ -885,11 +885,29 @@
   const workbenchTeams = computed(() =>
     workbenchTeamIds.value.flatMap((id) => teamsForDay.value.filter((t) => t.id === id))
   )
-  const gridTeams = computed(() =>
-    teamsForDay.value
+  // Spotlight: with one student clicked, the teams they ranked move to the front
+  // of All teams in their order (1st choice first) and the rest fade back.
+  const spotlightRanks = computed(() => {
+    if (comparePicks.value.length !== 1) return null
+    const student = studentById.value.get(comparePicks.value[0]!.studentId)
+    return new Map(bidChoicesFor(student).map((c) => [c.projectId, c.rank]))
+  })
+  const gridTeams = computed(() => {
+    const rankOf = (projectId: string) => spotlightRanks.value?.get(projectId) ?? Infinity
+    return teamsForDay.value
       .filter((t) => !onWorkbench(t.id))
-      .sort((a, b) => Number(isTeamLocked(a.id)) - Number(isTeamLocked(b.id)))
-  )
+      .sort(
+        (a, b) =>
+          rankOf(a.projectId) - rankOf(b.projectId) ||
+          Number(isTeamLocked(a.id)) - Number(isTeamLocked(b.id))
+      )
+  })
+
+  // A pill in the preferences bar brings that choice's team up to the Workbench.
+  function bringUpProject(projectId: string) {
+    const team = teamsForDay.value.find((t) => t.projectId === projectId)
+    if (team) setAside(team.id)
+  }
 
   function setAside(teamId: string) {
     if (isTeamLocked(teamId) || onWorkbench(teamId)) return
@@ -1628,9 +1646,10 @@
             'flex max-w-52 items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-sm',
             choice.current
               ? 'border-primary-500 bg-primary-500/10'
-              : 'border-gray-200 dark:border-gray-700',
+              : 'cursor-pointer border-gray-200 hover:border-primary-400 dark:border-gray-700',
           ]"
-          :title="choice.current ? `${choice.name} (on this team now)` : choice.name"
+          :title="choice.current ? `${choice.name} (on this team now)` : `${choice.name}: click to bring up to the Workbench`"
+          @click="!choice.current && bringUpProject(choice.projectId)"
         >
           <span
             :class="[
@@ -2585,7 +2604,11 @@
         <p v-if="!gridTeams.length" class="text-sm text-gray-500">
           Every team is on the Workbench.
         </p>
-        <div class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <TransitionGroup
+          tag="div"
+          move-class="transition-transform duration-300"
+          class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+        >
           <div
             v-for="team in gridTeams"
             :key="team.id"
@@ -2597,6 +2620,11 @@
                 ? 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60'
                 : 'cursor-pointer border-gray-200 bg-white hover:border-primary-400 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-primary-500',
               boardDrag?.kind === 'team' && boardDrag.teamId === team.id ? 'opacity-40' : '',
+              spotlightRanks
+                ? spotlightRanks.has(team.projectId)
+                  ? 'ring-2 ring-primary-500'
+                  : 'opacity-40'
+                : '',
             ]"
             :title="isTeamLocked(team.id) ? undefined : 'Click to bring up to the Workbench'"
             @dragstart="onBoardDragStart($event, { kind: 'team', teamId: team.id })"
@@ -2605,7 +2633,17 @@
           >
             <div class="min-w-0 space-y-1">
               <div class="flex items-start justify-between gap-1">
-                <div class="line-clamp-2 font-medium">{{ team.projectName }}</div>
+                <div class="min-w-0">
+                  <UBadge
+                    v-if="spotlightRanks?.has(team.projectId)"
+                    :label="`${rankText(spotlightRanks.get(team.projectId))} choice`"
+                    color="primary"
+                    variant="solid"
+                    size="sm"
+                    class="mb-1"
+                  />
+                  <div class="line-clamp-2 font-medium">{{ team.projectName }}</div>
+                </div>
                 <!-- Padlock: red and closed when locked, green and open when not; one click toggles. -->
                 <UButton
                   v-if="team.memberCount > 0"
@@ -2692,7 +2730,7 @@
               />
             </div>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
     </section>
 
