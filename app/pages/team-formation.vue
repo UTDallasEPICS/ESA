@@ -2,7 +2,7 @@
   import { downloadCsv } from '~/utils/csvExport'
   import { formatSemester, semesterOrder, titleCase } from '~/utils/labels'
   import CreateSemesterModal from '~/components/modals/CreateSemesterModal.vue'
-  import type { TableColumn } from '@nuxt/ui'
+  import type { CommandPaletteGroup, CommandPaletteItem, TableColumn } from '@nuxt/ui'
   import { MEETING_DAY_OPTIONS } from '~/utils/options'
   import type { ProjectRead } from '#server/services/projectService'
   import type { StudentRead } from '#server/services/studentService'
@@ -931,6 +931,116 @@
       )
   })
 
+  // ── Search (⌘K) ─────────────────────────────────────────────────────────────
+  // A quick finder like Obsidian's: fuzzy-match any team or student on this day.
+  // Picking a team brings it up to the Workbench; picking a student also selects
+  // them, so their preferences bar and spotlight show at once. Locked teams can't
+  // go on the Workbench, so their card is scrolled to and flashed instead.
+  const searchOpen = ref(false)
+  const workbenchEl = ref<HTMLElement | null>(null)
+  const flashTeamId = ref<string | null>(null)
+
+  defineShortcuts({
+    meta_k: () => {
+      if (activeSection.value === 3 && dayHasStudents.value) searchOpen.value = !searchOpen.value
+    },
+  })
+
+  function showTeam(teamId: string) {
+    searchOpen.value = false
+    if (isTeamLocked(teamId)) {
+      flashTeamId.value = teamId
+      nextTick(() =>
+        document
+          .getElementById(`team-card-${teamId}`)
+          ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      )
+      setTimeout(() => flashTeamId.value === teamId && (flashTeamId.value = null), 1600)
+      return
+    }
+    setAside(teamId)
+    nextTick(() => workbenchEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+  }
+
+  function showStudent(studentId: string, teamId: string) {
+    showTeam(teamId)
+    if (!isTeamLocked(teamId)) comparePicks.value = [{ studentId, teamId }]
+  }
+
+  // Obsidian-style matching: the typed letters must appear in order, gaps allowed
+  // ("lthr" finds "Leather"). Hits at the start of a word, and runs of letters in a
+  // row, score higher, so the most likely result comes first. Null means no match.
+  const searchTerm = ref('')
+  watch(searchOpen, (open) => open && (searchTerm.value = ''))
+  function fuzzyScore(query: string, text: string): number | null {
+    const q = query.toLowerCase().replace(/\s+/g, '')
+    const t = text.toLowerCase()
+    let from = 0
+    let prev = -2
+    let score = 0
+    for (const ch of q) {
+      const i = t.indexOf(ch, from)
+      if (i < 0) return null
+      score += 1
+      if (i === prev + 1) score += 3
+      if (i === 0) score += 5
+      else if (/[\s\-(.]/.test(t[i - 1]!)) score += 2
+      prev = i
+      from = i + 1
+    }
+    return score - t.length * 0.01
+  }
+
+  type SearchItem = CommandPaletteItem & { keys: string[] }
+  function topMatches(items: SearchItem[], limit: number) {
+    const query = searchTerm.value.trim()
+    if (!query) return { items: items.slice(0, limit), best: 0 }
+    const ranked = items
+      .map((item) => ({
+        item,
+        score: Math.max(...item.keys.map((k) => fuzzyScore(query, k) ?? -Infinity)),
+      }))
+      .filter((r) => r.score > -Infinity)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+    return { items: ranked.map((r) => r.item), best: ranked[0]?.score ?? -Infinity }
+  }
+
+  const searchTeams = computed<SearchItem[]>(() =>
+    teamsForDay.value.map((t) => ({
+        label: t.projectName,
+        suffix: `${membershipsForTeam(t.id).length} students`,
+        icon: isTeamLocked(t.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-squares-2x2',
+        keys: [t.projectName],
+        onSelect: () => showTeam(t.id),
+      }))
+  )
+  const searchStudents = computed<SearchItem[]>(() =>
+    teamsForDay.value.flatMap((t) =>
+      membershipsForTeam(t.id).map((m) => ({
+        label: `${m.Student.firstName} ${m.Student.lastName}`,
+        suffix: t.projectName,
+        icon: 'i-heroicons-user',
+        keys: [`${m.Student.firstName} ${m.Student.lastName}`, m.Student.netID],
+        onSelect: () => showStudent(m.studentId, t.id),
+      }))
+    )
+  )
+  // The section holding the best match goes first, so Enter picks the likeliest
+  // result. ignoreFilter: the palette's own matching is off; topMatches does it.
+  const searchGroups = computed<CommandPaletteGroup<CommandPaletteItem>[]>(() => {
+    const teams = topMatches(searchTeams.value, 6)
+    const students = searchTerm.value.trim()
+      ? topMatches(searchStudents.value, 8)
+      : { items: [], best: -Infinity }
+    return [
+      { id: 'teams', label: 'Teams', ignoreFilter: true, ...teams },
+      { id: 'students', label: 'Students', ignoreFilter: true, ...students },
+    ]
+      .filter((g) => g.items.length)
+      .sort((a, b) => b.best - a.best)
+  })
+
   // A pill in the preferences bar brings that choice's team up to the Workbench.
   function bringUpProject(projectId: string) {
     const team = teamsForDay.value.find((t) => t.projectId === projectId)
@@ -1629,6 +1739,20 @@
       <div class="ms-auto flex items-center gap-2">
         <UButton
           v-if="dayHasStudents"
+          label="Search"
+          icon="i-heroicons-magnifying-glass"
+          color="neutral"
+          variant="soft"
+          title="Find a team or student"
+          @click="searchOpen = true"
+        >
+          <template #trailing>
+            <UKbd value="meta" size="sm" />
+            <UKbd value="K" size="sm" class="-ms-1" />
+          </template>
+        </UButton>
+        <UButton
+          v-if="dayHasStudents"
           label="3200"
           :icon="only3200 ? 'i-heroicons-eye' : 'i-heroicons-eye-slash'"
           :color="only3200 ? 'primary' : 'neutral'"
@@ -1816,6 +1940,19 @@
         </template>
       </UCollapsible>
     </div>
+
+    <UModal v-model:open="searchOpen" :ui="{ content: 'sm:max-w-xl' }">
+      <template #content>
+        <UCommandPalette
+          v-model:search-term="searchTerm"
+          :groups="searchGroups"
+          placeholder="Find a team or student…"
+          close
+          class="h-96"
+          @update:open="searchOpen = $event"
+        />
+      </template>
+    </UModal>
 
     <UModal
       v-model:open="settingsOpen"
@@ -2342,8 +2479,9 @@
       />
 
       <div
+        ref="workbenchEl"
         :class="[
-          'space-y-3 rounded-lg border p-3 transition-colors',
+          'scroll-mt-24 space-y-3 rounded-lg border p-3 transition-colors',
           boardDropTarget === 'workbench'
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40'
             : canDropTeamOn('workbench')
@@ -2660,6 +2798,7 @@
         >
           <div
             v-for="team in gridTeams"
+            :id="`team-card-${team.id}`"
             :key="team.id"
             :draggable="!isTeamLocked(team.id)"
             :class="[
@@ -2674,6 +2813,7 @@
                   ? 'ring-2 ring-primary-500'
                   : 'opacity-40'
                 : '',
+              flashTeamId === team.id ? 'animate-pulse ring-2 ring-primary-500' : '',
             ]"
             :title="isTeamLocked(team.id) ? undefined : 'Click to bring up to the Workbench'"
             @dragstart="onBoardDragStart($event, { kind: 'team', teamId: team.id })"
