@@ -435,10 +435,6 @@
     return isReturning ? `This is their returning project, and ${rankPart}` : `This is ${rankPart}`
   }
 
-  // Locking 3200s ahead of time is optional, so the student list and suggestions
-  // stay folded away until staff ask for them; the min/max range stays visible
-  // because it also drives Generate Teams.
-  const show3200Locking = ref(false)
   const locked3200Count = computed(
     () => students3200ForDay.value.filter((s) => lockedMembershipFor(s)).length
   )
@@ -1755,215 +1751,282 @@
     <UModal
       v-model:open="settingsOpen"
       title="Team settings"
-      description="Regenerate re-solves every student who isn't locked. Locked students stay where they are, and the board is saved as a version first."
-      :ui="{ content: 'sm:max-w-3xl' }"
+      description="Choose how teams are built. Changes take effect when you regenerate."
+      :ui="{ content: 'sm:max-w-2xl', footer: 'justify-between gap-3' }"
     >
       <template #body>
-        <section class="space-y-4">
-          <h3 class="text-base font-semibold">Team size</h3>
-
-          <div class="grid grid-cols-2 gap-4">
-            <UFormField label="Min Team Size">
-              <UInputNumber v-model="config.min_team_size" :min="1" class="w-full" />
-            </UFormField>
-            <UFormField label="Max Team Size">
-              <UInputNumber v-model="config.max_team_size" :min="config.min_team_size" class="w-full" />
-            </UFormField>
-          </div>
-
-          <div class="grid grid-cols-2 gap-2">
-            <UCheckbox
-              v-model="config.prioritize_returning_students"
-              label="Prioritize returning students"
-            />
-            <UCheckbox
-              v-model="config.prioritize_3200_first_choice"
-              label="Prioritize 3200 first choice"
-            />
-            <UCheckbox v-model="config.balance_gender" label="Balance gender" />
-          </div>
-        </section>
-
-        <section class="mt-6 space-y-4 border-t border-gray-200 pt-6 dark:border-gray-800">
-          <h3 class="text-base font-semibold">3200 students</h3>
-
-          <p class="text-sm text-gray-500">
-            Optional. Lock specific 3200 students onto a team; Regenerate keeps locked students
-            where they are and places everyone else.
-          </p>
-
-          <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
-
-          <div v-if="semesterId" class="space-y-4">
-            <UCheckbox
-              :model-value="minUpperclassPerProject >= 1"
-              label="Force at least one CS 3200 student per team"
-              @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
-            />
-            <UFormField label="Max 3200 per Project">
-              <UInputNumber v-model="maxUpperclassPerProject" :min="minUpperclassPerProject || 1" class="w-full" />
-            </UFormField>
-          </div>
-          <p v-if="semesterId" class="text-sm text-gray-500">
-            Max stops one popular project absorbing all the
-            3200s. The checkbox is on by default (every project gets at least one 3200); turn it
-            off if there aren't enough 3200 students to go around.
-          </p>
-
-          <div
-            v-if="semesterId"
-            class="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-gray-200 p-3 dark:border-gray-800"
-          >
-            <p class="text-sm">
-              {{ students3200ForDay.length }} 3200 student(s) this day
-              <span class="text-gray-500">· {{ locked3200Count }} locked</span>
-            </p>
-            <UButton
-              :label="show3200Locking ? 'Hide 3200 students' : 'Show 3200 students'"
-              :icon="show3200Locking ? 'i-heroicons-chevron-up' : 'i-heroicons-chevron-down'"
-              size="xs"
-              color="neutral"
-              variant="soft"
-              @click="show3200Locking = !show3200Locking"
-            />
-          </div>
-
-          <template v-if="semesterId && show3200Locking">
-          <div class="flex flex-wrap items-end gap-2">
-            <UButton
-              label="Suggest Placements"
-              icon="i-heroicons-light-bulb"
-              color="neutral"
-              variant="soft"
-              :loading="suggesting"
-              @click="suggestPlacements"
-            />
-            <UButton
-              v-if="Object.keys(suggestions).length"
-              label="Lock All Suggested"
-              icon="i-heroicons-lock-closed"
-              :loading="lockingAllSuggested"
-              @click="lockAllSuggested"
-            />
-            <div class="ml-auto flex gap-2">
-              <UButton
-                label="Lock all"
-                icon="i-heroicons-lock-closed"
-                color="neutral"
-                variant="soft"
-                :disabled="!lockAllTargets.length || bulkLocking"
-                :loading="bulkLocking"
-                @click="lockAll3200"
-              />
-              <UButton
-                label="Unlock all"
-                icon="i-heroicons-lock-open"
-                color="neutral"
-                variant="soft"
-                :disabled="!locked3200Count || bulkLocking"
-                :loading="bulkLocking"
-                @click="unlockAll3200"
-              />
-            </div>
-          </div>
-          <p class="text-sm text-gray-500">
-            "Suggest Placements" runs the algorithm on just the unlocked 3200 students,
-            guaranteeing each one their 1st or 2nd choice whenever possible, and pre-fills
-            the team below with a reason. Review it, then lock individually or all at once.
-          </p>
-
-          <UAlert
-            v-if="suggestError"
-            color="error"
-            variant="subtle"
-            title="Could not compute suggestions"
-            :description="suggestError"
-          />
-          <UAlert
-            v-if="usedFallbackThirdChoice"
-            color="warning"
-            variant="subtle"
-            title="Some students required their 3rd choice"
-            description="Capacity didn't allow 1st/2nd choice for everyone. Check which students show a 3rd-choice reason below before locking."
-          />
-
-          <UAlert
-            v-if="lockError"
-            color="error"
-            variant="subtle"
-            title="Lock/unlock failed"
-            :description="lockError"
-          />
-
-          <p
-            v-else-if="semesterId && !students3200ForDay.length"
-            class="text-sm text-gray-500"
-          >
-            No 3200 students enrolled for this semester/day.
-          </p>
-
-          <ul v-else-if="semesterId" class="space-y-2">
-            <li
-              v-for="student in students3200ForDay"
-              :key="student.id"
-              class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 text-sm dark:border-gray-800"
-            >
-              <div>
-                <div class="font-medium">
-                  {{ student.firstName }} {{ student.lastName }} ({{ student.netID }})
-                </div>
-                <div v-if="!lockedMembershipFor(student) && selectionLabel(student)" class="text-primary-500">
-                  {{ selectionLabel(student) }}
-                </div>
+        <UTabs
+          :items="[
+            { label: 'Rules', icon: 'i-heroicons-adjustments-horizontal', slot: 'rules' },
+            {
+              label: `Lock 3200s (${students3200ForDay.length})`,
+              icon: 'i-heroicons-lock-closed',
+              slot: 'lock3200',
+            },
+          ]"
+          class="w-full"
+          :ui="{ content: 'pt-4' }"
+        >
+          <template #rules>
+            <div class="space-y-6">
+              <section class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Team size</h3>
                 <div
-                  v-else-if="!lockedMembershipFor(student) && noChoiceStudentIds.has(student.id)"
-                  class="text-amber-500"
+                  class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-800"
                 >
-                  No bid submitted. Needs manual placement.
+                  <span>Each team has</span>
+                  <UInputNumber
+                    v-model="config.min_team_size"
+                    :min="1"
+                    size="sm"
+                    class="w-28"
+                    aria-label="Smallest team size"
+                  />
+                  <span>to</span>
+                  <UInputNumber
+                    v-model="config.max_team_size"
+                    :min="config.min_team_size"
+                    size="sm"
+                    class="w-28"
+                    aria-label="Largest team size"
+                  />
+                  <span>students.</span>
                 </div>
+              </section>
+
+              <section class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  3200 students
+                </h3>
+                <div
+                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
+                >
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="text-sm font-medium">Every team gets at least one 3200</p>
+                      <p class="text-xs text-gray-500">
+                        Turn off if there aren't enough 3200 students to go around.
+                      </p>
+                    </div>
+                    <USwitch
+                      :model-value="minUpperclassPerProject >= 1"
+                      aria-label="Every team gets at least one 3200"
+                      @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
+                    />
+                  </div>
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="text-sm font-medium">Most 3200s on one team</p>
+                      <p class="text-xs text-gray-500">
+                        Stops one popular project from taking all the 3200s.
+                      </p>
+                    </div>
+                    <UInputNumber
+                      v-model="maxUpperclassPerProject"
+                      :min="minUpperclassPerProject || 1"
+                      size="sm"
+                      class="w-28 shrink-0"
+                      aria-label="Most 3200s on one team"
+                    />
+                  </div>
+                </div>
+              </section>
+
+              <section class="space-y-2">
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Who gets priority
+                </h3>
+                <div
+                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
+                >
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="text-sm font-medium">Returning students</p>
+                      <p class="text-xs text-gray-500">
+                        Students who worked on a project before go back to it.
+                      </p>
+                    </div>
+                    <USwitch
+                      v-model="config.prioritize_returning_students"
+                      aria-label="Prioritize returning students"
+                    />
+                  </div>
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="text-sm font-medium">3200 students' 1st choice</p>
+                      <p class="text-xs text-gray-500">
+                        3200 students are placed on their 1st choice before others.
+                      </p>
+                    </div>
+                    <USwitch
+                      v-model="config.prioritize_3200_first_choice"
+                      aria-label="Prioritize 3200 first choice"
+                    />
+                  </div>
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="text-sm font-medium">Balance gender</p>
+                      <p class="text-xs text-gray-500">Spread genders evenly across teams.</p>
+                    </div>
+                    <USwitch v-model="config.balance_gender" aria-label="Balance gender" />
+                  </div>
+                </div>
+              </section>
+            </div>
+          </template>
+
+          <template #lock3200>
+            <div class="space-y-4">
+              <p class="text-sm text-gray-500">
+                Lock a 3200 student onto a team to keep them there when you regenerate.
+                Suggest fills in each unlocked student's best team (1st or 2nd choice when
+                possible) with a reason, for you to review before locking.
+              </p>
+
+              <div
+                class="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50"
+              >
+                <p class="me-auto text-sm">
+                  <span class="font-semibold">{{ students3200ForDay.length }}</span> students
+                  <span class="text-gray-500">· {{ locked3200Count }} locked</span>
+                </p>
+                <UButton
+                  label="Suggest"
+                  icon="i-heroicons-light-bulb"
+                  size="sm"
+                  color="neutral"
+                  variant="outline"
+                  :loading="suggesting"
+                  @click="suggestPlacements"
+                />
+                <UButton
+                  v-if="Object.keys(suggestions).length"
+                  label="Lock suggested"
+                  icon="i-heroicons-lock-closed"
+                  size="sm"
+                  :loading="lockingAllSuggested"
+                  @click="lockAllSuggested"
+                />
+                <UButton
+                  label="Lock all"
+                  icon="i-heroicons-lock-closed"
+                  size="sm"
+                  color="neutral"
+                  variant="outline"
+                  :disabled="!lockAllTargets.length || bulkLocking"
+                  :loading="bulkLocking"
+                  @click="lockAll3200"
+                />
+                <UButton
+                  label="Unlock all"
+                  icon="i-heroicons-lock-open"
+                  size="sm"
+                  color="neutral"
+                  variant="outline"
+                  :disabled="!locked3200Count || bulkLocking"
+                  :loading="bulkLocking"
+                  @click="unlockAll3200"
+                />
               </div>
 
-              <div v-if="lockedMembershipFor(student)" class="flex items-center gap-2">
-                <UBadge color="error" variant="subtle" icon="i-heroicons-lock-closed">
-                  Locked: {{ lockedMembershipFor(student)!.Team.Project.name }}
-                </UBadge>
-                <UButton
-                  label="Unlock"
-                  size="xs"
-                  color="neutral"
-                  variant="soft"
-                  :loading="lockingKey === lockedMembershipFor(student)!.id"
-                  @click="unlockMembership(lockedMembershipFor(student)!.id)"
-                />
-              </div>
-              <div v-else class="flex items-center gap-2">
-                <USelect
-                  v-model="lockSelections[student.id]"
-                  :items="teamOptionsFor(student)"
-                  placeholder="Choose team"
-                  class="w-64"
-                />
-                <UButton
-                  label="Lock"
-                  size="xs"
-                  :disabled="!lockSelections[student.id]"
-                  :loading="lockingKey === student.id"
-                  @click="lockStudent(student.id)"
-                />
-              </div>
-            </li>
-          </ul>
+              <UAlert
+                v-if="suggestError"
+                color="error"
+                variant="subtle"
+                title="Could not compute suggestions"
+                :description="suggestError"
+              />
+              <UAlert
+                v-if="usedFallbackThirdChoice"
+                color="warning"
+                variant="subtle"
+                title="Some students required their 3rd choice"
+                description="Capacity didn't allow 1st/2nd choice for everyone. Check which students show a 3rd-choice reason below before locking."
+              />
+              <UAlert
+                v-if="lockError"
+                color="error"
+                variant="subtle"
+                title="Lock/unlock failed"
+                :description="lockError"
+              />
+
+              <p v-if="!students3200ForDay.length" class="text-sm text-gray-500">
+                No 3200 students enrolled for this semester/day.
+              </p>
+              <ul
+                v-else
+                class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
+              >
+                <li
+                  v-for="student in students3200ForDay"
+                  :key="student.id"
+                  class="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 text-sm"
+                >
+                  <div>
+                    <div class="font-medium">
+                      {{ student.firstName }} {{ student.lastName }}
+                      <span class="font-normal text-gray-500">· {{ student.netID }}</span>
+                    </div>
+                    <div v-if="!lockedMembershipFor(student) && selectionLabel(student)" class="text-xs text-primary-500">
+                      {{ selectionLabel(student) }}
+                    </div>
+                    <div
+                      v-else-if="!lockedMembershipFor(student) && noChoiceStudentIds.has(student.id)"
+                      class="text-xs text-amber-500"
+                    >
+                      No bid submitted. Needs manual placement.
+                    </div>
+                  </div>
+
+                  <div v-if="lockedMembershipFor(student)" class="flex items-center gap-2">
+                    <UBadge color="error" variant="subtle" icon="i-heroicons-lock-closed">
+                      Locked: {{ lockedMembershipFor(student)!.Team.Project.name }}
+                    </UBadge>
+                    <UButton
+                      label="Unlock"
+                      size="xs"
+                      color="neutral"
+                      variant="soft"
+                      :loading="lockingKey === lockedMembershipFor(student)!.id"
+                      @click="unlockMembership(lockedMembershipFor(student)!.id)"
+                    />
+                  </div>
+                  <div v-else class="flex items-center gap-2">
+                    <USelect
+                      v-model="lockSelections[student.id]"
+                      :items="teamOptionsFor(student)"
+                      placeholder="Choose team"
+                      class="w-56"
+                    />
+                    <UButton
+                      label="Lock"
+                      size="xs"
+                      :disabled="!lockSelections[student.id]"
+                      :loading="lockingKey === student.id"
+                      @click="lockStudent(student.id)"
+                    />
+                  </div>
+                </li>
+              </ul>
+            </div>
           </template>
-        </section>
+        </UTabs>
       </template>
       <template #footer>
-        <UButton
-          :label="teamsHaveMembers ? 'Regenerate' : 'Generate'"
-          icon="i-heroicons-arrow-path"
-          :loading="generating"
-          :disabled="!canGenerate || generating"
-          @click="regenerate"
-        />
+        <p class="text-xs text-gray-500">
+          Locked students stay put. The board is saved as a version first.
+        </p>
+        <div class="flex shrink-0 gap-2">
+          <UButton label="Close" color="neutral" variant="ghost" @click="settingsOpen = false" />
+          <UButton
+            :label="teamsHaveMembers ? 'Regenerate' : 'Generate'"
+            icon="i-heroicons-arrow-path"
+            :loading="generating"
+            :disabled="!canGenerate || generating"
+            @click="regenerate"
+          />
+        </div>
       </template>
     </UModal>
 
