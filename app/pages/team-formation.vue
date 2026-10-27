@@ -1798,37 +1798,31 @@
                 <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                   3200 students
                 </h3>
-                <div
-                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
-                >
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="text-sm font-medium">Every team gets at least one 3200</p>
-                      <p class="text-xs text-gray-500">
-                        Turn off if there aren't enough 3200 students to go around.
-                      </p>
-                    </div>
-                    <USwitch
-                      :model-value="minUpperclassPerProject >= 1"
-                      aria-label="Every team gets at least one 3200"
-                      @update:model-value="minUpperclassPerProject = $event ? 1 : 0"
+                <div class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-800">
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span>Each team has</span>
+                    <UInputNumber
+                      v-model="minUpperclassPerProject"
+                      :min="0"
+                      :max="maxUpperclassPerProject"
+                      size="sm"
+                      class="w-28"
+                      aria-label="Fewest 3200s on one team"
                     />
-                  </div>
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="text-sm font-medium">Most 3200s on one team</p>
-                      <p class="text-xs text-gray-500">
-                        Stops one popular project from taking all the 3200s.
-                      </p>
-                    </div>
+                    <span>to</span>
                     <UInputNumber
                       v-model="maxUpperclassPerProject"
-                      :min="minUpperclassPerProject || 1"
+                      :min="Math.max(1, minUpperclassPerProject)"
                       size="sm"
-                      class="w-28 shrink-0"
+                      class="w-28"
                       aria-label="Most 3200s on one team"
                     />
+                    <span>3200 students.</span>
                   </div>
+                  <p class="text-xs text-gray-500">
+                    The top number stops one popular project from taking all the 3200s. Set
+                    the first to 0 if there aren't enough 3200 students to go around.
+                  </p>
                 </div>
               </section>
 
