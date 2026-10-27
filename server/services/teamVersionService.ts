@@ -12,6 +12,8 @@ export interface TeamVersionRead {
   note: string
   createdAt: Date
   studentCount: number
+  /** True when the board is exactly this version right now. */
+  matchesBoard: boolean
 }
 
 export interface TeamVersionList {
@@ -47,6 +49,7 @@ const listVersions = async (
     where: { semesterId, meetingDay },
     orderBy: { number: 'desc' },
   })
+  const board = JSON.stringify(await currentPlacements(await teamIdsFor(semesterId, meetingDay)))
   return {
     versions: rows.map((v) => ({
       id: v.id,
@@ -54,6 +57,7 @@ const listVersions = async (
       note: v.note,
       createdAt: v.createdAt,
       studentCount: (JSON.parse(v.memberships) as Placement[]).length,
+      matchesBoard: v.memberships === board,
     })),
     working: (rows[0]?.number ?? 0) + 1,
   }
@@ -84,7 +88,14 @@ const saveVersion = async (
     note: v.note,
     createdAt: v.createdAt,
     studentCount: placements.length,
+    matchesBoard: true,
   }
+}
+
+// Staff can describe a version in their own words ("Mentor approved"); this
+// replaces the automatic note such as "Saved" or "Before regenerating".
+const describeVersion = async (id: string, note: string): Promise<void> => {
+  await prisma.teamVersion.update({ where: { id }, data: { note } })
 }
 
 // Puts a saved version back on the board, saving the board first. Teams or
@@ -114,4 +125,4 @@ const restoreVersion = async (id: string): Promise<void> => {
   ])
 }
 
-export default { listVersions, saveVersion, restoreVersion }
+export default { listVersions, saveVersion, restoreVersion, describeVersion }
