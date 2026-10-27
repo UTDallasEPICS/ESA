@@ -1201,10 +1201,28 @@
       .sort((a, b) => a.rank - b.rank)
       .map((c) => ({
         rank: c.rank,
+        projectId: c.projectId,
         name: allProjects.value.find((p) => p.id === c.projectId)?.name ?? 'Unknown project',
         inPlay: projectIds.has(c.projectId),
       }))
   }
+
+  // "Their Pref." from the whiteboard sketch: with exactly one student clicked, their
+  // top four choices sit in a bar pinned under the toolbar, the one they're on now
+  // marked, so their wishes stay in view while scrolling the board.
+  const prefBar = computed(() => {
+    if (comparePicks.value.length !== 1) return null
+    const pick = comparePicks.value[0]!
+    const student = studentById.value.get(pick.studentId)
+    if (!student) return null
+    const currentProjectId = teamById(pick.teamId)?.projectId
+    return {
+      name: `${student.firstName} ${student.lastName}`,
+      choices: compareChoices(pick.studentId, workbenchTeamIds.value)
+        .slice(0, 4)
+        .map((c) => ({ ...c, current: c.projectId === currentProjectId })),
+    }
+  })
 
   async function confirmCompareMove(toTeamId: string) {
     const pick = comparePicks.value[0]
@@ -1585,6 +1603,51 @@
           @click="settingsOpen = true"
         />
       </div>
+    </div>
+
+    <div
+      v-if="activeSection === 3 && prefBar"
+      class="sticky top-0 z-20 -mx-2 flex flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-primary-500/40 bg-white/90 px-4 py-3 shadow-sm backdrop-blur dark:bg-gray-900/90"
+    >
+      <div class="min-w-0">
+        <p class="text-xs font-medium uppercase tracking-wide text-gray-500">Their preferences</p>
+        <p class="truncate font-semibold">{{ prefBar.name }}</p>
+      </div>
+      <ol v-if="prefBar.choices.length" class="flex flex-wrap items-center gap-2">
+        <li
+          v-for="choice in prefBar.choices"
+          :key="choice.rank"
+          :class="[
+            'flex max-w-52 items-center gap-2 rounded-full border py-1 ps-1 pe-3 text-sm',
+            choice.current
+              ? 'border-primary-500 bg-primary-500/10'
+              : 'border-gray-200 dark:border-gray-700',
+          ]"
+          :title="choice.current ? `${choice.name} (on this team now)` : choice.name"
+        >
+          <span
+            :class="[
+              'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
+              choice.current
+                ? 'bg-primary-500 text-white'
+                : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-200',
+            ]"
+          >
+            {{ choice.rank }}
+          </span>
+          <span class="truncate">{{ choice.name }}</span>
+        </li>
+      </ol>
+      <p v-else class="text-sm text-amber-500">No ranked choices (no bid).</p>
+      <UButton
+        icon="i-heroicons-x-mark"
+        aria-label="Clear selected student"
+        size="xs"
+        color="neutral"
+        variant="ghost"
+        class="ms-auto"
+        @click="comparePicks = []"
+      />
     </div>
 
     <div
