@@ -1116,6 +1116,29 @@
     if (locked && !teamLockError.value) putBack(teamId)
   }
 
+  // One student's padlock on the Workbench, for anyone, 3200 or not. Generate Teams
+  // leaves a locked student where they are. Both ways go through the lock route
+  // with their current team, so unlocking keeps them on it (the DELETE route would
+  // take them off). Locking the last open student locks the whole team, which then
+  // goes back to the grid like the team Lock button.
+  const lockingStudentKey = ref<string | null>(null)
+  async function toggleStudentLock(studentId: string, teamId: string, locked: boolean) {
+    lockingStudentKey.value = studentId
+    teamLockError.value = null
+    try {
+      await $fetch('/api/team-formation/lock', {
+        method: 'POST',
+        body: { teamId, studentId, locked, replaceLocked: true },
+      })
+      await Promise.all([refreshProjectsForSemester(), refreshStudentsForSemester()])
+      if (isTeamLocked(teamId)) putBack(teamId)
+    } catch (e: any) {
+      teamLockError.value = e?.data?.message ?? e?.message ?? 'Failed to update student lock.'
+    } finally {
+      lockingStudentKey.value = null
+    }
+  }
+
   const studentById = computed(() => new Map(studentsForSemester.value.map((s) => [s.id, s])))
 
   function boardRank(studentId: string, projectId: string) {
@@ -2556,7 +2579,7 @@
           <h3 class="flex items-center gap-1.5 font-medium">
             Workbench
             <span class="font-normal text-gray-500">({{ workbenchTeams.length }})</span>
-            <InfoTip text="Teams you're working on, side by side. × puts a team back." />
+            <InfoTip text="Teams you're working on, side by side. × puts a team back. A student's padlock keeps them on their team when you regenerate." />
           </h3>
           <UButton
             v-if="workbenchTeams.length"
@@ -2792,7 +2815,6 @@
               >
                 <div class="flex items-center justify-between gap-2">
                   <span class="flex min-w-0 flex-wrap items-center gap-x-1">
-                    <UIcon v-if="m.locked" name="i-heroicons-lock-closed" class="text-red-500" />
                     <span>{{ m.Student.firstName }} {{ m.Student.lastName }}</span>
                     <span class="text-xs text-gray-500">· {{ majorOf(m.studentId) }}</span>
                     <UBadge v-if="boardIs3200(m.studentId)" color="neutral" variant="subtle" size="sm">
@@ -2821,6 +2843,16 @@
                         {{ rankText(boardRank(m.studentId, otherWorkbenchTeam(team.id)!.projectId)) }}
                       </UBadge>
                     </template>
+                    <UButton
+                      :icon="m.locked ? 'i-heroicons-lock-closed' : 'i-heroicons-lock-open'"
+                      :aria-label="m.locked ? 'Unlock student' : 'Lock student'"
+                      :title="m.locked ? 'Locked. Click to unlock' : 'Unlocked. Click to lock'"
+                      size="xs"
+                      :color="m.locked ? 'error' : 'neutral'"
+                      variant="ghost"
+                      :loading="lockingStudentKey === m.studentId"
+                      @click.stop="toggleStudentLock(m.studentId, team.id, !m.locked)"
+                    />
                   </span>
                 </div>
               </li>
@@ -2928,6 +2960,11 @@
                   class="flex items-center justify-between gap-1"
                 >
                   <span class="flex min-w-0 items-center gap-1">
+                    <UIcon
+                      v-if="m.locked && !isTeamLocked(team.id)"
+                      name="i-heroicons-lock-closed"
+                      class="shrink-0 text-red-500"
+                    />
                     <span class="truncate text-gray-600 dark:text-gray-400">
                       {{ m.Student.firstName }} {{ m.Student.lastName[0] }}.
                     </span>
