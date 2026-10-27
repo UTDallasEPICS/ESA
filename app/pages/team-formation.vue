@@ -1751,7 +1751,7 @@
     <UModal
       v-model:open="settingsOpen"
       title="Team settings"
-      description="Choose how teams are built. Changes take effect when you regenerate."
+      description="Changes take effect when you regenerate."
       :ui="{ content: 'sm:max-w-2xl', footer: 'justify-between gap-3' }"
     >
       <template #body>
@@ -1770,114 +1770,103 @@
           <template #rules>
             <div class="space-y-6">
               <section class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Team size</h3>
-                <div
-                  class="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-800"
-                >
-                  <span>Each team has</span>
-                  <UInputNumber
-                    v-model="config.min_team_size"
-                    :min="1"
-                    size="sm"
-                    class="w-28"
-                    aria-label="Smallest team size"
-                  />
-                  <span>to</span>
-                  <UInputNumber
-                    v-model="config.max_team_size"
-                    :min="config.min_team_size"
-                    size="sm"
-                    class="w-28"
-                    aria-label="Largest team size"
-                  />
-                  <span>students.</span>
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">Teams</h3>
+                <div class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
+                    <span class="flex items-center gap-1.5 font-medium">
+                      Team size
+                      <InfoTip text="The fewest and most students on one team." />
+                    </span>
+                    <div class="flex items-center gap-2">
+                      <UInputNumber
+                        v-model="config.min_team_size"
+                        :min="1"
+                        size="sm"
+                        class="w-24"
+                        aria-label="Smallest team size"
+                      />
+                      <span class="text-gray-500">to</span>
+                      <UInputNumber
+                        v-model="config.max_team_size"
+                        :min="config.min_team_size"
+                        size="sm"
+                        class="w-24"
+                        aria-label="Largest team size"
+                      />
+                    </div>
+                  </div>
                 </div>
               </section>
 
               <section class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  3200 students
-                </h3>
-                <div
-                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800"
-                >
-                  <div class="space-y-2 p-4">
-                    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <span>Each team has</span>
+                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">3200 students</h3>
+                <div class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
+                    <span class="flex items-center gap-1.5 font-medium">
+                      3200s per team
+                      <InfoTip
+                        text="The most stops one popular project from taking all the 3200s. Set the fewest to 0 if there aren't enough 3200s to go around."
+                      />
+                    </span>
+                    <div class="flex items-center gap-2">
                       <UInputNumber
                         v-model="minUpperclassPerProject"
                         :min="0"
                         :max="maxUpperclassPerProject"
                         size="sm"
-                        class="w-28"
+                        class="w-24"
                         aria-label="Fewest 3200s on one team"
                       />
-                      <span>to</span>
+                      <span class="text-gray-500">to</span>
                       <UInputNumber
                         v-model="maxUpperclassPerProject"
                         :min="Math.max(1, minUpperclassPerProject)"
                         size="sm"
-                        class="w-28"
+                        class="w-24"
                         aria-label="Most 3200s on one team"
                       />
-                      <span>3200 students.</span>
                     </div>
-                    <p class="text-xs text-gray-500">
-                      The top number stops one popular project from taking all the 3200s. Set
-                      the first to 0 if there aren't enough 3200 students to go around.
-                    </p>
                   </div>
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="font-medium">3200 students choose first</p>
-                      <p class="text-xs text-gray-500">
-                        Their rankings count about 100 times more than anyone else's, so they
-                        almost always get their 1st or 2nd choice and everyone else is placed
-                        around them. Turn off to treat 3200s like any other student.
-                      </p>
-                    </div>
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
+                    <span class="flex items-center gap-1.5 font-medium">
+                      3200s choose first
+                      <InfoTip
+                        text="3200s almost always get their 1st or 2nd choice, and everyone else is placed around them. Only affects 3200s who aren't locked. Locked 3200s stay exactly where they are."
+                      />
+                    </span>
                     <USwitch
                       v-model="config.prioritize_3200_first_choice"
-                      aria-label="3200 students choose first"
+                      aria-label="3200s choose first"
                     />
                   </div>
                 </div>
               </section>
 
               <section class="space-y-2">
-                <div>
-                  <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    Light extras
-                  </h3>
-                  <p class="text-xs text-gray-500">
-                    Small nudges on top of each student's own ranking. They only tip close
-                    calls and never outweigh the rules above.
-                  </p>
-                </div>
-                <div
-                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
-                >
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="text-sm font-medium">Returning students go back</p>
-                      <p class="text-xs text-gray-500">
-                        If a student ranked the project they were on last time, that choice
-                        counts 1.5 times as much. Students who didn't rank it aren't affected.
-                      </p>
-                    </div>
+                <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                  Light extras
+                  <InfoTip text="Small nudges that only tip close calls. They never outweigh the rules above." />
+                </h3>
+                <div class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
+                    <span class="flex items-center gap-1.5 font-medium">
+                      Returning students go back
+                      <InfoTip
+                        text="If a student ranked the project they were on last time, that choice gets a boost."
+                      />
+                    </span>
                     <USwitch
                       v-model="config.prioritize_returning_students"
                       aria-label="Returning students go back"
                     />
                   </div>
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="text-sm font-medium">No one alone by gender</p>
-                      <p class="text-xs text-gray-500">
-                        Tries not to leave exactly one man or one woman on a team. It doesn't
-                        even out the numbers, and it rarely beats a student's 1st choice.
-                      </p>
-                    </div>
+                  <div class="flex items-center justify-between gap-4 px-4 py-3">
+                    <span class="flex items-center gap-1.5 font-medium">
+                      No one alone by gender
+                      <InfoTip
+                        text="Tries not to leave exactly one man or one woman on a team. It doesn't even out the numbers."
+                      />
+                    </span>
                     <USwitch v-model="config.balance_gender" aria-label="No one alone by gender" />
                   </div>
                 </div>
@@ -1887,18 +1876,17 @@
 
           <template #lock3200>
             <div class="space-y-4">
-              <p class="text-sm text-gray-500">
-                Lock a 3200 student onto a team to keep them there when you regenerate.
-                Suggest fills in each unlocked student's best team (1st or 2nd choice when
-                possible) with a reason, for you to review before locking.
-              </p>
-
               <div
                 class="flex flex-wrap items-center gap-2 rounded-lg bg-gray-50 p-3 dark:bg-gray-800/50"
               >
-                <p class="me-auto text-sm">
-                  <span class="font-semibold">{{ students3200ForDay.length }}</span> students
-                  <span class="text-gray-500">· {{ locked3200Count }} locked</span>
+                <p class="me-auto flex items-center gap-1.5 text-sm">
+                  <span>
+                    <span class="font-semibold">{{ students3200ForDay.length }}</span> students
+                    <span class="text-gray-500">· {{ locked3200Count }} locked</span>
+                  </span>
+                  <InfoTip
+                    text="Locking a 3200 takes them out of the builder, so they stay on their team when you regenerate and &quot;3200s choose first&quot; no longer applies to them. Suggest fills in each unlocked 3200's best team (1st or 2nd choice when possible) for you to review."
+                  />
                 </p>
                 <UButton
                   label="Suggest"
@@ -2024,10 +2012,8 @@
         </UTabs>
       </template>
       <template #footer>
-        <p class="text-xs text-gray-500">
-          Locked students stay put. The board is saved as a version first.
-        </p>
-        <div class="flex shrink-0 gap-2">
+        <div class="ms-auto flex shrink-0 items-center gap-2">
+          <InfoTip text="Locked students stay put. The board is saved as a version first, so you can go back." />
           <UButton label="Close" color="neutral" variant="ghost" @click="settingsOpen = false" />
           <UButton
             :label="teamsHaveMembers ? 'Regenerate' : 'Generate'"
