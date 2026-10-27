@@ -14,6 +14,8 @@ export interface TeamVersionRead {
   studentCount: number
   /** True when the board is exactly this version right now. */
   matchesBoard: boolean
+  /** The version this day's teams are going with; see markFinal. */
+  isFinal: boolean
 }
 
 export interface TeamVersionList {
@@ -32,6 +34,11 @@ const teamIdsFor = async (semesterId: string, meetingDay: ProjectMeetingDay) =>
   (await prisma.team.findMany({ where: { semesterId, meetingDay }, select: { id: true } })).map(
     (t) => t.id
   )
+
+// The same placements with everyone locked: how the board looks while a final
+// version is on it.
+const allLocked = (placements: Placement[]): Placement[] =>
+  placements.map((p) => ({ ...p, locked: true }))
 
 // The board as it is now, in a stable order so two copies can be compared.
 const currentPlacements = async (teamIds: string[]): Promise<Placement[]> =>
@@ -57,7 +64,11 @@ const listVersions = async (
       note: v.note,
       createdAt: v.createdAt,
       studentCount: (JSON.parse(v.memberships) as Placement[]).length,
-      matchesBoard: v.memberships === board,
+      // A final version is on the board with every team locked (see markFinal).
+      matchesBoard:
+        (v.isFinal ? JSON.stringify(allLocked(JSON.parse(v.memberships))) : v.memberships) ===
+        board,
+      isFinal: v.isFinal,
     })),
     working: (rows[0]?.number ?? 0) + 1,
   }
@@ -89,6 +100,7 @@ const saveVersion = async (
     createdAt: v.createdAt,
     studentCount: placements.length,
     matchesBoard: true,
+    isFinal: false,
   }
 }
 
@@ -104,16 +116,15 @@ const deleteVersion = async (id: string): Promise<void> => {
   await prisma.teamVersion.delete({ where: { id } })
 }
 
-// Puts a saved version back on the board, saving the board first. Teams or
-// students deleted since the version was saved are skipped.
-const restoreVersion = async (id: string): Promise<void> => {
-  const version = await prisma.teamVersion.findUnique({ where: { id } })
-  if (!version) throw new Error('Version not found.')
-  const { semesterId, meetingDay } = version
-  await saveVersion(semesterId, meetingDay, `Before going back to Version ${version.number}`)
-
-  const teamIds = await teamIdsFor(semesterId, meetingDay)
-  const placements: Placement[] = JSON.parse(version.memberships)
+// Replaces the day's board with a version's placements, skipping teams or students
+// deleted since it was saved. lockAll locks everyone (making a version final).
+const putOnBoard = async (
+  version: { semesterId: string; meetingDay: ProjectMeetingDay; memberships: string },
+  lockAll = false
+): Promise<void> => {
+  const teamIds = await teamIdsFor(version.semesterId, version.meetingDay)
+  let placements: Placement[] = JSON.parse(version.memberships)
+  if (lockAll) placements = allLocked(placements)
   const studentIds = new Set(
     (
       await prisma.student.findMany({
@@ -131,4 +142,59 @@ const restoreVersion = async (id: string): Promise<void> => {
   ])
 }
 
-export default { listVersions, saveVersion, restoreVersion, describeVersion, deleteVersion }
+// Puts a saved version back on the board, saving the board first. Teams or
+// students deleted since the version was saved are skipped.
+const restoreVersion = async (id: string): Promise<void> => {
+  const version = await prisma.teamVersion.findUnique({ where: { id } })
+  if (!version) throw new Error('Version not found.')
+  await saveVersion(
+    version.semesterId,
+    version.meetingDay,
+    `Before going back to Version ${version.number}`
+  )
+  await putOnBoard(version)
+}
+
+// Makes a version the one the day's teams are going with: it goes on the board
+// (saving the board first if it's somewhere else) with every student locked, so
+// every team is a project. Only one version per day is final. Its saved locks
+// are left as they were, so "Not final" can put them back.
+const markFinal = async (id: string): Promise<void> => {
+  const version = await prisma.teamVersion.findUnique({ where: { id } })
+  if (!version) throw new Error('Version not found.')
+  const { semesterId, meetingDay } = version
+  const board = JSON.stringify(await currentPlacements(await teamIdsFor(semesterId, meetingDay)))
+  const lockedCopy = JSON.stringify(allLocked(JSON.parse(version.memberships)))
+  if (board !== version.memberships && board !== lockedCopy) {
+    await saveVersion(semesterId, meetingDay, `Before making Version ${version.number} final`)
+  }
+  await putOnBoard(version, true)
+  await prisma.$transaction([
+    prisma.teamVersion.updateMany({ where: { semesterId, meetingDay }, data: { isFinal: false } }),
+    prisma.teamVersion.update({ where: { id }, data: { isFinal: true } }),
+  ])
+}
+
+// Takes the final mark off. While the board is still that version, its saved
+// locks go back on (e.g. the 3200s locked before it was made final); if the
+// board has moved on since, it's left as it is.
+const unmarkFinal = async (id: string): Promise<void> => {
+  const version = await prisma.teamVersion.findUnique({ where: { id } })
+  if (!version) throw new Error('Version not found.')
+  const placements: Placement[] = JSON.parse(version.memberships)
+  const board = await currentPlacements(await teamIdsFor(version.semesterId, version.meetingDay))
+  if (JSON.stringify(board) === JSON.stringify(allLocked(placements))) {
+    await putOnBoard(version)
+  }
+  await prisma.teamVersion.update({ where: { id }, data: { isFinal: false } })
+}
+
+export default {
+  listVersions,
+  saveVersion,
+  restoreVersion,
+  markFinal,
+  unmarkFinal,
+  describeVersion,
+  deleteVersion,
+}

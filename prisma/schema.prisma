@@ -302,6 +302,9 @@ model TeamVersion {
   note        String
   // JSON: [{ teamId, studentId, locked }] for every non-mentor student placed.
   memberships String
+  // The one version a day's teams are going with. Making it final locks every
+  // team on the board; the locks above are kept so "Not final" can put them back.
+  isFinal     Boolean           @default(false)
   createdAt   DateTime          @default(now())
 
   Semester Semester @relation(fields: [semesterId], references: [id], onDelete: Cascade)

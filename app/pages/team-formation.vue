@@ -821,6 +821,49 @@
     }
   }
 
+  // One version per day can be final: making it final puts it on the board with
+  // every team locked, so they all become projects. "Not final" puts back the
+  // locks that version had (see teamVersionService.markFinal).
+  async function setFinal(version: TeamVersionRead, final: boolean) {
+    const ok = await confirm(
+      final
+        ? {
+            title: `Make Version ${version.number} final?`,
+            description: version.matchesBoard
+              ? 'Every team is locked, so they all become projects.'
+              : `Version ${version.number} goes on the board and every team is locked, so they all become projects. The board is saved as a version first.`,
+            confirmLabel: 'Make final',
+          }
+        : {
+            title: `Version ${version.number} not final?`,
+            description: 'Teams go back to the locks they had before it was made final.',
+            confirmLabel: 'Not final',
+          }
+    )
+    if (!ok) return
+    versionBusy.value = true
+    versionError.value = null
+    try {
+      await $fetch('/api/team-formation/versions/final', {
+        method: 'POST',
+        body: { id: version.id, final },
+      })
+      generated.value = false
+      noBidResults.value = []
+      workbenchTeamIds.value = []
+      await Promise.all([
+        refreshVersions(),
+        refreshProjectsForSemester(),
+        refreshAllProjects(),
+        refreshStudentsForSemester(),
+      ])
+    } catch (e: any) {
+      versionError.value = e?.data?.message ?? e?.message ?? 'Failed to update the final version.'
+    } finally {
+      versionBusy.value = false
+    }
+  }
+
   // The version history window: save the board with an optional description,
   // rename saved versions, and go back to one.
   const versionsOpen = ref(false)
@@ -838,6 +881,9 @@
       1
   )
   const boardIsSaved = computed(() => !!versionList.value?.versions.some((v) => v.matchesBoard))
+  const boardIsFinal = computed(
+    () => !!versionList.value?.versions.some((v) => v.matchesBoard && v.isFinal)
+  )
 
   function startDescribe(version: TeamVersionRead) {
     editingVersionId.value = version.id
@@ -1064,7 +1110,7 @@
   const searchTeams = computed<SearchItem[]>(() =>
     teamsForDay.value.map((t) => ({
         label: t.projectName,
-        suffix: `${membershipsForTeam(t.id).length} students`,
+        suffix: `${isTeamLocked(t.id) ? 'Project · ' : ''}${membershipsForTeam(t.id).length} students`,
         icon: isTeamLocked(t.id) ? 'i-heroicons-lock-closed' : 'i-heroicons-squares-2x2',
         keys: [t.projectName],
         onSelect: () => showTeam(t.id),
@@ -1839,9 +1885,9 @@
         />
         <UButton
           v-if="versionList && (dayHasStudents || versionList.versions.length)"
-          :label="`Version ${boardVersion}`"
-          icon="i-heroicons-clock"
-          color="neutral"
+          :label="boardIsFinal ? `Version ${boardVersion} · Final` : `Version ${boardVersion}`"
+          :icon="boardIsFinal ? 'i-heroicons-check-badge' : 'i-heroicons-clock'"
+          :color="boardIsFinal ? 'success' : 'neutral'"
           variant="soft"
           title="Version history"
           :loading="versionBusy"
@@ -2321,7 +2367,7 @@
       <template #title>
         <span class="flex items-center gap-1.5">
           Versions
-          <InfoTip text="The board saves as you go. Save a version to come back to later." />
+          <InfoTip text="The board saves as you go. Save a version to come back to later. Make one final to lock every team as a project." />
         </span>
       </template>
       <template #body>
@@ -2385,6 +2431,14 @@
                 <div v-else class="flex min-w-0 items-center gap-1.5">
                   <span class="truncate text-sm font-medium">{{ v.note }}</span>
                   <UBadge v-if="v.matchesBoard" label="Current" color="primary" variant="subtle" size="sm" />
+                  <UBadge
+                    v-if="v.isFinal"
+                    label="Final"
+                    icon="i-heroicons-check-badge"
+                    color="success"
+                    variant="subtle"
+                    size="sm"
+                  />
                   <UButton
                     icon="i-heroicons-pencil-square"
                     size="xs"
@@ -2409,6 +2463,15 @@
                 variant="outline"
                 :disabled="versionBusy"
                 @click="restoreVersion(v)"
+              />
+              <UButton
+                :label="v.isFinal ? 'Not final' : 'Make final'"
+                :icon="v.isFinal ? undefined : 'i-heroicons-check-badge'"
+                size="sm"
+                :color="v.isFinal ? 'neutral' : 'success'"
+                :variant="v.isFinal ? 'ghost' : 'outline'"
+                :disabled="versionBusy"
+                @click="setFinal(v, !v.isFinal)"
               />
               <UButton
                 icon="i-heroicons-trash"
@@ -2880,7 +2943,7 @@
         <h3 class="flex items-center gap-1.5 font-medium">
           All teams <span class="font-normal text-gray-500">({{ gridTeams.length }})</span>
           <InfoTip
-            text="Click a team to bring it up. The padlock locks it. Red numbers mean too many students or too few 3200s."
+            text="Click a team to bring it up. The padlock locks it, which makes it a project. Red numbers mean too many students or too few 3200s."
           />
         </h3>
         <p v-if="!gridTeams.length" class="text-sm text-gray-500">
@@ -3006,11 +3069,18 @@
               </ul>
             </div>
 
-            <div
-              v-if="!isTeamLocked(team.id) && team.memberCount > 0"
-              class="flex items-center justify-end gap-1"
-            >
+            <!-- Staff call a fully locked team a project; one still being worked on is a team. -->
+            <div v-if="team.memberCount > 0" class="flex items-center justify-end gap-1">
+              <UBadge
+                v-if="isTeamLocked(team.id)"
+                label="Project"
+                icon="i-heroicons-check-badge"
+                color="success"
+                variant="subtle"
+                size="sm"
+              />
               <UButton
+                v-else
                 label="Improve"
                 size="xs"
                 color="neutral"
