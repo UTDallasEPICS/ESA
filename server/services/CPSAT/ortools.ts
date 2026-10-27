@@ -26,6 +26,10 @@ export type Student = {
   previousProject?: string;
   gender: Gender;
   day?: "Wednesday" | "Thursday";
+  // Semesters enrolled before this one, and how many of those were 3200. Only used to
+  // break ties between students who want the same project.
+  priorSemesters?: number;
+  prior3200Semesters?: number;
 };
 
 export type Project = {

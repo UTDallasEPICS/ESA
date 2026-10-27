@@ -12,6 +12,7 @@ import {suggestUpperclassPlacements} from '#server/services/CPSAT/ortools'
 import type {Student as CPSATStudent, Project as CPSATProject} from '#server/services/CPSAT/ortools'
 import {Choice, Project, ProjectMeetingDay, Season} from '@@/prisma/generated/client'
 import {prisma} from '#server/utils/prisma'
+import {getPriorExperience} from '#server/utils/priorExperience'
 
 type MeetingDay = 'WEDNESDAY' | 'THURSDAY'
 
@@ -107,6 +108,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const priorExperienceByStudentId = await getPriorExperience(students.map((s) => s.id), semesterId)
+
   const cpsatStudents: CPSATStudent[] = students.map((s) => {
     const choices = mappedChoicesByStudentId.get(s.id) ?? []
     const priorProjectName = previousProjectByStudentId.get(s.id)
@@ -121,6 +124,7 @@ export default defineEventHandler(async (event) => {
       class: '3200',
       gender: 'Prefer not to say',
       previousProject,
+      ...priorExperienceByStudentId.get(s.id),
     }
   })
 

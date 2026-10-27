@@ -12,6 +12,7 @@ import {Year, ProjectType, Choice, Project, Class, ProjectMeetingDay, Enrollment
 import {prisma} from '#server/utils/prisma'
 import {NO_BID_TAG} from '#server/utils/noBid'
 import teamVersionService from '#server/services/teamVersionService'
+import {getPriorExperience} from '#server/utils/priorExperience'
 
 type MeetingDay = 'WEDNESDAY' | 'THURSDAY'
 
@@ -167,6 +168,8 @@ export default defineEventHandler(async (event) => {
     }
   }
 
+  const priorExperienceByStudentId = await getPriorExperience(students.map((s) => s.id), semesterId)
+
   // Map Prisma students → CPSAT Student type, excluding anyone already locked into a team
   const cpsatStudents: CPSATStudent[] = students.filter((s) => !lockedStudentIds.has(s.id)).map((s) => {
     // CPSAT expects project NAMES in choices (not IDs).
@@ -194,6 +197,7 @@ export default defineEventHandler(async (event) => {
       day: remapDay(s.Enrollments[0]!.meetingDay),
       gender: mapGender(s.Enrollments[0]!.gender),
       previousProject,
+      ...priorExperienceByStudentId.get(s.id),
     }
   })
 
