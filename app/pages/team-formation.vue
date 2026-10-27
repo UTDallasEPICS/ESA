@@ -1798,71 +1798,87 @@
                 <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
                   3200 students
                 </h3>
-                <div class="space-y-2 rounded-lg border border-gray-200 p-4 text-sm dark:border-gray-800">
-                  <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <span>Each team has</span>
-                    <UInputNumber
-                      v-model="minUpperclassPerProject"
-                      :min="0"
-                      :max="maxUpperclassPerProject"
-                      size="sm"
-                      class="w-28"
-                      aria-label="Fewest 3200s on one team"
-                    />
-                    <span>to</span>
-                    <UInputNumber
-                      v-model="maxUpperclassPerProject"
-                      :min="Math.max(1, minUpperclassPerProject)"
-                      size="sm"
-                      class="w-28"
-                      aria-label="Most 3200s on one team"
-                    />
-                    <span>3200 students.</span>
+                <div
+                  class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800"
+                >
+                  <div class="space-y-2 p-4">
+                    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span>Each team has</span>
+                      <UInputNumber
+                        v-model="minUpperclassPerProject"
+                        :min="0"
+                        :max="maxUpperclassPerProject"
+                        size="sm"
+                        class="w-28"
+                        aria-label="Fewest 3200s on one team"
+                      />
+                      <span>to</span>
+                      <UInputNumber
+                        v-model="maxUpperclassPerProject"
+                        :min="Math.max(1, minUpperclassPerProject)"
+                        size="sm"
+                        class="w-28"
+                        aria-label="Most 3200s on one team"
+                      />
+                      <span>3200 students.</span>
+                    </div>
+                    <p class="text-xs text-gray-500">
+                      The top number stops one popular project from taking all the 3200s. Set
+                      the first to 0 if there aren't enough 3200 students to go around.
+                    </p>
                   </div>
-                  <p class="text-xs text-gray-500">
-                    The top number stops one popular project from taking all the 3200s. Set
-                    the first to 0 if there aren't enough 3200 students to go around.
-                  </p>
+                  <div class="flex items-center justify-between gap-4 p-4">
+                    <div>
+                      <p class="font-medium">3200 students choose first</p>
+                      <p class="text-xs text-gray-500">
+                        Their rankings count about 100 times more than anyone else's, so they
+                        almost always get their 1st or 2nd choice and everyone else is placed
+                        around them. Turn off to treat 3200s like any other student.
+                      </p>
+                    </div>
+                    <USwitch
+                      v-model="config.prioritize_3200_first_choice"
+                      aria-label="3200 students choose first"
+                    />
+                  </div>
                 </div>
               </section>
 
               <section class="space-y-2">
-                <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Who gets priority
-                </h3>
+                <div>
+                  <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Light extras
+                  </h3>
+                  <p class="text-xs text-gray-500">
+                    Small nudges on top of each student's own ranking. They only tip close
+                    calls and never outweigh the rules above.
+                  </p>
+                </div>
                 <div
                   class="divide-y divide-gray-200 rounded-lg border border-gray-200 dark:divide-gray-800 dark:border-gray-800"
                 >
                   <div class="flex items-center justify-between gap-4 p-4">
                     <div>
-                      <p class="text-sm font-medium">Returning students</p>
+                      <p class="text-sm font-medium">Returning students go back</p>
                       <p class="text-xs text-gray-500">
-                        Students who worked on a project before go back to it.
+                        If a student ranked the project they were on last time, that choice
+                        counts 1.5 times as much. Students who didn't rank it aren't affected.
                       </p>
                     </div>
                     <USwitch
                       v-model="config.prioritize_returning_students"
-                      aria-label="Prioritize returning students"
+                      aria-label="Returning students go back"
                     />
                   </div>
                   <div class="flex items-center justify-between gap-4 p-4">
                     <div>
-                      <p class="text-sm font-medium">3200 students' 1st choice</p>
+                      <p class="text-sm font-medium">No one alone by gender</p>
                       <p class="text-xs text-gray-500">
-                        3200 students are placed on their 1st choice before others.
+                        Tries not to leave exactly one man or one woman on a team. It doesn't
+                        even out the numbers, and it rarely beats a student's 1st choice.
                       </p>
                     </div>
-                    <USwitch
-                      v-model="config.prioritize_3200_first_choice"
-                      aria-label="Prioritize 3200 first choice"
-                    />
-                  </div>
-                  <div class="flex items-center justify-between gap-4 p-4">
-                    <div>
-                      <p class="text-sm font-medium">Balance gender</p>
-                      <p class="text-xs text-gray-500">Spread genders evenly across teams.</p>
-                    </div>
-                    <USwitch v-model="config.balance_gender" aria-label="Balance gender" />
+                    <USwitch v-model="config.balance_gender" aria-label="No one alone by gender" />
                   </div>
                 </div>
               </section>
