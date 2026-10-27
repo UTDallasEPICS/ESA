@@ -1652,13 +1652,12 @@
     :class="['min-w-0 flex-1 space-y-8 py-8', activeSection === 3 ? 'max-w-7xl' : 'max-w-4xl']"
   >
     <section v-if="activeSection === 1" class="space-y-4">
-      <h2 class="text-lg font-semibold">1. Semester</h2>
-
-      <p class="text-sm text-gray-500">
-        Pick the semester to work on. It opens on Bid Files; if bids are already in, you can
-        go straight on to Manage Teams. A <strong>project</strong> is a finalized (locked) team; a
-        <strong>team</strong> is one still being worked on.
-      </p>
+      <h2 class="flex items-center gap-1.5 text-lg font-semibold">
+        1. Semester
+        <InfoTip
+          text="Click a semester to work on it. A team is still being worked on. Once it's locked, it's a project. A red lock means every team that day is locked."
+        />
+      </h2>
 
       <UTable
         :data="semesterRows"
@@ -1713,13 +1712,12 @@
     </section>
 
     <section v-if="activeSection === 2" class="space-y-4">
-      <h2 class="text-lg font-semibold">2. Bid Files</h2>
+      <h2 class="flex items-center gap-1.5 text-lg font-semibold">
+        2. Bid Files
+        <InfoTip text="One file per day. Click a row to see the file, or ↻ to replace it." />
+      </h2>
 
-      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester in step 1 first.</p>
-      <p v-else class="text-sm text-gray-500">
-        Upload each day's bid file. Once a day has one, click its row (&gt;) to see the file
-        as it was uploaded, or ↻ to replace it. Manage Teams works on one day at a time.
-      </p>
+      <p v-if="!semesterId" class="text-sm text-gray-500">Pick a semester first.</p>
 
       <div class="space-y-3">
         <BidDayUpload
@@ -1893,15 +1891,15 @@
         variant="subtle"
         icon="i-heroicons-arrow-path"
         title="Building teams…"
-        description="Bids are in and no teams are built yet, so teams are being built with the default settings (⚙)."
+        description="Using the default settings (⚙)."
       />
 
       <UAlert
         v-if="generated"
         color="success"
         variant="subtle"
-        title="Teams generated"
-        description="Arrange them below. Teams you lock are kept exactly as they are if you regenerate; only everyone else is re-solved."
+        title="Teams built"
+        description="Locked teams stay as they are when you regenerate."
       />
 
       <!-- One line after each build; turns yellow if the builder moved anyone. -->
@@ -1956,10 +1954,15 @@
 
     <UModal
       v-model:open="settingsOpen"
-      title="Team settings"
-      description="Changes take effect when you regenerate."
-      :ui="{ content: 'sm:max-w-2xl', footer: 'justify-between gap-3' }"
+      description="Changes kick in when you regenerate."
+      :ui="{ content: 'sm:max-w-2xl', description: 'sr-only', footer: 'justify-between gap-3' }"
     >
+      <template #title>
+        <span class="flex items-center gap-1.5">
+          Team settings
+          <InfoTip text="Changes kick in when you regenerate." />
+        </span>
+      </template>
       <template #body>
         <UTabs
           :items="[
@@ -2011,7 +2014,7 @@
                     <span class="flex items-center gap-1.5 font-medium">
                       3200s per team
                       <InfoTip
-                        text="The most stops one popular project from taking all the 3200s. Set the fewest to 0 if there aren't enough 3200s to go around."
+                        text="The max keeps one popular project from taking all the 3200s. Set the min to 0 if there aren't enough 3200s to go around."
                       />
                     </span>
                     <div class="flex items-center gap-2">
@@ -2037,7 +2040,7 @@
                     <span class="flex items-center gap-1.5 font-medium">
                       3200s choose first
                       <InfoTip
-                        text="3200s almost always get their 1st or 2nd choice, and everyone else is placed around them. Only affects 3200s who aren't locked. Locked 3200s stay exactly where they are."
+                        text="3200s get their top picks first, then everyone else fills in around them. Locked 3200s don't move."
                       />
                     </span>
                     <USwitch
@@ -2051,14 +2054,14 @@
               <section class="space-y-2">
                 <h3 class="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Light extras
-                  <InfoTip text="Small nudges that only tip close calls. They never outweigh the rules above." />
+                  <InfoTip text="Small nudges for close calls. They never beat the rules above." />
                 </h3>
                 <div class="divide-y divide-gray-200 rounded-lg border border-gray-200 text-sm dark:divide-gray-800 dark:border-gray-800">
                   <div class="flex items-center justify-between gap-4 px-4 py-3">
                     <span class="flex items-center gap-1.5 font-medium">
                       Returning students go back
                       <InfoTip
-                        text="If a student ranked the project they were on last time, that choice gets a boost."
+                        text="If a student ranked the project they were on last time, they lean toward it."
                       />
                     </span>
                     <USwitch
@@ -2070,7 +2073,7 @@
                     <span class="flex items-center gap-1.5 font-medium">
                       No one alone by gender
                       <InfoTip
-                        text="Tries not to leave exactly one man or one woman on a team. It doesn't even out the numbers."
+                        text="Tries not to put just one man or just one woman on a team. It doesn't make teams 50/50."
                       />
                     </span>
                     <USwitch v-model="config.balance_gender" aria-label="No one alone by gender" />
@@ -2091,7 +2094,7 @@
                     <span class="text-gray-500">· {{ locked3200Count }} locked</span>
                   </span>
                   <InfoTip
-                    text="Locking a 3200 takes them out of the builder, so they stay on their team when you regenerate and &quot;3200s choose first&quot; no longer applies to them. Suggest fills in each unlocked 3200's best team (1st or 2nd choice when possible) for you to review."
+                    text="Locked 3200s stay on their team when you regenerate. Suggest picks a 1st or 2nd choice for each unlocked 3200, for you to check before locking."
                   />
                 </p>
                 <UButton
@@ -2137,26 +2140,26 @@
                 v-if="suggestError"
                 color="error"
                 variant="subtle"
-                title="Could not compute suggestions"
+                title="Couldn't make suggestions"
                 :description="suggestError"
               />
               <UAlert
                 v-if="usedFallbackThirdChoice"
                 color="warning"
                 variant="subtle"
-                title="Some students required their 3rd choice"
-                description="Capacity didn't allow 1st/2nd choice for everyone. Check which students show a 3rd-choice reason below before locking."
+                title="Some 3200s only got their 3rd choice"
+                description="There wasn't room for everyone's 1st or 2nd. Check them before locking."
               />
               <UAlert
                 v-if="lockError"
                 color="error"
                 variant="subtle"
-                title="Lock/unlock failed"
+                title="Couldn't lock or unlock"
                 :description="lockError"
               />
 
               <p v-if="!students3200ForDay.length" class="text-sm text-gray-500">
-                No 3200 students enrolled for this semester/day.
+                No 3200s on this day.
               </p>
               <ul
                 v-else
@@ -2179,7 +2182,7 @@
                       v-else-if="!lockedMembershipFor(student) && noChoiceStudentIds.has(student.id)"
                       class="text-xs text-amber-500"
                     >
-                      No bid submitted. Needs manual placement.
+                      No bid. Place by hand.
                     </div>
                   </div>
 
@@ -2219,7 +2222,7 @@
       </template>
       <template #footer>
         <div class="ms-auto flex shrink-0 items-center gap-2">
-          <InfoTip text="Locked students stay put. The board is saved as a version first, so you can go back." />
+          <InfoTip text="Locked students stay put. The board is saved as a version first, so you can go back to it." />
           <UButton label="Close" color="neutral" variant="ghost" @click="settingsOpen = false" />
           <UButton
             :label="teamsHaveMembers ? 'Regenerate' : 'Generate'"
@@ -2234,10 +2237,15 @@
 
     <UModal
       v-model:open="versionsOpen"
-      title="Versions"
-      description="Changes save as you go. Save a copy to come back to it later."
-      :ui="{ content: 'sm:max-w-xl' }"
+      description="The board saves as you go. Save a version to come back to later."
+      :ui="{ content: 'sm:max-w-xl', description: 'sr-only' }"
     >
+      <template #title>
+        <span class="flex items-center gap-1.5">
+          Versions
+          <InfoTip text="The board saves as you go. Save a version to come back to later." />
+        </span>
+      </template>
       <template #body>
         <div class="space-y-4">
           <form class="flex gap-2" @submit.prevent="saveVersion">
@@ -2344,16 +2352,12 @@
       v-if="activeSection === 3 && teamsHaveMembers"
       class="space-y-6 border-t border-gray-200 pt-6 dark:border-gray-800"
     >
-      <div class="space-y-1">
-        <h3 class="text-base font-semibold">Arrange Teams</h3>
-        <p class="text-sm text-gray-500">
-          Click the teams you want to work on to bring them up to the Workbench, then drag
-          students between them, or click
-          a student to compare: click one student to see their major, full ranking and what
-          each move would mean, then click a student on another team to preview a swap.
-          Nothing is saved until you confirm. A moved student keeps their lock state.
-        </p>
-      </div>
+      <h3 class="flex items-center gap-1.5 text-base font-semibold">
+        Arrange Teams
+        <InfoTip
+          text="Bring teams up to the Workbench and drag students between them. Click a student to see their choices, then click someone on another team to try a swap. Nothing moves until you confirm."
+        />
+      </h3>
 
       <div
         v-if="improveTeam"
@@ -2362,12 +2366,12 @@
       >
         <div class="flex items-start justify-between gap-2">
           <div>
-            <h3 class="font-medium">Improve {{ improveTeam.projectName }}</h3>
-            <p class="text-xs text-gray-500">
-              For each student, the best team they ranked higher that they can actually get
-              onto. Nobody is ever moved somewhere they ranked lower. Applying a fix sets both
-              teams aside so you can see the result.
-            </p>
+            <h3 class="flex items-center gap-1.5 font-medium">
+              Improve {{ improveTeam.projectName }}
+              <InfoTip
+                text="Shows a team each student ranked higher and can actually get onto. Nobody is moved somewhere they ranked lower. A fix brings both teams up to the Workbench."
+              />
+            </h3>
           </div>
           <UButton
             icon="i-heroicons-x-mark"
@@ -2454,10 +2458,10 @@
               </ul>
             </div>
             <p v-else-if="!boardChoiceList(review.studentId).length" class="text-xs text-amber-500">
-              No bid submitted, so there's nothing to compare. Place them by hand.
+              No bid. Place by hand.
             </p>
             <p v-else class="text-xs text-gray-500">
-              No fix: they didn't rank any team higher than this one.
+              Nothing better: they didn't rank a team higher.
             </p>
           </li>
         </ul>
@@ -2467,14 +2471,14 @@
         v-if="boardError"
         color="error"
         variant="subtle"
-        title="Could not move student"
+        title="Couldn't move student"
         :description="boardError"
       />
       <UAlert
         v-if="teamLockError"
         color="error"
         variant="subtle"
-        title="Could not update team lock"
+        title="Couldn't lock or unlock team"
         :description="teamLockError"
       />
 
@@ -2494,9 +2498,10 @@
         @drop.prevent="onAreaDrop('workbench')"
       >
         <div class="flex items-center justify-between gap-2">
-          <h3 class="font-medium">
+          <h3 class="flex items-center gap-1.5 font-medium">
             Workbench
             <span class="font-normal text-gray-500">({{ workbenchTeams.length }})</span>
+            <InfoTip text="Teams you're working on, side by side. × puts a team back." />
           </h3>
           <UButton
             v-if="workbenchTeams.length"
@@ -2561,7 +2566,7 @@
               </li>
             </ul>
             <p v-else class="text-xs text-gray-500">
-              Nobody ends up on a lower-ranked team, and team sizes and the 3200 range hold.
+              No problems with this swap.
             </p>
             <UButton label="Confirm swap" size="sm" :disabled="boardBusy" @click="confirmSwap" />
           </template>
@@ -2578,7 +2583,7 @@
                   no bid
                 </UBadge>
                 <p class="text-xs text-gray-500">
-                  Click a student on another Workbench team to preview a swap.
+                  Click someone on another team to try a swap.
                 </p>
               </div>
               <UButton label="Clear" size="xs" color="neutral" variant="ghost" @click="comparePicks = []" />
@@ -2623,7 +2628,7 @@
                   </ul>
                 </li>
                 <li v-if="!compareMoveOptions.length" class="text-xs text-gray-500">
-                  Click another team below to bring it up and compare moves.
+                  Bring up another team to see moves.
                 </li>
               </ul>
             </div>
@@ -2631,7 +2636,7 @@
         </div>
 
         <p v-if="!workbenchTeams.length" class="py-8 text-center text-sm text-gray-500">
-          Click a team below (or drag it here) to work on it side by side with others.
+          Click or drag a team here.
         </p>
 
         <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
@@ -2765,7 +2770,7 @@
                 </div>
               </li>
               <li v-if="!team.memberCount" class="text-xs text-gray-400">
-                No members yet. Drag students in from another Workbench team.
+                Empty. Drag students in.
               </li>
             </ul>
           </div>
@@ -2785,8 +2790,11 @@
         @dragleave="boardDropTarget === 'grid' && (boardDropTarget = null)"
         @drop.prevent="onAreaDrop('grid')"
       >
-        <h3 class="font-medium">
+        <h3 class="flex items-center gap-1.5 font-medium">
           All teams <span class="font-normal text-gray-500">({{ gridTeams.length }})</span>
+          <InfoTip
+            text="Click a team to bring it up. The padlock locks it. Red numbers mean too many students or too few 3200s."
+          />
         </h3>
         <p v-if="!gridTeams.length" class="text-sm text-gray-500">
           Every team is on the Workbench.

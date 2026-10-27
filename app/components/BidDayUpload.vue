@@ -210,8 +210,7 @@
         />
       </div>
       <p v-else class="text-sm text-gray-500">
-        This day's file was uploaded before the app kept bid files, so it can't be shown. Use ↻
-        to upload it again if you want to see it here.
+        This file was uploaded before the app saved bid files. Upload it again with ↻ to see it.
       </p>
     </div>
 
@@ -224,12 +223,12 @@
           color="warning"
           variant="subtle"
           title="Replacing the bid file"
-          description="Students in the new file get their details updated and their choices replaced. Students not in the file are kept as they are. Teams that already exist won't change until you generate again."
+          description="Students in the new file get their info and choices updated. Everyone else stays. Teams don't change until you regenerate."
         />
         <UButton label="Cancel" size="xs" color="neutral" variant="ghost" @click="cancelReplace" />
       </div>
 
-      <p v-if="!semesterId" class="text-sm text-gray-500">Select a semester first.</p>
+      <p v-if="!semesterId" class="text-sm text-gray-500">Pick a semester first.</p>
 
       <UAlert
         v-if="missingColumns.length"
@@ -243,7 +242,7 @@
         <UAlert
           color="error"
           variant="subtle"
-          :title="`${parseErrors.length} error(s) found. Upload aborted.`"
+          :title="`${parseErrors.length} error(s). Nothing was uploaded.`"
         />
         <ul class="max-h-64 space-y-1 overflow-y-auto text-sm">
           <li v-for="(err, i) in parseErrors" :key="i" class="text-red-600 dark:text-red-400">
@@ -256,7 +255,7 @@
         v-else-if="parsedRows.length"
         color="success"
         variant="subtle"
-        :title="`${parsedRows.length} row(s) validated successfully`"
+        :title="`${parsedRows.length} row(s) look good`"
       />
 
       <UButton
@@ -281,7 +280,7 @@
       <UAlert
         color="success"
         variant="subtle"
-        title="Import complete"
+        title="Uploaded"
         :description="`${uploadResult.studentsImported} student(s) imported, ${uploadResult.choicesCreated} choice(s) recorded.`"
       />
       <UAlert
@@ -296,7 +295,7 @@
         <UAlert
           color="info"
           variant="subtle"
-          :title="`${uploadResult.noBidPlacements.length} student(s) had no bid and were placed by major`"
+          :title="`${uploadResult.noBidPlacements.length} student(s) had no bid, so they were placed by major`"
         />
         <ul class="space-y-1 text-sm">
           <li
@@ -315,7 +314,7 @@
         v-if="uploadResult.noBidUnplaced.length"
         color="warning"
         variant="subtle"
-        title="No-bid students imported but not placed (no teams for this semester/day yet)"
+        title="No-bid students weren't placed. There are no teams for this day yet."
         :description="uploadResult.noBidUnplaced.join(', ')"
       />
     </div>
