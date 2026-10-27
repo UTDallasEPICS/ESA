@@ -336,28 +336,6 @@
     furthestStep.value = Math.max(furthestStep.value, activeSection.value)
   }
 
-  // ── Keep your place ──────────────────────────────────────────────────────────
-  // Board moves already save as they happen; this writes the view itself back to
-  // the URL (replace, so Back in the browser isn't filled with every click). The
-  // day only matters on Manage Teams, so it's left off elsewhere.
-  watch(
-    [semesterId, activeSection, meetingDay],
-    () => {
-      const query = { ...route.query }
-      delete query.semester
-      delete query.step
-      delete query.day
-      if (semesterId.value) {
-        query.semester = semesterId.value
-        query.step = STEP_KEYS[activeSection.value - 1]
-        if (activeSection.value === 3) query.day = meetingDay.value.toLowerCase()
-      }
-      const same = ['semester', 'step', 'day'].every((k) => query[k] === route.query[k])
-      if (!same) router.replace({ query })
-    },
-    { immediate: true }
-  )
-
   // A link to a semester that's gone (deleted, or another database) falls back to
   // the semester table instead of an empty page. Checked once mounted, so the
   // server's render and the browser's first render still match.
@@ -948,8 +926,34 @@
     | { kind: 'team'; teamId: string }
     | { kind: 'student'; studentId: string; fromTeamId: string }
 
-  const workbenchTeamIds = ref<string[]>([])
+  // Restored from the URL (?bench=id,id) so a refresh brings the same teams back up.
+  const workbenchTeamIds = ref<string[]>(queryText(route.query.bench)?.split(',') ?? [])
   watch([semesterId, meetingDay], () => (workbenchTeamIds.value = []))
+
+  // ── Keep your place ──────────────────────────────────────────────────────────
+  // Board moves already save as they happen; this writes the view itself back to
+  // the URL (replace, so Back in the browser isn't filled with every click). The
+  // day and the Workbench teams only matter on Manage Teams, so they're left off
+  // elsewhere. Together with the saved moves, a refresh mid-edit loses nothing.
+  const URL_KEYS = ['semester', 'step', 'day', 'bench']
+  watch(
+    [semesterId, activeSection, meetingDay, workbenchTeamIds],
+    () => {
+      const query = { ...route.query }
+      for (const k of URL_KEYS) delete query[k]
+      if (semesterId.value) {
+        query.semester = semesterId.value
+        query.step = STEP_KEYS[activeSection.value - 1]
+        if (activeSection.value === 3) {
+          query.day = meetingDay.value.toLowerCase()
+          if (workbenchTeamIds.value.length) query.bench = workbenchTeamIds.value.join(',')
+        }
+      }
+      const same = URL_KEYS.every((k) => query[k] === route.query[k])
+      if (!same) router.replace({ query })
+    },
+    { immediate: true }
+  )
 
   const boardDrag = ref<BoardDrag | null>(null)
   // 'workbench', 'grid', or the id of the Workbench team under the pointer.
