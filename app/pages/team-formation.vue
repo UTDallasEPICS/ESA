@@ -666,6 +666,16 @@
     }[]
   >([])
   watch([semesterId, meetingDay], () => (noBidResults.value = []))
+  const noBidMovedCount = computed(
+    () => noBidResults.value.filter((p) => p.assignedProject !== p.placedProject).length
+  )
+  const noBidSummary = computed(() => {
+    const n = noBidResults.value.length
+    const moved = noBidMovedCount.value
+    const who = `${n} no-bid student${n === 1 ? '' : 's'}`
+    if (!moved) return `${who} · ${n === 1 ? 'kept their' : 'all kept their'} placement`
+    return `${who} · ${moved} moved from their placement`
+  })
 
   const canGenerate = computed(() => !!semesterId.value && teamsForDay.value.length > 0)
 
@@ -1752,30 +1762,41 @@
         description="Arrange them below. Teams you lock are kept exactly as they are if you regenerate; only everyone else is re-solved."
       />
 
-      <div v-if="generated && noBidResults.length" class="space-y-2">
-        <h3 class="font-medium">No-bid students: where they ended up</h3>
-        <ul class="space-y-1 text-sm">
-          <li
-            v-for="p in noBidResults"
-            :key="p.id"
-            class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 dark:border-gray-800"
-          >
-            <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
-            <span class="flex items-center gap-2">
-              <span>{{ p.assignedProject ?? 'Unassigned' }}</span>
-              <UBadge
-                :color="p.assignedProject === p.placedProject ? 'neutral' : 'warning'"
-                variant="subtle"
-                :label="
-                  p.assignedProject === p.placedProject
-                    ? 'kept placement'
-                    : `moved from ${p.placedProject ?? 'none'}`
-                "
-              />
-            </span>
-          </li>
-        </ul>
-      </div>
+      <!-- One line after each build; turns yellow if the builder moved anyone. -->
+      <UCollapsible v-if="generated && noBidResults.length" class="space-y-2">
+        <UButton
+          :label="noBidSummary"
+          :color="noBidMovedCount ? 'warning' : 'neutral'"
+          variant="soft"
+          size="sm"
+          icon="i-heroicons-user-minus"
+          trailing-icon="i-heroicons-chevron-down"
+          :ui="{ trailingIcon: 'group-data-[state=open]:rotate-180 transition-transform' }"
+        />
+        <template #content>
+          <ul class="space-y-1 text-sm">
+            <li
+              v-for="p in noBidResults"
+              :key="p.id"
+              class="flex flex-wrap items-center justify-between gap-2 rounded border border-gray-200 p-2 dark:border-gray-800"
+            >
+              <span>{{ p.name }} <span class="text-gray-500">({{ p.major }})</span></span>
+              <span class="flex items-center gap-2">
+                <span>{{ p.assignedProject ?? 'Unassigned' }}</span>
+                <UBadge
+                  :color="p.assignedProject === p.placedProject ? 'neutral' : 'warning'"
+                  variant="subtle"
+                  :label="
+                    p.assignedProject === p.placedProject
+                      ? 'kept placement'
+                      : `moved from ${p.placedProject ?? 'none'}`
+                  "
+                />
+              </span>
+            </li>
+          </ul>
+        </template>
+      </UCollapsible>
     </div>
 
     <UModal
