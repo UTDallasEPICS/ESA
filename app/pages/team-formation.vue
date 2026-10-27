@@ -829,6 +829,24 @@
     }
   }
 
+  async function deleteVersion(version: TeamVersionRead) {
+    const ok = await confirm({
+      title: `Delete Version ${version.number}?`,
+      description: version.matchesBoard
+        ? 'The board stays as it is. It just stops being saved as this version.'
+        : "This can't be undone.",
+      confirmLabel: 'Delete',
+    })
+    if (!ok) return
+    versionError.value = null
+    try {
+      await $fetch(`/api/team-formation/versions/${version.id}`, { method: 'DELETE' })
+      await refreshVersions()
+    } catch (e: any) {
+      versionError.value = e?.data?.message ?? e?.message ?? 'Failed to delete the version.'
+    }
+  }
+
   function formatVersionTime(date: string | Date) {
     return new Date(date).toLocaleString([], {
       month: 'short',
@@ -2168,6 +2186,16 @@
                 variant="outline"
                 :disabled="versionBusy"
                 @click="restoreVersion(v)"
+              />
+              <UButton
+                icon="i-heroicons-trash"
+                size="sm"
+                color="error"
+                variant="ghost"
+                aria-label="Delete version"
+                title="Delete version"
+                :disabled="versionBusy"
+                @click="deleteVersion(v)"
               />
             </li>
           </ul>

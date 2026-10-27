@@ -98,6 +98,12 @@ const describeVersion = async (id: string, note: string): Promise<void> => {
   await prisma.teamVersion.update({ where: { id }, data: { note } })
 }
 
+// Removes a saved copy. The board itself is never touched, even when it matches
+// the deleted version; it just stops being saved.
+const deleteVersion = async (id: string): Promise<void> => {
+  await prisma.teamVersion.delete({ where: { id } })
+}
+
 // Puts a saved version back on the board, saving the board first. Teams or
 // students deleted since the version was saved are skipped.
 const restoreVersion = async (id: string): Promise<void> => {
@@ -125,4 +131,4 @@ const restoreVersion = async (id: string): Promise<void> => {
   ])
 }
 
-export default { listVersions, saveVersion, restoreVersion, describeVersion }
+export default { listVersions, saveVersion, restoreVersion, describeVersion, deleteVersion }
