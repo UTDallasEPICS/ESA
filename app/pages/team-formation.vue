@@ -1211,10 +1211,56 @@
   // of everyone else, so the whole board can be scanned for 3200 coverage at once.
   // The Workbench keeps full rosters, since that's where students get moved.
   const only3200 = ref(false)
-  function cardMembers(teamId: string) {
+  function cardMembers(teamId: string, projectId: string) {
     const members = membershipsForTeam(teamId)
-    return only3200.value ? members.filter((m) => boardIs3200(m.studentId)) : members
+    if (only3200.value) return members.filter((m) => boardIs3200(m.studentId))
+    if (notTop3.value) return members.filter((m) => isOffChoice(m.studentId, projectId))
+    return members
   }
+
+  // "Not top 3" view (mentor's idea): the cards list only students who aren't on
+  // one of their top three picks (4th or lower, unranked, or no bid), and cards
+  // with none of them fade back. Works like the 3200 view; only one is on at a time.
+  const notTop3 = ref(false)
+  function isOffChoice(studentId: string, projectId: string) {
+    const rank = boardRank(studentId, projectId)
+    return !rank || rank > 3
+  }
+  function offChoiceCountFor(team: { id: string; projectId: string }) {
+    return membershipsForTeam(team.id).filter((m) => isOffChoice(m.studentId, team.projectId))
+      .length
+  }
+  const offChoiceCount = computed(() =>
+    teamsForDay.value.reduce((sum, t) => sum + offChoiceCountFor(t), 0)
+  )
+  function toggleCardView(view: '3200' | 'top3') {
+    only3200.value = view === '3200' && !only3200.value
+    notTop3.value = view === 'top3' && !notTop3.value
+  }
+
+  // Card warnings (mentor's idea): a team that's too small, too big, or short on
+  // 3200s gets a ⚠ with the reasons. An empty team is a project nobody is on, so
+  // it isn't flagged.
+  function teamWarnings(teamId: string) {
+    const size = membershipsForTeam(teamId).length
+    if (!size) return []
+    const warnings: string[] = []
+    if (size < config.min_team_size) warnings.push(`Too small: ${size} of at least ${config.min_team_size}`)
+    if (size > config.max_team_size) warnings.push(`Too big: ${size}, max ${config.max_team_size}`)
+    const count3200 = boardCount3200(teamId)
+    if (!count3200) warnings.push('No 3200 student')
+    else if (count3200 < minUpperclassPerProject.value)
+      warnings.push(`Only ${count3200} × 3200, needs ${minUpperclassPerProject.value}`)
+    return warnings
+  }
+  function sizeWarn(teamId: string) {
+    const size = membershipsForTeam(teamId).length
+    return size > 0 && (size < config.min_team_size || size > config.max_team_size)
+  }
+  function warn3200(teamId: string) {
+    return membershipsForTeam(teamId).length > 0 && boardCount3200(teamId) < minUpperclassPerProject.value
+  }
+  const warnedTeamCount = computed(() => teamsForDay.value.filter((t) => teamWarnings(t.id).length).length)
 
   function rankText(rank: number | undefined) {
     return rank ? ordinal(rank) : 'not ranked'
@@ -1889,7 +1935,17 @@
           :variant="only3200 ? 'solid' : 'soft'"
           :aria-pressed="only3200"
           title="Show only 3200 students on each card"
-          @click="only3200 = !only3200"
+          @click="toggleCardView('3200')"
+        />
+        <UButton
+          v-if="dayHasStudents"
+          :label="`Not top 3 · ${offChoiceCount}`"
+          icon="i-heroicons-funnel"
+          :color="notTop3 ? 'primary' : 'neutral'"
+          :variant="notTop3 ? 'solid' : 'soft'"
+          :aria-pressed="notTop3"
+          title="Show only students who aren't on one of their top 3 picks"
+          @click="toggleCardView('top3')"
         />
         <UButton
           v-if="versionList && (dayHasStudents || versionList.versions.length)"
@@ -2806,14 +2862,15 @@
               <div class="min-w-0">
                 <div class="font-medium">{{ team.projectName }}</div>
                 <div class="text-xs text-gray-500">
-                  <span :class="team.memberCount > config.max_team_size ? 'text-red-500' : ''">
+                  <span :class="sizeWarn(team.id) ? 'text-amber-500' : ''">
                     {{ team.memberCount }}/{{ config.max_team_size }} members
                   </span>
                   ·
-                  <span
-                    :class="boardCount3200(team.id) < minUpperclassPerProject ? 'text-red-500' : ''"
-                  >
+                  <span :class="warn3200(team.id) ? 'text-amber-500' : ''">
                     {{ boardCount3200(team.id) }} × 3200
+                  </span>
+                  <span v-if="teamWarnings(team.id).length" class="block text-amber-500">
+                    ⚠ {{ teamWarnings(team.id).join('. ') }}
                   </span>
                 </div>
               </div>
@@ -2947,8 +3004,12 @@
         <h3 class="flex items-center gap-1.5 font-medium">
           All teams <span class="font-normal text-gray-500">({{ gridTeams.length }})</span>
           <InfoTip
-            text="Click a team to bring it up. The padlock locks it, which makes it a project. Red numbers mean too many students or too few 3200s."
+            text="Click a team to bring it up. The padlock locks it, which makes it a project. ⚠ means a team is too small, too big, or short on 3200s. Point at it to see why."
           />
+          <span v-if="warnedTeamCount" class="ms-2 flex items-center gap-1 text-sm font-normal text-amber-500">
+            <UIcon name="i-heroicons-exclamation-triangle" />
+            {{ warnedTeamCount }} {{ warnedTeamCount === 1 ? 'team needs' : 'teams need' }} a look
+          </span>
         </h3>
         <p v-if="!gridTeams.length" class="text-sm text-gray-500">
           Every team is on the Workbench.
@@ -2973,7 +3034,9 @@
                 ? spotlightRanks.has(team.projectId)
                   ? 'ring-2 ring-primary-500'
                   : 'opacity-40'
-                : '',
+                : notTop3 && !offChoiceCountFor(team)
+                  ? 'opacity-40'
+                  : '',
               flashTeamId === team.id ? 'animate-pulse ring-2 ring-primary-500' : '',
             ]"
             :title="isTeamLocked(team.id) ? undefined : 'Click to bring up to the Workbench'"
@@ -3011,15 +3074,21 @@
                 />
               </div>
               <div class="flex min-h-6 items-center justify-between gap-1 text-xs text-gray-500">
-                <span>
-                  <span :class="team.memberCount > config.max_team_size ? 'text-red-500' : ''">
+                <span class="flex items-center gap-1">
+                  <span :class="sizeWarn(team.id) ? 'text-amber-500' : ''">
                     {{ team.memberCount }}/{{ config.max_team_size }}
                   </span>
                   ·
-                  <span
-                    :class="boardCount3200(team.id) < minUpperclassPerProject ? 'text-red-500' : ''"
-                  >
+                  <span :class="warn3200(team.id) ? 'text-amber-500' : ''">
                     {{ boardCount3200(team.id) }} × 3200
+                  </span>
+                  <span
+                    v-if="teamWarnings(team.id).length"
+                    class="flex text-amber-500"
+                    :title="teamWarnings(team.id).join('. ')"
+                    :aria-label="teamWarnings(team.id).join('. ')"
+                  >
+                    <UIcon name="i-heroicons-exclamation-triangle" class="size-3.5" />
                   </span>
                 </span>
                 <!-- Staff call a fully locked team a project; one still being worked on is a team. -->
@@ -3045,7 +3114,7 @@
               </div>
               <ul class="space-y-1 text-xs">
                 <li
-                  v-for="m in cardMembers(team.id)"
+                  v-for="m in cardMembers(team.id, team.projectId)"
                   :key="m.id"
                   class="flex items-center justify-between gap-1"
                 >
@@ -3088,9 +3157,15 @@
                 </li>
                 <li v-if="!team.memberCount" class="text-gray-500">No members yet</li>
                 <template v-else-if="only3200">
-                  <li v-if="!boardCount3200(team.id)" class="text-red-500">No 3200s</li>
+                  <li v-if="!boardCount3200(team.id)" class="text-amber-500">No 3200s</li>
                   <li class="text-gray-500">
                     +{{ membershipsForTeam(team.id).length - boardCount3200(team.id) }} others
+                  </li>
+                </template>
+                <template v-else-if="notTop3">
+                  <li v-if="!offChoiceCountFor(team)" class="text-gray-500">Everyone got a top 3 pick</li>
+                  <li v-else-if="offChoiceCountFor(team) < team.memberCount" class="text-gray-500">
+                    +{{ team.memberCount - offChoiceCountFor(team) }} in their top 3
                   </li>
                 </template>
               </ul>
