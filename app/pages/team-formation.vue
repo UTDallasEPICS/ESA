@@ -2530,10 +2530,11 @@
               />
               <UButton
                 :label="v.isFinal ? 'Not final' : 'Make final'"
-                :icon="v.isFinal ? undefined : 'i-heroicons-check-badge'"
+                :icon="v.isFinal ? 'i-heroicons-lock-open' : 'i-heroicons-check-badge'"
                 size="sm"
                 :color="v.isFinal ? 'neutral' : 'success'"
-                :variant="v.isFinal ? 'ghost' : 'outline'"
+                variant="outline"
+                :title="v.isFinal ? 'Reopen: put back the locks this version had' : 'Lock every team as a project'"
                 :disabled="versionBusy"
                 @click="setFinal(v, !v.isFinal)"
               />
