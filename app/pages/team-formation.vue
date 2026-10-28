@@ -136,6 +136,7 @@
         description:
           'These teams can still change. The file will be marked as a draft. Make a version final first to export the final teams.',
         confirmLabel: 'Export draft',
+        confirmColor: 'primary',
       }))
     )
       return
@@ -853,11 +854,13 @@
               ? 'Every team is locked, so they all become projects.'
               : `Version ${version.number} goes on the board and every team is locked, so they all become projects. The board is saved as a version first.`,
             confirmLabel: 'Make final',
+            confirmColor: 'success',
           }
         : {
             title: `Version ${version.number} not final?`,
             description: 'Teams go back to the locks they had before it was made final.',
             confirmLabel: 'Not final',
+            confirmColor: 'neutral',
           }
     )
     if (!ok) return
