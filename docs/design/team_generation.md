@@ -20,6 +20,7 @@ to heuristic placement.
 2. [Hard Constraints](#2-hard-constraints)
 3. [Soft Constraints](#3-soft-constraints)
 4. [Bonus/Penalty Table](#4-bonuspenalty-table)
+5. [Students With No Bid](#5-students-with-no-bid)
 
 ---
 
@@ -36,16 +37,27 @@ both `ortools.ts` and `team_generator.py` if omitted:
 | ------------------------------- | ------- | -------------------------------------------------------------------------------------------- |
 | `min_team_size`                 | `4`     | Hard lower bound on every team's size (§2)                                                   |
 | `max_team_size`                 | `6`     | Hard upper bound on every team's size (§2)                                                   |
+| `min_upperclass_per_project`             | `1`     | Hard minimum number of EPCS 3200 students on every team; `0` disables this rule. Must be a non-negative integer no greater than `max_team_size`. |
 | `prioritize_returning_students` | `true`  | Enables the returning-student bonus (§3)                                                     |
 | `prioritize_3200_first_choice`  | `true`  | Enables the EPCS 3200 scoring multiplier (§3) — the name is legacy; it isn't first-choice-only, see §3 note |
 | `balance_gender`                | `true`  | Enables the gender-isolation penalty (§3)                                                    |
 
-`min_team_size`/`max_team_size` are the only fields that change what counts as a *valid* solution; the other three
+`min_team_size`, `max_team_size`, and `min_upperclass_per_project` change what counts as a *valid* solution; the other three
 only reweight the objective among otherwise-valid solutions.
 
 ---
 
 ## 2. Hard Constraints
+
+The generation endpoint excludes students with locked memberships from solver inputs.
+Their project's `locked_count` and `locked_upperclass_count` reserve capacity and count
+toward team-size and 3200 requirements. Generation replaces only unlocked memberships,
+then includes the preserved locked students in its response. The page supports individual
+and bulk team-member locks backed by the database. Bulk locking preserves current members
+but does not prevent additional students joining a team with spare capacity.
+
+Run the locking tests with:
+`PYTHONDONTWRITEBYTECODE=1 python -m unittest discover -s server/services/CPSAT -p test_locking.py`.
 
 Enforced directly in the CP-SAT model (`team_generator.py`); violating any of these makes the model infeasible,
 which surfaces to the caller as a 400 with a diagnostic message (`generate.post.ts` catches the rejected promise
@@ -57,6 +69,7 @@ from `generateTeamsORTools`).
 | 2 | Team size bounds               | `min_team_size <= sum(x[s][p] for all s) <= max_team_size` for every project `p`.                                  |
 | 3 | Returning students must be 3200 | Input validation, not a model constraint: raises before solving if any student has `previousProject` set but `class != '3200'`. |
 | 4 | Meeting-day match               | If both the student and the project have a `day`, `x[s][p]` is forced to 0 for every non-matching pair.            |
+| 5 | Minimum EPCS 3200 students      | Every team must contain at least `min_upperclass_per_project` students whose class is `3200`, regardless of preference priority settings. Insufficient 3200 enrollment rejects generation before assignments are saved. |
 
 Only eligible (non-mentor) students enrolled for that semester+day, and only projects with an active `Team` for
 that semester+day, are given to the solver at all (`generate.post.ts`) — day filtering there and constraint 4 are
@@ -115,3 +128,26 @@ student's choices:
 | "Both"-type project bonus         | +80   | Project's `type == 'Both'` — applies to every student, regardless of major.  |
 | SW-project major-fit bonus        | +60   | Project's `type == 'SW'` and student's major is `CS`, `SE`, or `DS`.         |
 | HW-project major-fit bonus        | +60   | Project's `type == 'HW'` and student's major is `EE`, `ME`, `BME`, or `CE`.  |
+
+---
+
+## 5. Students With No Bid
+
+Students who never submitted a bid are handled **before** the solver runs, at import time
+(`server/api/team-formation/bids.post.ts`, `server/utils/noBid.ts`). The importer picks one project that fits each
+student's major and saves it as their Choice 1; the solver code itself is unchanged. See
+[`ui.md` §4.3.1](ui.md#431-students-with-no-bid) for the step-by-step procedure (add rows to the bid file with just
+a name and a major, upload, generate, read the results).
+
+How this interacts with the constraints and scoring above:
+
+| Topic                  | Behavior                                                                                                                                                                     |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| One project (§2 #1)    | Still holds. A no-bid student has one choice instead of up to six; they are assigned exactly once like everyone else.                                                         |
+| Meeting day (§2 #4)    | The placement only considers teams for the selected semester + day, so the placement is never ruled out by the day constraint.                                                |
+| Team sizes (§2 #2)     | No-bid students count toward the headcount. If total students exceed `teams × max_team_size` the run fails with the usual "Too many students" 400 — raise the max or add teams. |
+| Scoring (§4)           | The placed project is Choice 1, so it earns the 1000 base score (2200-level default) and the usual major-fit bonus (+60 / +80). It is a strong preference, not a lock.        |
+| Moves                  | If team-size limits or other students' preferences make a different assignment score better, the solver may move a no-bid student; the results list flags this as *moved from …*. |
+| Returning bonus        | Never applies (no prior-project history is created, and defaults to 2200).                                                                                                    |
+| Identification         | Enrollment Comments start with `[No bid]`; a row with no SSO ID is stored under a stand-in netID `nobid-first-last`.                                                          |
+
