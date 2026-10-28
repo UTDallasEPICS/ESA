@@ -1773,7 +1773,10 @@
     </USlideover>
 
   <UContainer
-    :class="['min-w-0 flex-1 space-y-8 py-8', activeSection === 3 ? 'max-w-7xl' : 'max-w-4xl']"
+    :class="[
+      'min-w-0 flex-1',
+      activeSection === 3 ? 'max-w-none space-y-3 py-3' : 'max-w-4xl space-y-8 py-8',
+    ]"
   >
     <section v-if="activeSection === 1" class="space-y-4">
       <h2 class="flex items-center gap-1.5 text-lg font-semibold">
@@ -1856,7 +1859,12 @@
     </section>
 
     <div v-if="activeSection === 3" class="flex items-center gap-2">
-      <h2 class="text-lg font-semibold">3. Manage Teams</h2>
+      <h2 class="flex items-center gap-1.5 text-lg font-semibold">
+        3. Manage Teams
+        <InfoTip
+          text="Bring teams up to the Workbench and drag students between them. Click a student to see their choices, then click someone on another team to try a swap. Nothing moves until you confirm."
+        />
+      </h2>
       <!-- Toolbar from the whiteboard sketch: 3200 view, versions, then ⚙. -->
       <div class="ms-auto flex items-center gap-2">
         <UButton
@@ -1952,11 +1960,11 @@
 
     <div
       v-if="activeSection === 3"
-      class="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/50"
+      class="flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-2 dark:border-gray-800 dark:bg-gray-900/50"
     >
       <div class="flex items-center gap-3">
         <div
-          class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500"
+          class="flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-500/10 text-primary-500"
         >
           <UIcon name="i-heroicons-calendar" class="size-5" />
         </div>
@@ -1988,7 +1996,7 @@
       />
     </div>
 
-    <div v-if="activeSection === 3" class="space-y-4">
+    <div v-if="activeSection === 3" class="space-y-4 empty:hidden">
       <p v-if="!canGenerate" class="text-sm text-gray-500">
         No {{ titleCase(meetingDay) }} teams for this semester. Add them in the Database tab first.
       </p>
@@ -2491,14 +2499,8 @@
 
     <section
       v-if="activeSection === 3 && teamsHaveMembers"
-      class="space-y-6 border-t border-gray-200 pt-6 dark:border-gray-800"
+      class="space-y-3"
     >
-      <h3 class="flex items-center gap-1.5 text-base font-semibold">
-        Arrange Teams
-        <InfoTip
-          text="Bring teams up to the Workbench and drag students between them. Click a student to see their choices, then click someone on another team to try a swap. Nothing moves until you confirm."
-        />
-      </h3>
 
       <div
         v-if="improveTeam"
@@ -2626,7 +2628,7 @@
       <div
         ref="workbenchEl"
         :class="[
-          'scroll-mt-24 space-y-3 rounded-lg border p-3 transition-colors',
+          'scroll-mt-24 space-y-3 rounded-lg border px-3 py-2 transition-colors',
           boardDropTarget === 'workbench'
             ? 'border-primary-500 bg-primary-50 dark:bg-primary-950/40'
             : canDropTeamOn('workbench')
@@ -2643,6 +2645,9 @@
             Workbench
             <span class="font-normal text-gray-500">({{ workbenchTeams.length }})</span>
             <InfoTip text="Teams you're working on, side by side. × puts a team back. A student's padlock keeps them on their team when you regenerate." />
+            <span v-if="!workbenchTeams.length" class="ms-2 text-sm font-normal text-gray-500">
+              Click or drag a team here.
+            </span>
           </h3>
           <UButton
             v-if="workbenchTeams.length"
@@ -2776,11 +2781,10 @@
           </template>
         </div>
 
-        <p v-if="!workbenchTeams.length" class="py-8 text-center text-sm text-gray-500">
-          Click or drag a team here.
-        </p>
-
-        <div v-else class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+        <div
+          v-if="workbenchTeams.length"
+          class="grid gap-3 sm:grid-cols-[repeat(auto-fill,minmax(18rem,1fr))]"
+        >
           <div
             v-for="team in workbenchTeams"
             :key="team.id"
@@ -2929,7 +2933,7 @@
 
       <div
         :class="[
-          'space-y-3 rounded-lg p-3 transition-colors',
+          'space-y-2 rounded-lg px-2 py-1 transition-colors',
           boardDropTarget === 'grid'
             ? 'bg-primary-50 ring-1 ring-primary-500 dark:bg-primary-950/40'
             : canDropTeamOn('grid')
@@ -2952,7 +2956,7 @@
         <TransitionGroup
           tag="div"
           move-class="transition-transform duration-300"
-          class="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+          class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))]"
         >
           <div
             v-for="team in gridTeams"
@@ -2960,8 +2964,7 @@
             :key="team.id"
             :draggable="!isTeamLocked(team.id)"
             :class="[
-              'flex flex-col justify-between gap-2 rounded-lg border p-3 text-sm',
-              only3200 ? '' : 'sm:min-h-56',
+              'rounded-lg border p-2.5 text-sm',
               isTeamLocked(team.id)
                 ? 'border-gray-200 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/60'
                 : 'cursor-pointer border-gray-200 bg-white hover:border-primary-400 active:cursor-grabbing dark:border-gray-800 dark:bg-gray-900 dark:hover:border-primary-500',
@@ -2989,7 +2992,9 @@
                     size="sm"
                     class="mb-1"
                   />
-                  <div class="line-clamp-2 font-medium">{{ team.projectName }}</div>
+                  <div class="line-clamp-1 font-medium" :title="team.projectName">
+                    {{ team.projectName }}
+                  </div>
                 </div>
                 <!-- Padlock: red and closed when locked, green and open when not; one click toggles. -->
                 <UButton
@@ -3005,18 +3010,40 @@
                   @click.stop="lockFromBoard(team.id, !isTeamLocked(team.id))"
                 />
               </div>
-              <div class="text-xs text-gray-500">
-                <span :class="team.memberCount > config.max_team_size ? 'text-red-500' : ''">
-                  {{ team.memberCount }}/{{ config.max_team_size }}
+              <div class="flex min-h-6 items-center justify-between gap-1 text-xs text-gray-500">
+                <span>
+                  <span :class="team.memberCount > config.max_team_size ? 'text-red-500' : ''">
+                    {{ team.memberCount }}/{{ config.max_team_size }}
+                  </span>
+                  ·
+                  <span
+                    :class="boardCount3200(team.id) < minUpperclassPerProject ? 'text-red-500' : ''"
+                  >
+                    {{ boardCount3200(team.id) }} × 3200
+                  </span>
                 </span>
-                ·
-                <span
-                  :class="boardCount3200(team.id) < minUpperclassPerProject ? 'text-red-500' : ''"
-                >
-                  {{ boardCount3200(team.id) }} × 3200
-                </span>
+                <!-- Staff call a fully locked team a project; one still being worked on is a team. -->
+                <template v-if="team.memberCount > 0">
+                  <UBadge
+                    v-if="isTeamLocked(team.id)"
+                    label="Project"
+                    icon="i-heroicons-check-badge"
+                    color="success"
+                    variant="subtle"
+                    size="sm"
+                  />
+                  <UButton
+                    v-else
+                    label="Improve"
+                    size="xs"
+                    color="neutral"
+                    variant="ghost"
+                    class="-me-1.5"
+                    @click.stop="openImprove(team.id)"
+                  />
+                </template>
               </div>
-              <ul class="space-y-0.5 text-xs">
+              <ul class="space-y-1 text-xs">
                 <li
                   v-for="m in cardMembers(team.id)"
                   :key="m.id"
@@ -3053,7 +3080,7 @@
                   <UBadge
                     :color="rankColor(boardRank(m.studentId, team.projectId))"
                     variant="subtle"
-                    size="sm"
+                    size="xs"
                     class="shrink-0"
                   >
                     {{ rankText(boardRank(m.studentId, team.projectId)) }}
@@ -3067,26 +3094,6 @@
                   </li>
                 </template>
               </ul>
-            </div>
-
-            <!-- Staff call a fully locked team a project; one still being worked on is a team. -->
-            <div v-if="team.memberCount > 0" class="flex items-center justify-end gap-1">
-              <UBadge
-                v-if="isTeamLocked(team.id)"
-                label="Project"
-                icon="i-heroicons-check-badge"
-                color="success"
-                variant="subtle"
-                size="sm"
-              />
-              <UButton
-                v-else
-                label="Improve"
-                size="xs"
-                color="neutral"
-                variant="ghost"
-                @click.stop="openImprove(team.id)"
-              />
             </div>
           </div>
         </TransitionGroup>
