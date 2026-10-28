@@ -1745,9 +1745,10 @@
 </script>
 
 <template>
-  <div class="flex min-h-screen">
+  <!-- On phones the two rails turn into a top bar (steps) and a bottom bar (back/next). -->
+  <div class="flex min-h-screen flex-col sm:flex-row">
     <nav
-      class="sticky top-0 flex h-screen w-24 shrink-0 flex-col items-center gap-6 border-r border-gray-200 py-4 dark:border-gray-800"
+      class="sticky top-0 z-30 flex shrink-0 items-center gap-3 border-b border-gray-200 bg-default px-3 py-2 sm:h-screen sm:w-24 sm:flex-col sm:gap-6 sm:border-r sm:border-b-0 sm:px-0 sm:py-4 dark:border-gray-800"
       aria-label="Team formation steps"
     >
       <UButton
@@ -1758,12 +1759,12 @@
         aria-label="Open menu"
         @click="navOpen = true"
       />
-      <ol class="flex flex-col items-center">
-        <li v-for="(step, i) in steps" :key="step.title" class="flex flex-col items-center">
+      <ol class="flex items-center sm:flex-col">
+        <li v-for="(step, i) in steps" :key="step.title" class="flex items-center sm:flex-col">
           <div
             v-if="i > 0"
             :class="[
-              'my-1 h-10 w-0.5',
+              'mx-1 h-0.5 w-4 sm:mx-0 sm:my-1 sm:h-10 sm:w-0.5',
               i + 1 <= furthestStep ? 'bg-primary-500' : 'bg-gray-200 dark:bg-gray-800',
             ]"
           />
@@ -1776,7 +1777,7 @@
           >
             <span
               :class="[
-                'flex h-10 w-10 items-center justify-center rounded-full border-2 transition-colors',
+                'flex size-8 items-center justify-center rounded-full border-2 transition-colors sm:size-10',
                 activeSection === i + 1
                   ? 'border-primary-500 bg-primary-500 text-white'
                   : step.disabled
@@ -1784,7 +1785,7 @@
                     : 'border-primary-500 text-primary-500 group-hover:bg-primary-50 dark:group-hover:bg-primary-950',
               ]"
             >
-              <UIcon :name="step.icon" class="h-5 w-5" />
+              <UIcon :name="step.icon" class="size-4 sm:size-5" />
             </span>
             <span
               :class="[
@@ -1904,7 +1905,7 @@
       </div>
     </section>
 
-    <div v-if="activeSection === 3" class="flex items-center gap-2">
+    <div v-if="activeSection === 3" class="flex flex-wrap items-center gap-2">
       <h2 class="flex items-center gap-1.5 text-lg font-semibold">
         3. Manage Teams
         <InfoTip
@@ -1912,7 +1913,7 @@
         />
       </h2>
       <!-- Toolbar from the whiteboard sketch: 3200 view, versions, then ⚙. -->
-      <div class="ms-auto flex items-center gap-2">
+      <div class="ms-auto flex flex-wrap items-center gap-2">
         <UButton
           v-if="dayHasStudents"
           label="Search"
@@ -1923,8 +1924,8 @@
           @click="searchOpen = true"
         >
           <template #trailing>
-            <UKbd value="meta" size="sm" />
-            <UKbd value="K" size="sm" class="-ms-1" />
+            <UKbd value="meta" size="sm" class="hidden sm:inline-flex" />
+            <UKbd value="K" size="sm" class="-ms-1 hidden sm:inline-flex" />
           </template>
         </UButton>
         <UButton
@@ -2698,11 +2699,11 @@
         @drop.prevent="onAreaDrop('workbench')"
       >
         <div class="flex items-center justify-between gap-2">
-          <h3 class="flex items-center gap-1.5 font-medium">
+          <h3 class="flex flex-wrap items-center gap-x-1.5 font-medium">
             Workbench
             <span class="font-normal text-gray-500">({{ workbenchTeams.length }})</span>
             <InfoTip text="Teams you're working on, side by side. × puts a team back. A student's padlock keeps them on their team when you regenerate." />
-            <span v-if="!workbenchTeams.length" class="ms-2 text-sm font-normal text-gray-500">
+            <span v-if="!workbenchTeams.length" class="text-sm font-normal text-gray-500 sm:ms-2">
               Click or drag a team here.
             </span>
           </h3>
@@ -2938,7 +2939,7 @@
                 @dragend.stop="onBoardDragEnd"
                 @click.stop="pickForCompare(m.studentId, team.id)"
               >
-                <div class="flex items-center justify-between gap-2">
+                <div class="flex flex-wrap items-center justify-between gap-x-2 sm:flex-nowrap">
                   <span class="flex min-w-0 flex-wrap items-center gap-x-1">
                     <span>{{ m.Student.firstName }} {{ m.Student.lastName }}</span>
                     <span class="text-xs text-gray-500">· {{ majorOf(m.studentId) }}</span>
@@ -2949,7 +2950,7 @@
                       no bid
                     </UBadge>
                   </span>
-                  <span class="flex shrink-0 items-center gap-1 text-xs text-gray-500">
+                  <span class="ms-auto flex shrink-0 items-center gap-1 text-xs text-gray-500">
                     <template v-if="otherWorkbenchTeam(team.id)">here</template>
                     <UBadge
                       :color="rankColor(boardRank(m.studentId, team.projectId))"
@@ -3018,7 +3019,7 @@
         <TransitionGroup
           tag="div"
           move-class="transition-transform duration-300"
-          class="grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))]"
+          class="grid grid-cols-1 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(12rem,1fr))]"
         >
           <div
             v-for="team in gridTeams"
@@ -3179,10 +3180,10 @@
   </UContainer>
 
     <nav
-      class="sticky top-0 flex h-screen w-24 shrink-0 flex-col items-center justify-between border-l border-gray-200 py-8 dark:border-gray-800"
+      class="sticky bottom-0 z-30 flex shrink-0 flex-row-reverse items-center justify-between border-t border-gray-200 bg-default px-4 py-2 sm:top-0 sm:bottom-auto sm:h-screen sm:w-24 sm:flex-col sm:border-t-0 sm:border-l sm:px-0 sm:py-8 dark:border-gray-800"
       aria-label="Next and back"
     >
-      <div class="flex flex-col items-center gap-2 px-2 text-center">
+      <div class="flex flex-row-reverse items-center gap-2 px-2 text-center sm:flex-col">
         <template v-if="activeSection < STEP_COUNT">
           <UButton
             icon="i-heroicons-arrow-right"
@@ -3195,7 +3196,7 @@
           <span class="text-xs text-gray-500">{{ nextBlocker ?? 'Next' }}</span>
         </template>
       </div>
-      <div v-if="activeSection > 1" class="flex flex-col items-center gap-2">
+      <div v-if="activeSection > 1" class="flex items-center gap-2 sm:flex-col">
         <UButton
           icon="i-heroicons-arrow-left"
           size="xl"
