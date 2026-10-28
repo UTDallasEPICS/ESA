@@ -723,7 +723,9 @@ table refreshes whenever you come back to step 1.
 ### 4.2 Team Export
 
 **Export** on the Manage Teams "Working on" bar (§4.4) downloads `Wed Teams - Fall-2025.csv` (or `Thu …`) built
-entirely client-side from the already-fetched data. One row per membership on a team for that day:
+entirely client-side from the already-fetched data. It works at any point, so a draft can be shared on purpose, but
+until the day's board is a final version (§4.4.5) it first asks "Version N isn't final" and names the file
+`Wed Teams - Fall-2025 (draft).csv`. One row per membership on that semester's team for that day:
 
 | Column                                                   | Source                                                        |
 | -------------------------------------------------------- | ------------------------------------------------------------- |
@@ -731,6 +733,7 @@ entirely client-side from the already-fetched data. One row per membership on a 
 | Student                                                  | `Last, First`                                                  |
 | Choice 1 … Choice 6                                      | The student's ranked choices for that semester, blank-padded to 6 |
 | Student Major / Student Classification / Gender / Skills / Comments | The student's enrollment for that semester (skills joined with `; `) |
+| Locked                                                   | `Yes` / `No`: whether that student is locked on the team       |
 
 ### 4.3 Step 2 — Bid Files
 

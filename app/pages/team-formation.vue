@@ -120,9 +120,25 @@
 
   const CHOICE_COLUMN_COUNT = 6
 
-  function exportTeams(day: MeetingDay) {
+  // Export works at any point, so a draft can be shared on purpose. Until the
+  // day's board is a final version it asks first and names the file "(draft)",
+  // and every row says whether that student is locked, so a draft can't be
+  // mistaken for the final teams.
+  async function exportTeams(day: MeetingDay) {
     const semester = semesters.value.find((s) => s.id === semesterId.value)
     if (!semester) return
+
+    const isFinal = day === meetingDay.value && boardIsFinal.value
+    if (
+      !isFinal &&
+      !(await confirm({
+        title: `Version ${boardVersion.value} isn't final`,
+        description:
+          'These teams can still change. The file will be marked as a draft. Make a version final first to export the final teams.',
+        confirmLabel: 'Export draft',
+      }))
+    )
+      return
 
     const term = `${seasonCode(semester.season)}${String(semester.year).slice(-2)}`
     const projectLabelById = new Map(
@@ -140,6 +156,7 @@
         'Gender',
         'Skills',
         'Comments',
+        'Locked',
       ],
     ]
 
@@ -148,7 +165,8 @@
         projectLabelById.get(project.id) ?? `${term} - ${project.Partner.name}: ${project.name}`
 
       for (const team of project.Teams) {
-        if (team.meetingDay !== day) continue
+        // A project can run in several semesters; only this semester's team counts.
+        if (team.semesterId !== semesterId.value || team.meetingDay !== day) continue
 
         for (const membership of team.Memberships) {
           const student = studentById.get(membership.studentId)
@@ -172,13 +190,15 @@
             enrollment ? titleCase(enrollment.gender) : '',
             enrollment?.skills.join('; ') ?? '',
             enrollment?.comments ?? '',
+            membership.locked ? 'Yes' : 'No',
           ])
         }
       }
     }
 
     const dayLabel = day === 'WEDNESDAY' ? 'Wed' : 'Thu'
-    downloadCsv(`${dayLabel} Teams - ${selectedSemesterLabel.value}.csv`, rows)
+    const draft = isFinal ? '' : ' (draft)'
+    downloadCsv(`${dayLabel} Teams - ${selectedSemesterLabel.value}${draft}.csv`, rows)
   }
 
   // ── Bid file upload ──────────────────────────────────────────────────────────
