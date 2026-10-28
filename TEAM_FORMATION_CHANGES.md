@@ -1,42 +1,54 @@
 # Team Formation Changes — What's New
 
-What the **Team Formation** page does on this branch. Read this and `BRANCH_SETUP.md` (same folder) before working on this code.
+What the **Team Formation** page does on this branch (`dadrean/team-integration`). Read this and `BRANCH_SETUP.md` (same folder) before working on this code. The full page description is section 4 of `docs/design/ui.md`.
 
 ## The problem this solves
 
 Staff wanted to place certain 3200 students into teams *before* running the main algorithm on everyone else, so a returning student or a student with special circumstances can be locked into the right team first. That grew into a full workflow: generate, lock the teams you like, regenerate for the rest, and fix individual students by hand, always with each student's preferences in view.
 
-## The steps
+## Latest changes (Oct 27, 2026)
 
-The page shows **one step at a time**. A step bar at the top shows where you are, with Back/Next at the bottom.
+If you only read one section, read this one. Setup steps after pulling are in `BRANCH_SETUP.md`: in short, run
+`npx prisma migrate deploy` and then `npx prisma generate`.
 
-- **Moving between steps.** You can always go back to a step you've reached. Forward goes through Next, which waits for the data the step needs (the reason shows beside Next):
-  1. **Semester & Day** needs a semester. The team list here is read-only (name, partner, members, a "Locked" label).
-  2. **Bid File** needs saved bids for that semester/day. If bids are already saved, the step shows a summary and a **Replace bid file** button instead of the upload box. Replace warns what a re-upload does: students in the file are updated and their choices replaced, students not in the file are kept, and existing teams don't change until you generate again.
-  3. **Lock 3200s** is optional. See below.
-  4. **Generate** needs teams with members (generated now or earlier) before Next.
-  5. **Arrange Teams**: the board. See below.
-- Changing the semester or day starts over at step 1. Nothing auto-advances.
-- Editing note: `UStepper` treats a *numeric* `v-model` as a 0-based index, so `activeSection` (1–5) is bound through a `stepIndex` computed.
+- **Fits on one screen.** Manage Teams uses the full width with shorter cards (6 per row on a laptop), so a 16-team
+  day fits without scrolling while the Workbench is empty.
+- **Not top 3 filter.** A toolbar button, next to 3200, that shows how many students aren't on one of their top 3
+  picks. When on, cards list only those students.
+- **Warnings on cards.** A team that's too small, too big, or short on 3200s (against the ⚙ settings) gets amber
+  numbers and a ⚠. The heading says how many teams need a look.
+- **Final versions.** **Make final** puts a version on the board and locks every team, so they all become projects.
+  **Not final** puts back the locks the version was saved with. Only one final version per day.
+- **Export.** It works any time, but until the day is final it asks first and names the file `… (draft).csv`. Every
+  row has a `Locked` column. **Bug fixed:** it used to include students from other semesters on the same project,
+  so re-export any team file made before this date.
+- **Phones.** Below 640px wide the side rails become a top bar (steps) and a bottom bar (Back/Next), and cards go
+  one per row. ⓘ tips now open on tap as well as hover.
+- **Confirm dialogs.** No empty band, buttons on the right, and the main button's colour matches the action (red
+  only for destructive ones). This applies to every confirm in the app.
+- **The page keeps your place in the URL** (`?semester=…&step=…&day=…&bench=…`), so a refresh comes back to the
+  same view.
 
-## Step 3: Lock 3200 students (optional)
+## The page now
 
-- **Min/Max 3200 per Project** are always visible, because they also drive Generate Teams. Max defaults to 4, so one popular project can't absorb all the 3200s. Min defaults to **1**, so every project needs at least one 3200. If there aren't enough 3200 students, generation fails with a message saying how many more are needed.
-- Everything else is folded behind **Show 3200 students**:
-  - **Lock one student:** pick a team from their dropdown and hit **Lock**. The dropdown is ordered by that student's own ranking, with a returning project flagged. Locked students are skipped by Generate Teams. **Unlock** removes the placement.
-  - **Suggest Placements** runs the algorithm on the unlocked 3200s only. It guarantees 1st or 2nd choice where possible, falls back to 3rd only when capacity forces it (flagged), and sets aside students who never bid. Each suggestion pre-fills the dropdown with a reason. **Lock All Suggested** locks them.
-  - **Lock all** locks every unlocked 3200 into the team picked in their dropdown, or else the team they're on now. **Unlock all** keeps students on their current team and only clears the lock. Both ask for confirmation first.
+Three steps, **Semester → Bid Files → Manage Teams**, with the steps on a left rail and Next/Back on a right rail.
+`docs/design/ui.md` section 4 describes every part of it; this is the short version.
 
-## Step 5: Arrange Teams
+1. **Semester:** a table of semesters with each day's status (`3 projects · 9 teams · 70 students`). Select opens
+   Bid Files first, on purpose, so staff check the files before working on teams.
+2. **Bid Files:** one row per day with the saved file (open it to see the CSV), Replace, or a drop box. A day still
+   waiting for its file sorts on top. Students with no bid are placed by major (rule-based).
+3. **Manage Teams:** teams build on their own the first time a day is opened. Then:
+   - **Toolbar:** Search (⌘K), the 3200 view, Not top 3, Version, and ⚙ (team size, 3200 range, light extras,
+     the Lock 3200s tab, and Regenerate).
+   - **Workbench:** click a card to bring it up. Drag or swap students, Improve, and lock a single student or the
+     whole team. Click a student to see their preferences and spotlight the teams they ranked.
+   - **All teams:** every other team as a card with rank badges, the padlock, Improve, and any ⚠.
+   - **Words:** a fully locked team is a **project**; one still being worked on is a **team**.
+   - **Versions:** saved automatically before a regenerate or going back, or by hand. Go back, Make final,
+     Not final, delete.
 
-- **All teams:** every team for the semester/day is a square in a grid. Each member shows the rank they gave that team (green 1st/2nd, amber 3rd, grey lower or unranked) and a **3200** tag where it applies. Each square has **Set aside**, **Improve** and a lock button. Locked teams sort last and can't be set aside.
-- **Workbench:** teams you set aside (button or drag) sit side by side above the grid. Drag students between them; while dragging, each team shows that student's rank for it. Each card has Improve, Lock and Put back (×). Locking a team sends it back to the grid. The Workbench is only a view: only moves and locks are saved.
-- **Every Workbench row** shows the student's **major**. With exactly two teams on the Workbench, it also shows **"here [rank] · there [rank]"**.
-- **Compare and swap:** click a student to see their major, full ranking and what moving to each other Workbench team would mean. Then click a student on another Workbench team to get a **swap preview**: both students' before → after ranks, majors and rankings. Nothing saves until **Move** or **Confirm swap**. Warnings appear when someone would end up on a lower-ranked team, a team goes over max or under min size, or the 3200 min/max breaks. They don't block, because the decision is staff's.
-- **Improve (one team):** lists each student on the team with their major, 3200 status and current rank, and offers a **Move** (to a team with room) or **Swap** (with someone who loses nothing) toward a team they ranked higher, across all teams for the day. Applying it sets both teams aside so you can see the result. When there's no fix, it says why for each higher choice: full, this team would drop below the minimum size, they're this team's only 3200, that team is at the 3200 max, that team is locked, or no bid submitted.
-- A moved student keeps their lock state (`lock.post.ts` `replaceLocked`).
-
-### Design rule: computed, not AI
+## Design rule: computed, not AI
 
 Placement help must be **computed with fixed, explainable rules, not decided by AI**. Improve and the swap warnings are deterministic, rank-based rules with no external calls: the same data always gives the same answer. Don't add AI or LLM-based placement or recommendations without asking the team first.
 
@@ -50,25 +62,38 @@ Diego's branch added a parallel implementation of the "minimum 3200" idea (`min_
 
 ## How to use it
 
-1. **Semester & Day:** pick a semester and meeting day.
-2. **Bid File:** upload the bid CSV if nothing is saved yet.
-3. **Lock 3200s (optional):** set the min/max range. Use Show 3200 students to suggest and lock placements.
-4. **Generate:** set team sizes and hit Generate Teams.
-5. **Arrange Teams:** use Improve to spot students who could be happier. Set aside the teams you want to fix, then compare, move or swap students. Lock the teams you're done with.
-6. To re-solve everyone who isn't locked, go back to Generate and run it again.
+1. **Semester:** click the semester in the table. It opens Bid Files.
+2. **Bid Files:** check each day's file, or upload one if a day has none. Then Next.
+3. **Manage Teams:** pick Wednesday or Thursday on the Working on bar. Teams build on their own the first time.
+4. Use **Not top 3** and the ⚠ warnings to find teams to fix. Click a card to bring it up to the Workbench, then
+   move or swap students, or use Improve. Lock students or teams you're done with.
+5. To re-solve everyone who isn't locked, use ⚙ → **Regenerate**. The board before it is saved as a version.
+6. When the day is done, open **Version** and click **Make final** on the version you're going with, then
+   **Export**.
 
 ## What's still open
 
-- **Text-response skill matching:** using students' free-text answers to break ties for a contested spot. It would need to stay rule-based (see the design rule).
-- **Scale change for oversubscribed choices:** weighting lower-ranked choices more when a student's top picks are full, for both 2200 and 3200 students. Same piece of work as the item above.
-- **Students with no team yet:** the board doesn't show students who aren't on any team. See also the `no-bid-students` branch (PR #13).
-- **Majors vs. projects:** majors are shown, but projects have no "majors wanted" field, so the app can't judge major fit.
-- **Red/green lock-status colouring:** requested, but the scope wasn't confirmed.
+- **Major-fit switch (waiting for the sponsor).** `team_generator.py` always adds a bonus for a major that fits the
+  project type. Whether that gets an on/off switch under ⚙ Light extras is up to the sponsor. Don't build it until
+  that's decided.
+- **Text-response skill matching:** using students' free-text answers to break ties for a contested spot. Aniketh is
+  researching this (comparing cosine similarity with other approaches). It has to stay rule-based (see the design
+  rule).
+- **Scale change for oversubscribed choices:** weighting lower-ranked choices more when a student's top picks are
+  full, for both 2200 and 3200 students. Same piece of work as the item above.
+- **Students with no team yet:** the board doesn't show students who aren't on any team.
+- **Dragging on phones:** the browser's drag and drop doesn't work on touch, so on a phone, students are moved by
+  tapping two of them and confirming the swap.
+- **Tie-break on prior experience** (3200 first, then more semesters) is built, but does nothing on the current
+  data, because every student has only one enrollment.
 
 ## Bugs fixed along the way
 
 - The solver only tried spawning `python`, not `python3`. It now tries both.
 - The minimum-3200 default inconsistency from the Diego merge (see above).
+- Team Export included other semesters' students on the same project (Oct 27, 2026).
+- The page crashed on a refresh during server render, because version history was fetched without the login
+  cookie. It now uses `useRequestFetch()`.
 
 ## Files changed
 
@@ -84,9 +109,22 @@ Diego's branch added a parallel implementation of the "minimum 3200" idea (`min_
 | `server/api/team-formation/lock-team.post.ts` | Lock/unlock a whole team |
 | `server/api/team-formation/suggest-locks.post.ts` | 3200-only suggestion solve |
 | `server/api/team-formation/generate.post.ts` | Skips locked students, keeps their placements, passes 3200 caps |
-| `app/pages/team-formation.vue` | All UI: the steps, step 3 locking, the Arrange Teams board, Improve, compare and swap |
+| `prisma/schema.prisma` + migrations `add_bid_file`, `add_team_version`, `add_team_version_final` | Saved bid files, team versions, and the final flag |
+| `server/services/teamVersionService.ts` | Save, list, describe, restore, delete, make final / not final |
+| `server/api/team-formation/versions*.ts`, `versions/*.ts` | Version routes, including `versions/final.post.ts` |
+| `server/api/team-formation/bids.post.ts`, `bid-file.get.ts`, `server/utils/noBid.ts` | Bid import, saved file viewer, no-bid placement |
+| `server/utils/priorExperience.ts` | Tie-break by 3200 experience, then semesters |
+| `app/pages/team-formation.vue` | All UI: the three steps, Manage Teams board, versions, filters, warnings, export |
+| `app/components/InfoTip.vue`, `BidDayUpload.vue` | ⓘ tips (hover and tap); bid file rows |
+| `app/components/modals/ConfirmationModal.vue`, `ModalFooter.vue`, `app/composables/useConfirm.ts` | Confirm dialog layout and button colour |
+| `docs/design/ui.md` | Section 4 describes the current page |
 | `BRANCH_SETUP.md` | Setup steps for this branch |
 
 ## How it was verified
 
 There's no test runner for the UI. The solver changes are covered by `test.ts` and Diego's unittest files. The page was tested by hand in the running app against **Fall 2026 test data** (fake `f26wtest`/`f26ttest` student IDs), covering the step gating, saved-bids summary, folded step 3, Lock all/Unlock all, Improve, moves, and compare and swap. The data was checked to be unchanged afterwards, and Spring 2026's real locked data was not touched. `nuxi typecheck` isn't available in this repo (no `vue-tsc`), so templates were checked by compiling the page with `@vue/compiler-sfc`.
+
+The Oct 27, 2026 changes were checked in Chrome on Fall 2026 Wednesday: page height against the window, the Not top
+3 count against the cards, warnings by raising the ⚙ limits on screen only (never regenerating), a 390px-wide
+frame for phones, and the export file's rows against the database team by team. The final-version paths were
+clicked through by hand.
