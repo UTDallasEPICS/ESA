@@ -1,16 +1,28 @@
 /**
  * POST /api/team-formation/lock
- * Manually locks a student into a team ahead of the main solve (e.g. a 3200 student
- * staff has already decided on). generate.post.ts leaves locked memberships alone and
- * only solves for the remaining unlocked students.
- * Body: { teamId: string, studentId: string }
+ * Places a student into a team, replacing any existing (unlocked) placement they have
+ * this semester. Two uses share this endpoint:
+ *   - Locking a 3200 student ahead of the main solve (locked: true, the default) — the
+ *     solver leaves them alone and only solves for the remaining unlocked students.
+ *   - Freely moving a student to a different team after results are already in
+ *     (locked: false) — stays open to being changed again by hand or overwritten by
+ *     the next Generate Teams run, exactly as flexible as an unassigned student.
+ *   - Dragging a student between teams on the Team Board (replaceLocked: true) — the
+ *     drag itself is the staff decision, so an existing locked placement is replaced
+ *     too instead of requiring an unlock first.
+ * Body: { teamId: string, studentId: string, locked?: boolean, replaceLocked?: boolean }
  */
 
 import {prisma} from '#server/utils/prisma'
 import membershipService from '#server/services/membershipService'
 
 export default defineEventHandler(async (event) => {
-  const {teamId, studentId} = await readBody<{teamId: string; studentId: string}>(event)
+  const {teamId, studentId, locked = true, replaceLocked = false} = await readBody<{
+    teamId: string
+    studentId: string
+    locked?: boolean
+    replaceLocked?: boolean
+  }>(event)
 
   if (!teamId || !studentId) {
     throw createError({statusCode: 400, message: 'teamId and studentId are required.'})
@@ -27,7 +39,7 @@ export default defineEventHandler(async (event) => {
     where: {studentId, isMentor: false, Team: {semesterId: team.semesterId}},
   })
   if (existing) {
-    if (existing.locked) {
+    if (existing.locked && !replaceLocked) {
       throw createError({
         statusCode: 400,
         message: 'This student is already locked into a team this semester. Unlock it first.',
@@ -38,5 +50,5 @@ export default defineEventHandler(async (event) => {
     await prisma.membership.delete({where: {id: existing.id}})
   }
 
-  return membershipService.createMembership({teamId, studentId, isMentor: false, locked: true})
+  return membershipService.createMembership({teamId, studentId, isMentor: false, locked})
 })
